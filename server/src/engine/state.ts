@@ -11,6 +11,8 @@ export type Player = {
   /** Secret used to reattach a seat after a disconnect. */
   token: string;
   connected: boolean;
+  /** True once a disconnect has been announced in chat (rejoin stays quiet otherwise). */
+  disconnectedAnnounced?: boolean;
   life: number;
   zones: Record<Zone, CardInstance[]>;
   hasDeck: boolean;

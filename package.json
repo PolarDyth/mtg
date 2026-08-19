@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "npm run dev -w server",
     "build": "npm run build -w frontend && npm run build -w server",
-    "start": "node server/dist/index.js",
+    "start": "node --import tsx server/src/index.ts",
     "test": "npm run test -w server && npm run test -w frontend",
     "lint": "npm run lint -w frontend"
   }

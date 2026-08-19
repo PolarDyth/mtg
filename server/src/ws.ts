@@ -27,7 +27,14 @@ type Conn = {
   ws: WebSocket;
   game: Game | null;
   playerId: string | null;
+  missedPings: number;
+  /** pending "disconnected" announcement (cancelled by a quick rejoin) */
+  announceTimer: ReturnType<typeof setTimeout> | null;
 };
+
+const HEARTBEAT_MS = 30_000;
+const DISCONNECT_ANNOUNCE_MS = 10_000;
+const MAX_PAYLOAD = 64 * 1024;
 
 const rng: Rng = systemRng();
 const ctx: Ctx = { rng, now: () => Date.now() };
@@ -49,11 +56,29 @@ export function handleGameUpgrade(
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
 }
 
-const wss = new WebSocketServer({ noServer: true });
+const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD });
+
+// Detect silently-dead TCP connections (network drops without a FIN):
+// ping every 30s and terminate after two missed responses.
+const heartbeat = setInterval(() => {
+  for (const conn of conns) {
+    if (conn.missedPings >= 2) {
+      conn.ws.terminate();
+      continue;
+    }
+    conn.missedPings += 1;
+    conn.ws.ping();
+  }
+}, HEARTBEAT_MS);
+heartbeat.unref();
 
 wss.on("connection", (ws) => {
-  const conn: Conn = { ws, game: null, playerId: null };
+  const conn: Conn = { ws, game: null, playerId: null, missedPings: 0, announceTimer: null };
   conns.add(conn);
+
+  ws.on("pong", () => {
+    conn.missedPings = 0;
+  });
 
   ws.on("message", (data, isBinary) => {
     if (isBinary) return;
@@ -64,25 +89,47 @@ wss.on("connection", (ws) => {
       send(ws, { type: "error", message: "malformed message" });
       return;
     }
-    if (!conn.playerId) {
-      handleHello(conn, msg);
-    } else if (msg.kind === "action") {
-      handleAction(conn, msg.action);
+    try {
+      if (!conn.playerId) {
+        handleHello(conn, msg);
+      } else if (msg.kind === "action") {
+        handleAction(conn, msg.action);
+      }
+    } catch (err) {
+      // a bug in one connection must not take down the process
+      console.error("message handling error:", err);
+      sendError(conn, "internal error — action ignored");
     }
   });
 
   ws.on("close", () => {
     conns.delete(conn);
-    const game = conn.game;
-    if (game && conn.playerId) {
-      const player = game.players.find((p) => p.id === conn.playerId);
-      if (player) {
-        player.connected = false;
-        systemMessageNow(game, `${player.name} disconnected`);
-        broadcast(game);
-        rooms.touch(game.code);
-      }
+    if (conn.announceTimer) {
+      clearTimeout(conn.announceTimer);
+      conn.announceTimer = null;
     }
+    const game = conn.game;
+    if (!game || !conn.playerId) return;
+    const player = game.players.find((p) => p.id === conn.playerId);
+    if (!player) return;
+
+    player.connected = false;
+    // A refresh-and-rejoin within a few seconds shouldn't spam the chat:
+    // announce the disconnect only if the seat stays gone.
+    conn.announceTimer = setTimeout(() => {
+      conn.announceTimer = null;
+      player.disconnectedAnnounced = true;
+      systemMessageNow(game, `${player.name} disconnected`);
+      broadcast(game);
+    }, DISCONNECT_ANNOUNCE_MS);
+    conn.announceTimer.unref();
+
+    broadcast(game);
+    rooms.touch(game.code);
+  });
+
+  ws.on("error", () => {
+    ws.terminate();
   });
 });
 
@@ -119,7 +166,10 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
     conn.playerId = player.id;
     player.connected = true;
     rooms.touch(code);
-    systemMessageNow(game, `${player.name} reconnected`);
+    if (player.disconnectedAnnounced) {
+      player.disconnectedAnnounced = false;
+      systemMessageNow(game, `${player.name} reconnected`);
+    }
     send(conn.ws, {
       type: "welcome",
       code: game.code,
@@ -154,6 +204,13 @@ function handleAction(conn: Conn, action: Action): void {
   const result = applyAction(game, action, conn.playerId, ctx);
   if (result.ok) {
     broadcast(game);
+    if (game.players.length === 0) {
+      // last player left — tear the room down immediately
+      for (const c of conns) {
+        if (c.game === game) c.ws.close();
+      }
+      rooms.delete(game.code);
+    }
   } else {
     sendError(conn, result.error);
   }
