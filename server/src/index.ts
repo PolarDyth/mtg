@@ -10,6 +10,7 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import next from "next";
+import { handleGameUpgrade, isGameUpgrade } from "./ws.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const frontendDir = path.resolve(here, "../../frontend");
@@ -30,8 +31,20 @@ const server = createServer((req, res) => {
   });
 });
 
+// Route WebSocket upgrades by path: /ws belongs to the game server, everything
+// else (notably Next's dev-mode HMR socket) goes to Next's own upgrade handler.
+const nextUpgrade = app.getUpgradeHandler();
+server.on("upgrade", (req, socket, head) => {
+  if (isGameUpgrade(req)) {
+    handleGameUpgrade(req, socket, head);
+  } else {
+    nextUpgrade(req, socket, head).catch(() => socket.destroy());
+  }
+});
+
 server.listen(port, () => {
   console.log(
     `> Mythic Table listening on http://localhost:${port} (${dev ? "dev" : "production"})`
   );
 });
+
