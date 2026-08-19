@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Action, GameView, PlayerId } from "@mythic/shared";
 import { useGame } from "@/lib/useGame";
 import { clearSession, loadName, loadSession } from "@/lib/session";
 import { ChatInput, ChatLog } from "./ChatLog";
+import DeckLoader from "./DeckLoader";
 import Lobby from "./Lobby";
 
 export default function GameClient({ code }: { code: string }) {
   const { view, you, status, fatal, toast, clearToast, send } = useGame(code);
+  const [deckOpen, setDeckOpen] = useState(false);
 
   // Visiting /game/[code] cold with no identity at all → back to the home page.
   useEffect(() => {
@@ -63,9 +65,19 @@ export default function GameClient({ code }: { code: string }) {
       )}
 
       {view.started ? (
-        <GameStartedStub view={view} you={you} send={send} />
+        <GameStartedStub view={view} you={you} send={send} onOpenDeck={() => setDeckOpen(true)} />
       ) : (
         <Lobby view={view} you={you} send={send} />
+      )}
+
+      {deckOpen && view.started && (
+        <DeckLoader
+          started
+          onLoad={(library, sideboard) =>
+            send({ type: "LOAD_DECK", library, sideboard })
+          }
+          onClose={() => setDeckOpen(false)}
+        />
       )}
     </main>
   );
@@ -79,10 +91,12 @@ function GameStartedStub({
   view,
   you,
   send,
+  onOpenDeck,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
+  onOpenDeck: () => void;
 }) {
   const self = view.players.find((p) => p.id === you);
 
@@ -90,9 +104,17 @@ function GameStartedStub({
     <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="font-mono text-lg text-zinc-300">{view.code}</h1>
-        <span className="text-xs text-zinc-500">
-          The full table UI is under construction — snapshot pipeline live.
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onOpenDeck}
+            className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-emerald-600"
+          >
+            Load deck…
+          </button>
+          <span className="text-xs text-zinc-500">
+            The full table UI is under construction — snapshot pipeline live.
+          </span>
+        </div>
       </div>
 
       <div className="grid flex-1 grid-cols-[1fr_280px] gap-4">

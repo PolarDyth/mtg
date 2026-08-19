@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Action, GameView, PlayerId } from "@mythic/shared";
 import { ChatInput, ChatLog, nameColor } from "./ChatLog";
+import DeckLoader from "./DeckLoader";
 
 export default function Lobby({
   view,
@@ -14,6 +15,7 @@ export default function Lobby({
   send: (action: Action) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [deckOpen, setDeckOpen] = useState(false);
 
   async function copyCode() {
     try {
@@ -81,9 +83,8 @@ export default function Lobby({
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <button
-              disabled
-              title="Lands with the deck-loading milestone"
-              className="cursor-not-allowed rounded-md border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-zinc-600"
+              onClick={() => setDeckOpen(true)}
+              className="rounded-md border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 hover:border-emerald-600"
             >
               Load deck…
             </button>
@@ -113,6 +114,16 @@ export default function Lobby({
           </div>
         </aside>
       </div>
+
+      {deckOpen && (
+        <DeckLoader
+          started={view.started}
+          onLoad={(library, sideboard) =>
+            send({ type: "LOAD_DECK", library, sideboard })
+          }
+          onClose={() => setDeckOpen(false)}
+        />
+      )}
     </div>
   );
 }
