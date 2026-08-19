@@ -274,6 +274,15 @@ function setCommander(
   ) {
     return err("bad commander card id");
   }
+  // When the pick comes from the loaded deck, remove that copy so the
+  // 99-card library doesn't still contain the commander.
+  for (const zone of [actor.zones.library, actor.zones.sideboard] as const) {
+    const index = zone.findIndex((c) => c.cardId === action.cardId);
+    if (index !== -1) {
+      zone.splice(index, 1);
+      break;
+    }
+  }
   // The command zone holds exactly the chosen commander (replace on re-pick).
   const commander = newInstance(action.cardId, ctx);
   commander.annotations = [`${TOKEN_MARKER}${name}`];

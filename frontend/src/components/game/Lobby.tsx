@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { Action, Format, GameView, PlayerId } from "@mythic/shared";
 import { Crown } from "lucide-react";
 import { getCardById } from "@/lib/cardCache";
 import { ChatInput, ChatLog, nameColor } from "./ChatLog";
-import CommanderPicker from "./CommanderPicker";
+import CommanderPicker, { type DeckCandidate } from "./CommanderPicker";
 import DeckLoader from "./DeckLoader";
 
 const FORMATS: { value: Format; label: string; detail: string }[] = [
@@ -33,6 +33,24 @@ export default function Lobby({
   const commander = commandCards[0] ?? null;
   const commanderDef = commander?.cardId ? getCardById(commander.cardId) : null;
   const commanderName = commanderDef?.name ?? commander?.annotations[0] ?? null;
+
+  // commander-eligible cards currently sitting in your library/sideboard
+  const deckCandidates = useMemo<DeckCandidate[]>(() => {
+    if (!self) return [];
+    const counts = new Map<string, number>();
+    for (const zone of [self.zones.library, self.zones.sideboard]) {
+      if (zone.kind !== "cards") continue;
+      for (const card of zone.cards) {
+        if (card.cardId) counts.set(card.cardId, (counts.get(card.cardId) ?? 0) + 1);
+      }
+    }
+    const candidates: DeckCandidate[] = [];
+    for (const [cardId, count] of counts) {
+      const def = getCardById(cardId);
+      if (def?.commanderEligible) candidates.push({ def, count });
+    }
+    return candidates.sort((a, b) => a.def.name.localeCompare(b.def.name));
+  }, [self]);
 
   async function copyCode() {
     try {
@@ -186,6 +204,7 @@ export default function Lobby({
       {commanderOpen && (
         <CommanderPicker
           currentName={commanderName}
+          deckCandidates={deckCandidates}
           send={send}
           onClose={() => setCommanderOpen(false)}
         />

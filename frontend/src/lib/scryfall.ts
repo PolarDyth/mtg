@@ -14,6 +14,8 @@ export type CardDef = {
   type_line: string;
   small: string; // image URL (146×204)
   normal: string; // image URL (488×680)
+  /** Legendary creature, or a planeswalker that says it can be your commander. */
+  commanderEligible: boolean;
 };
 
 type ScryfallCard = {
@@ -22,12 +24,33 @@ type ScryfallCard = {
   name: string;
   mana_cost?: string;
   type_line?: string;
+  oracle_text?: string;
   image_uris?: { small?: string; normal?: string };
   card_faces?: Array<{
     mana_cost?: string;
+    type_line?: string;
+    oracle_text?: string;
     image_uris?: { small?: string; normal?: string };
   }>;
 };
+
+function isCommanderEligible(card: ScryfallCard): boolean {
+  const types: string[] = [];
+  const oracles: string[] = [];
+  if (card.type_line) types.push(card.type_line);
+  if (card.oracle_text) oracles.push(card.oracle_text);
+  for (const face of card.card_faces ?? []) {
+    if (face.type_line) types.push(face.type_line);
+    if (face.oracle_text) oracles.push(face.oracle_text);
+  }
+  const legendaryCreature = types.some(
+    (t) => /legendary/i.test(t) && /creature/i.test(t)
+  );
+  const commanderWalker = oracles.some((o) =>
+    /can be your commander/i.test(o)
+  );
+  return legendaryCreature || commanderWalker;
+}
 
 function toDef(card: ScryfallCard): CardDef | null {
   const front = card.card_faces?.[0];
@@ -38,9 +61,10 @@ function toDef(card: ScryfallCard): CardDef | null {
     id: card.id,
     name: card.name,
     mana_cost: mana,
-    type_line: card.type_line ?? "",
+    type_line: card.type_line ?? front?.type_line ?? "",
     small: images.small,
     normal: images.normal,
+    commanderEligible: isCommanderEligible(card),
   };
 }
 

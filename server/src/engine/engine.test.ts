@@ -181,6 +181,29 @@ describe("SET_COMMANDER", () => {
     expect(ada.zones.command[0]?.cardId).toBe("b");
   });
 
+  it("picking a commander from the loaded deck removes that copy", () => {
+    const { game, ctx, ada } = setup();
+    mustOk(
+      act(game, ctx, ada, {
+        type: "LOAD_DECK",
+        library: [
+          { cardId: "krenko", count: 1 },
+          { cardId: "mountain", count: 99 },
+        ],
+        sideboard: [],
+      })
+    );
+    expect(ada.zones.library).toHaveLength(100);
+    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "krenko", name: "Krenko" }));
+    expect(ada.zones.library).toHaveLength(99);
+    expect(ada.zones.library.some((c) => c.cardId === "krenko")).toBe(false);
+    expect(ada.zones.command).toHaveLength(1);
+    // re-picking after the copy left the library still works
+    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "krenko", name: "Krenko" }));
+    expect(ada.zones.library).toHaveLength(99);
+    expect(ada.zones.command).toHaveLength(1);
+  });
+
   it("rejects junk ids", () => {
     const { game, ctx, ada } = setup();
     mustFail(

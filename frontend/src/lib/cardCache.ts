@@ -2,11 +2,11 @@
 
 // localStorage cache of Scryfall card definitions. Minimal fields only so
 // thousands of cards fit comfortably in the ~5MB quota. Versioned key: bump
-// to invalidate old shapes.
+// to invalidate old shapes (v2 added commanderEligible).
 
 import type { CardDef } from "./scryfall";
 
-const CACHE_KEY = "mtg:cards:v1";
+const CACHE_KEY = "mtg:cards:v2";
 
 type CacheShape = {
   byId: Record<string, CardDef>;
