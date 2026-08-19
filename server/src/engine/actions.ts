@@ -19,6 +19,7 @@ import {
   pushChat,
   randomId,
   systemMessage,
+  TOKEN_MARKER,
   type Game,
   type Player,
 } from "./state";
@@ -72,6 +73,22 @@ export function applyAction(
       if (!found) return err("card not found");
       found.card.x = clamp(action.x, 0, 100);
       found.card.y = clamp(action.y, 0, 100);
+      return ok(game);
+    }
+    case "SET_NOTES": {
+      const found = ownCard(game, actor, action.uid);
+      if (!found) return err("card not found");
+      if (action.notes.length > MAX_ANNOTATIONS) return err("too many notes");
+      const clean: string[] = [];
+      for (const note of action.notes) {
+        if (typeof note !== "string") return err("bad notes");
+        const trimmed = note.trim().slice(0, 100);
+        if (trimmed) clean.push(trimmed);
+      }
+      found.card.annotations = [
+        ...found.card.annotations.filter((a) => a.startsWith(TOKEN_MARKER)),
+        ...clean,
+      ];
       return ok(game);
     }
     case "ATTACH_CARD":
@@ -382,7 +399,7 @@ function createToken(
   for (let i = 0; i < action.count; i++) {
     const token = newInstance(action.cardId ?? "", ctx);
     token.cardId = action.cardId ?? "";
-    token.annotations = [name];
+    token.annotations = [`${TOKEN_MARKER}${name}`];
     token.x = 6 + ((start + i) % 12) * 7.5;
     token.y = baseY + Math.floor((start + i) / 12) * (bandHeight * 0.3);
     actor.zones.battlefield.push(token);

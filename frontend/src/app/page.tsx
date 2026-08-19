@@ -47,6 +47,9 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Reading localStorage after mount keeps SSR and client HTML identical;
+    // the lazy-initializer alternative would hydrate differently.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setName(loadName() ?? "");
   }, []);
 

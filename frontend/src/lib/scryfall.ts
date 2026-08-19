@@ -105,15 +105,38 @@ export async function resolveCards(names: string[]): Promise<ResolveResult> {
   return { defs, missing };
 }
 
-/** Search for a token card by name (used by the create-token modal). */
-export async function searchToken(name: string): Promise<CardDef | null> {
+/** Resolve card ids (e.g. opponent permanents you've never loaded). */
+export async function resolveCardsByIds(ids: string[]): Promise<CardDef[]> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const defs: CardDef[] = [];
+  for (let i = 0; i < unique.length; i += BATCH_LIMIT) {
+    const batch = unique.slice(i, i + BATCH_LIMIT);
+    if (i > 0) await sleep(BATCH_GAP_MS);
+    const response = await fetch(`${API}/cards/collection`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifiers: batch.map((id) => ({ id })) }),
+    });
+    if (!response.ok) {
+      throw new Error(`Scryfall error ${response.status}`);
+    }
+    const payload = (await response.json()) as { data: ScryfallCard[] };
+    for (const raw of payload.data) {
+      const def = toDef(raw);
+      if (def) defs.push(def);
+    }
+  }
+  return defs;
+}
+
+/** Search token cards by name (used by the create-token modal). */
+export async function searchTokenCards(name: string): Promise<CardDef[]> {
   const query = encodeURIComponent(`t:token ${name.trim()}`);
   const response = await fetch(`${API}/cards/search?q=${query}&unique=print`);
-  if (!response.ok) return null;
+  if (!response.ok) return [];
   const payload = (await response.json()) as { data: ScryfallCard[] };
-  const exact = payload.data.find((card) =>
-    card.name.toLowerCase().startsWith(name.trim().toLowerCase())
-  );
-  const pick = exact ?? payload.data[0];
-  return pick ? toDef(pick) : null;
+  return payload.data
+    .slice(0, 8)
+    .map((card) => toDef(card))
+    .filter((def): def is CardDef => def !== null);
 }

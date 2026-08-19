@@ -100,3 +100,6 @@ export function pushChat(game: Game, message: ChatMessage): void {
 export function systemMessage(game: Game, text: string, rng: Rng, at: number): void {
   pushChat(game, { id: chatId(rng), at, playerId: "", kind: "system", text });
 }
+
+/** Token labels live in annotations with this marker; note edits keep them. */
+export const TOKEN_MARKER = "¶";

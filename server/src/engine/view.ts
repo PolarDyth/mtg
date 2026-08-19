@@ -12,6 +12,7 @@ import {
   type ZoneView,
 } from "@mythic/shared";
 import type { Game, Player } from "./state";
+import { TOKEN_MARKER } from "./state";
 
 const HIDDEN_ZONES = new Set(["hand", "library", "sideboard"]);
 
@@ -47,13 +48,16 @@ function playerView(player: Player, viewerId: PlayerId): PlayerView {
 }
 
 function cardView(card: CardInstance, ownerIsViewer: boolean): CardView {
+  const annotations = card.annotations.map((a) =>
+    a.startsWith(TOKEN_MARKER) ? a.slice(TOKEN_MARKER.length) : a
+  );
   if (!card.faceDown || ownerIsViewer) {
-    return { ...card, counters: { ...card.counters }, annotations: [...card.annotations] };
+    return { ...card, counters: { ...card.counters }, annotations };
   }
   return {
     ...card,
     cardId: null,
     counters: { ...card.counters },
-    annotations: [...card.annotations],
+    annotations,
   };
 }

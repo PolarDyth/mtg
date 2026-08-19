@@ -56,6 +56,7 @@ export type Action =
   | { type: "SET_FACE_DOWN"; uid: string; value: boolean }
   | { type: "SET_COUNTERS"; uid: string; counters: Record<string, number> }
   | { type: "SET_POSITION"; uid: string; x: number; y: number }
+  | { type: "SET_NOTES"; uid: string; notes: string[] }
   | { type: "ATTACH_CARD"; uid: string; to: string | null }
   | { type: "CREATE_TOKEN"; name: string; cardId?: string; count: number }
   | { type: "REVEAL_CARDS"; cards: { uid: string; name: string }[] }

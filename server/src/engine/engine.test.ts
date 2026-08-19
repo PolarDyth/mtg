@@ -324,7 +324,7 @@ describe("CREATE_TOKEN and REVEAL_CARDS", () => {
     );
     const tokens = ada.zones.battlefield.slice(-3);
     expect(tokens).toHaveLength(3);
-    expect(tokens.every((c) => c.annotations.includes("Goblin"))).toBe(true);
+    expect(tokens.every((c) => c.annotations[0] === "¶Goblin")).toBe(true);
     expect(tokens.every((c) => c.cardId === "tok-goblin")).toBe(true);
     expect(game.chat.at(-1)?.kind).toBe("system");
   });

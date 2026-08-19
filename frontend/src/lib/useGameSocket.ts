@@ -64,9 +64,8 @@ export function useGameSocket(
       ws.onerror = () => ws.close();
     };
 
-    setStatus("connecting");
+    // status starts as "connecting" and only changes from socket callbacks
     connect();
-
     return () => {
       disposedRef.current = true;
       if (timerRef.current) clearTimeout(timerRef.current);
