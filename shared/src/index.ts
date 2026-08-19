@@ -23,11 +23,8 @@ export const ALL_ZONES: Zone[] = [
   "sideboard",
 ];
 
-/** A physical copy of a card in a zone. */
-export type CardInstance = {
+type CardBase = {
   uid: string;
-  /** Scryfall card id; null in a view means "hidden from you" (face-down). */
-  cardId: string | null;
   /** Battlefield position, percentages of the battlefield area (0–100). */
   x: number;
   y: number;
@@ -38,6 +35,12 @@ export type CardInstance = {
   /** uid of the card this one is attached to (auras, equipment). */
   attachedTo?: string;
 };
+
+/** A physical card as the server stores it: identity always known. */
+export type CardInstance = CardBase & { cardId: string };
+
+/** A card as a client sees it: cardId is null when hidden (face-down). */
+export type CardView = CardBase & { cardId: string | null };
 
 export type DieSides = 4 | 6 | 8 | 10 | 12 | 20 | 100;
 
@@ -55,10 +58,10 @@ export type Action =
   | { type: "SET_POSITION"; uid: string; x: number; y: number }
   | { type: "ATTACH_CARD"; uid: string; to: string | null }
   | { type: "CREATE_TOKEN"; name: string; cardId?: string; count: number }
-  | { type: "REVEAL_CARDS"; uids: string[] }
+  | { type: "REVEAL_CARDS"; cards: { uid: string; name: string }[] }
   | { type: "SHUFFLE_LIBRARY" }
   | { type: "SET_LIFE"; life: number }
-  | { type: "ROLL_DIE"; sides: DieSides }
+  | { type: "ROLL_DIE"; sides: number }
   | { type: "NEXT_TURN" }
   | { type: "SEND_CHAT"; text: string }
   | { type: "LEAVE_GAME" };
@@ -66,19 +69,20 @@ export type Action =
 // --- Wire protocol -----------------------------------------------------------
 
 export type ClientMessage =
+  | { kind: "create"; name: string }
   | { kind: "join"; code: string; name: string }
   | { kind: "rejoin"; code: string; token: string }
-  | { type: "action"; action: Action };
+  | { kind: "action"; action: Action };
 
 export type ServerMessage =
-  | { type: "welcome"; token: string; you: PlayerId }
+  | { type: "welcome"; code: string; token: string; you: PlayerId }
   | { type: "snapshot"; state: GameView }
   | { type: "error"; message: string };
 
 // --- Personalized snapshots --------------------------------------------------
 
 export type ZoneView =
-  | { kind: "cards"; cards: CardInstance[] }
+  | { kind: "cards"; cards: CardView[] }
   | { kind: "count"; count: number };
 
 export type PlayerView = {
@@ -108,3 +112,6 @@ export type GameView = {
 
 /** Max chat messages retained in state and sent in snapshots. */
 export const CHAT_CAP = 200;
+
+/** Max players per game. */
+export const MAX_PLAYERS = 6;
