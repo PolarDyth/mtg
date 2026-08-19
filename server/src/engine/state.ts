@@ -23,6 +23,8 @@ export type Game = {
   started: boolean;
   format: Format;
   activePlayerId: PlayerId | null;
+  /** First player seated; runs host actions. Transfers when they leave. */
+  hostId: PlayerId | null;
   players: Player[];
   chat: ChatMessage[];
 };
@@ -45,6 +47,7 @@ export function createGame(code: string): Game {
     started: false,
     format: "freeform",
     activePlayerId: null,
+    hostId: null,
     players: [],
     chat: [],
   };
@@ -52,6 +55,21 @@ export function createGame(code: string): Game {
 
 export function addPlayer(game: Game, player: Player): void {
   game.players.push(player);
+  if (game.hostId === null) game.hostId = player.id;
+}
+
+/** Remove a player entirely (leave/kick); transfers host and turn if needed. */
+export function removePlayer(game: Game, playerId: PlayerId): Player | undefined {
+  const index = game.players.findIndex((p) => p.id === playerId);
+  if (index === -1) return undefined;
+  const [removed] = game.players.splice(index, 1);
+  if (game.hostId === playerId) {
+    game.hostId = game.players[0]?.id ?? null;
+  }
+  if (game.activePlayerId === playerId) {
+    game.activePlayerId = game.players[0]?.id ?? null;
+  }
+  return removed;
 }
 
 export function makePlayer(

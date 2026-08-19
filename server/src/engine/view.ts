@@ -22,6 +22,7 @@ export function personalize(game: Game, viewerId: PlayerId): GameView {
     started: game.started,
     format: game.format,
     activePlayerId: game.activePlayerId ?? "",
+    hostId: game.hostId ?? "",
     players: game.players.map((player) => playerView(player, viewerId)),
     chat: game.chat,
   };

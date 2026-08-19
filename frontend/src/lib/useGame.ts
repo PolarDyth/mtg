@@ -8,7 +8,7 @@ import type {
   ServerMessage,
 } from "@mythic/shared";
 import { useGameSocket } from "./useGameSocket";
-import { loadName, loadSession, saveSession } from "./session";
+import { clearSession, loadName, loadSession, saveSession } from "./session";
 
 /**
  * High-level game connection: joins or rejoins the room, keeps the latest
@@ -39,8 +39,15 @@ export function useGame(code: string) {
           setView(msg.state);
           break;
         case "error":
-          if (hasView.current) setToast(msg.message);
-          else setFatal(msg.message);
+          if (msg.message.startsWith("You were removed")) {
+            // kicked by the host — the seat is gone; don't keep retrying
+            clearSession(code);
+            setFatal(msg.message);
+          } else if (hasView.current) {
+            setToast(msg.message);
+          } else {
+            setFatal(msg.message);
+          }
           break;
       }
     },
@@ -64,7 +71,7 @@ export function useGame(code: string) {
     [code]
   );
 
-  const { status, send: sendRaw } = useGameSocket(onMessage, onOpen);
+  const { status, send: sendRaw } = useGameSocket(onMessage, onOpen, !fatal);
 
   const send = useCallback(
     (action: Action) => sendRaw({ kind: "action", action }),

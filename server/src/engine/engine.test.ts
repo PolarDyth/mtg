@@ -6,6 +6,7 @@ import type { Action, CardInstance } from "@mythic/shared";
 import { applyAction, type Ctx } from "./actions";
 import { seededRng } from "./rng";
 import {
+  addPlayer,
   createGame,
   makePlayer,
   type Game,
@@ -18,7 +19,8 @@ function setup(): { game: Game; ctx: Ctx; ada: Player; bob: Player } {
   const ctx: Ctx = { rng: seededRng(42), now: () => 1_000 };
   const ada = makePlayer(game, "Ada", "tok-ada", ctx.rng);
   const bob = makePlayer(game, "Bob", "tok-bob", ctx.rng);
-  game.players.push(ada, bob);
+  addPlayer(game, ada);
+  addPlayer(game, bob);
   return { game, ctx, ada, bob };
 }
 
@@ -483,6 +485,63 @@ describe("SHUFFLE_LIBRARY, SET_LIFE, ROLL_DIE, SEND_CHAT, LEAVE_GAME", () => {
     mustOk(act(game, ctx, ada, { type: "LEAVE_GAME" }));
     expect(game.players.map((p) => p.id)).toEqual([bob.id]);
     expect(game.activePlayerId).toBe(bob.id);
+  });
+
+  it("transfers host to the next seated player when the host leaves", () => {
+    const { game, ctx, ada, bob } = setup();
+    expect(game.hostId).toBe(ada.id);
+    mustOk(act(game, ctx, ada, { type: "LEAVE_GAME" }));
+    expect(game.hostId).toBe(bob.id);
+  });
+});
+
+// --- host actions --------------------------------------------------------------
+
+describe("END_GAME and KICK_PLAYER", () => {
+  it("host can end the game: back to lobby, table cleared, life reset", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 7 }));
+    mustOk(act(game, ctx, ada, { type: "SET_LIFE", life: 13 }));
+    mustOk(act(game, ctx, ada, { type: "END_GAME" }));
+    expect(game.started).toBe(false);
+    expect(game.format).toBe("freeform");
+    expect(game.activePlayerId).toBeNull();
+    for (const player of [ada, bob]) {
+      expect(player.life).toBe(20);
+      expect(player.hasDeck).toBe(false);
+      expect(Object.values(player.zones).every((z) => z.length === 0)).toBe(true);
+    }
+    expect(game.chat.at(-1)?.kind).toBe("system");
+  });
+
+  it("non-hosts cannot end the game", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustFail(act(game, ctx, bob, { type: "END_GAME" }), "only the host");
+  });
+
+  it("host can kick a player; their cards leave with them", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, bob, { type: "LOAD_DECK", library: [{ cardId: "b1", count: 5 }], sideboard: [] }));
+    mustOk(act(game, ctx, bob, { type: "DRAW_CARDS", count: 2 }));
+    mustOk(act(game, ctx, ada, { type: "KICK_PLAYER", playerId: bob.id }));
+    expect(game.players.map((p) => p.id)).toEqual([ada.id]);
+    expect(game.chat.at(-1)?.kind).toBe("system");
+  });
+
+  it("kicks are host-only and you cannot kick yourself", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustFail(act(game, ctx, bob, { type: "KICK_PLAYER", playerId: ada.id }), "only the host");
+    mustFail(act(game, ctx, ada, { type: "KICK_PLAYER", playerId: ada.id }), "yourself");
+  });
+
+  it("views expose the host", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada);
+    expect(personalize(game, ada.id).hostId).toBe(ada.id);
   });
 });
 

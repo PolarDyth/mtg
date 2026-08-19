@@ -1,6 +1,7 @@
 "use client";
 
 import type { Action, DieSides, GameView, PlayerId, PlayerView } from "@mythic/shared";
+import { Crown } from "lucide-react";
 import { useState } from "react";
 import { ChatInput, ChatLog, nameColor } from "./ChatLog";
 
@@ -25,6 +26,7 @@ export default function ChatPanel({
               key={player.id}
               player={player}
               active={player.id === view.activePlayerId}
+              isHost={player.id === view.hostId}
               isSelf={player.id === you}
               send={send}
             />
@@ -64,11 +66,13 @@ export default function ChatPanel({
 function PlayerRow({
   player,
   active,
+  isHost,
   isSelf,
   send,
 }: {
   player: PlayerView;
   active: boolean;
+  isHost: boolean;
   isSelf: boolean;
   send: (action: Action) => void;
 }) {
@@ -97,6 +101,11 @@ function PlayerRow({
         {player.name}
         {isSelf && <span className="ml-1 text-[10px] text-zinc-500">(you)</span>}
       </span>
+      {isHost && (
+        <span title="host" className="shrink-0">
+          <Crown className="h-3.5 w-3.5 text-amber-300/80" strokeWidth={1.75} />
+        </span>
+      )}
       {isSelf ? (
         <span className="ml-auto flex items-center gap-1">
           {[-5, -1].map((delta) => (

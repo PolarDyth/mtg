@@ -18,6 +18,7 @@ import {
   findPlayer,
   pushChat,
   randomId,
+  removePlayer,
   systemMessage,
   TOKEN_MARKER,
   type Game,
@@ -111,6 +112,10 @@ export function applyAction(
       return sendChat(game, actor, action, ctx);
     case "LEAVE_GAME":
       return leaveGame(game, actor, ctx);
+    case "END_GAME":
+      return endGame(game, actor, ctx);
+    case "KICK_PLAYER":
+      return kickPlayer(game, actor, action, ctx);
   }
 }
 
@@ -560,15 +565,53 @@ function sendChat(
 }
 
 function leaveGame(game: Game, actor: Player, ctx: Ctx): ActionResult {
-  const wasActive = game.activePlayerId === actor.id;
-  game.players = game.players.filter((p) => p.id !== actor.id);
-  if (game.players.length === 0) {
-    game.activePlayerId = null;
-  } else if (wasActive) {
-    game.activePlayerId = game.players[0].id;
-    systemMessage(game, `It is now ${game.players[0].name}'s turn`, ctx.rng, ctx.now());
+  removePlayer(game, actor.id);
+  if (game.activePlayerId && game.players.length > 0) {
+    const next = game.players.find((p) => p.id === game.activePlayerId);
+    if (next) systemMessage(game, `It is now ${next.name}'s turn`, ctx.rng, ctx.now());
   }
   systemMessage(game, `${actor.name} left the game`, ctx.rng, ctx.now());
+  return ok(game);
+}
+
+/** Host only: back to the lobby with the table cleared for a fresh game. */
+function endGame(game: Game, actor: Player, ctx: Ctx): ActionResult {
+  if (game.hostId !== actor.id) return err("only the host can end the game");
+  if (!game.started) return err("game has not started");
+  game.started = false;
+  game.format = "freeform";
+  game.activePlayerId = null;
+  for (const player of game.players) {
+    player.zones = emptyZones();
+    player.life = 20;
+    player.hasDeck = false;
+  }
+  systemMessage(
+    game,
+    `${actor.name} ended the game — back to the waiting room, load decks for the next one`,
+    ctx.rng,
+    ctx.now()
+  );
+  return ok(game);
+}
+
+/** Host only: remove a player and everything they own from the game. */
+function kickPlayer(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "KICK_PLAYER" }>,
+  ctx: Ctx
+): ActionResult {
+  if (game.hostId !== actor.id) return err("only the host can remove players");
+  if (action.playerId === actor.id) return err("leave the game instead of removing yourself");
+  const target = findPlayer(game, action.playerId);
+  if (!target) return err("player not found");
+  removePlayer(game, target.id);
+  if (game.activePlayerId && game.players.length > 0) {
+    const next = game.players.find((p) => p.id === game.activePlayerId);
+    if (next) systemMessage(game, `It is now ${next.name}'s turn`, ctx.rng, ctx.now());
+  }
+  systemMessage(game, `${actor.name} removed ${target.name} from the game`, ctx.rng, ctx.now());
   return ok(game);
 }
 

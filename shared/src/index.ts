@@ -69,7 +69,9 @@ export type Action =
   | { type: "ROLL_DIE"; sides: number }
   | { type: "NEXT_TURN" }
   | { type: "SEND_CHAT"; text: string }
-  | { type: "LEAVE_GAME" };
+  | { type: "LEAVE_GAME" }
+  | { type: "END_GAME" }
+  | { type: "KICK_PLAYER"; playerId: PlayerId };
 
 // --- Wire protocol -----------------------------------------------------------
 
@@ -112,6 +114,8 @@ export type GameView = {
   started: boolean;
   format: Format;
   activePlayerId: PlayerId;
+  /** Who runs host actions (end game, remove players). */
+  hostId: PlayerId;
   players: PlayerView[];
   chat: ChatMessage[];
 };

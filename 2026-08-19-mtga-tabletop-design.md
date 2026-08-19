@@ -134,6 +134,8 @@ ROLL_DIE { sides }
 NEXT_TURN
 SEND_CHAT { text }
 LEAVE_GAME
+END_GAME                            // host only: back to lobby, table cleared
+KICK_PLAYER { playerId }            // host only: remove a player and their cards
 ```
 
 **Validation is structural, not rules-based:** does the `uid` exist, is the player
@@ -147,6 +149,13 @@ life) and *Commander* (everyone starts at 40 life). The lobby's commander picker
 searches Scryfall for commander-eligible cards — legendary creatures plus
 planeswalkers with "can be your commander" — and `SET_COMMANDER` places the pick
 alone in your public command zone, visible to the whole table.
+
+**Host:** the first player to sit is the host (crown marker); the role transfers
+when they leave. Host-only actions: `END_GAME` (everyone returns to the lobby
+with the table cleared for a rematch) and `KICK_PLAYER` (removes a player and
+everything they own; their client is dropped to a "removed by the host" screen
+and stops reconnecting). In game, the room code lives in the header as a
+one-click copy chip so inviting friends mid-session is obvious.
 
 **Server-side randomness:** shuffling and dice rolls happen on the server with an
 injectable RNG, so clients can't influence them and tests are deterministic.

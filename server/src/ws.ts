@@ -15,6 +15,7 @@ import {
 import { applyAction, type Ctx } from "./engine/actions";
 import { systemRng, type Rng } from "./engine/rng";
 import {
+  addPlayer,
   makePlayer,
   systemMessage,
   type Game,
@@ -184,7 +185,7 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
 
 function seat(conn: Conn, game: Game, name: string): void {
   const player: Player = makePlayer(game, name, randomUUID(), rng);
-  game.players.push(player);
+  addPlayer(game, player); // first player seated becomes the host
   conn.game = game;
   conn.playerId = player.id;
   rooms.touch(game.code);
@@ -210,6 +211,14 @@ function handleAction(conn: Conn, action: Action): void {
         if (c.game === game) c.ws.close();
       }
       rooms.delete(game.code);
+    } else if (action.type === "KICK_PLAYER") {
+      // drop the kicked player's connections so they land on the fatal screen
+      for (const c of conns) {
+        if (c.game === game && c.playerId === action.playerId) {
+          send(c.ws, { type: "error", message: "You were removed from the game by the host" });
+          c.ws.close();
+        }
+      }
     }
   } else {
     sendError(conn, result.error);

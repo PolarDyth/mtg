@@ -10,7 +10,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Action, CardView, GameView, PlayerId, Zone } from "@mythic/shared";
-import { Crown } from "lucide-react";
+import { Check, Copy, Crown, Shield, UserX } from "lucide-react";
 import { useCardDefs } from "@/lib/useCardDefs";
 import type { CardDef } from "@/lib/scryfall";
 import Battlefield from "./Battlefield";
@@ -101,6 +101,8 @@ export default function GameTable({
   const [zoom, setZoom] = useState<CardDef | null>(null);
   const [pile, setPile] = useState<Zone | null>(null);
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [hostMenuOpen, setHostMenuOpen] = useState(false);
   const battlefieldRef = useRef<HTMLDivElement | null>(null);
   const pending = useRef<PendingDrag | null>(null);
 
@@ -233,6 +235,16 @@ export default function GameTable({
     if (zone === "library") setMenu({ kind: "library", x, y });
   }
 
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(view.code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard unavailable — the code is displayed anyway
+    }
+  }
+
   function addNote(card: CardView) {
     const note = window.prompt("Sticky note for this card (leave empty to clear)");
     if (note === null) return;
@@ -251,11 +263,19 @@ export default function GameTable({
         setPile(null);
         setTokenOpen(false);
         setZoom(null);
+        setHostMenuOpen(false);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  useEffect(() => {
+    if (!hostMenuOpen) return;
+    const close = () => setHostMenuOpen(false);
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [hostMenuOpen]);
 
   if (!self) {
     return (
@@ -274,8 +294,19 @@ export default function GameTable({
 
   return (
     <div className="flex min-h-screen flex-col gap-2 p-2">
-      <header className="flex items-center gap-3">
-        <h1 className="font-mono text-sm tracking-widest text-zinc-400">{view.code}</h1>
+      <header className="relative flex items-center gap-3">
+        <button
+          onClick={copyCode}
+          title="Copy the room code to invite friends"
+          className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-3 py-1.5 font-mono text-sm tracking-widest text-emerald-300 transition-colors hover:border-emerald-600"
+        >
+          {view.code}
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-emerald-400" strokeWidth={2} />
+          ) : (
+            <Copy className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.75} />
+          )}
+        </button>
         {view.format === "commander" && (
           <span
             className="flex items-center gap-1 rounded-full border border-amber-700/60 bg-amber-950/40 px-2.5 py-0.5 text-xs text-amber-200"
@@ -297,6 +328,61 @@ export default function GameTable({
         >
           + Token
         </button>
+        {you === view.hostId && (
+          <div className="relative">
+            <button
+              onClick={() => setHostMenuOpen((v) => !v)}
+              className="flex items-center gap-1.5 rounded border border-amber-700/60 bg-amber-950/30 px-2.5 py-1 text-xs font-medium text-amber-200 hover:border-amber-500"
+            >
+              <Shield className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Host
+            </button>
+            {hostMenuOpen && (
+              <div
+                className="absolute left-0 top-full z-50 mt-1.5 w-64 rounded-md border border-zinc-700 bg-zinc-900 py-1 text-sm shadow-2xl"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => {
+                    setHostMenuOpen(false);
+                    send({ type: "END_GAME" });
+                  }}
+                  className="block w-full px-3 py-1.5 text-left text-zinc-200 hover:bg-zinc-800"
+                >
+                  End game
+                  <span className="block text-xs text-zinc-500">
+                    back to the waiting room, table cleared
+                  </span>
+                </button>
+                {view.players.length > 1 && (
+                  <>
+                    <div className="my-1 h-px bg-zinc-800" />
+                    <p className="px-3 py-1 text-[10px] uppercase tracking-wider text-zinc-600">
+                      Remove a player
+                    </p>
+                    {view.players
+                      .filter((p) => p.id !== you)
+                      .map((player) => (
+                        <button
+                          key={player.id}
+                          onClick={() =>
+                            send({ type: "KICK_PLAYER", playerId: player.id })
+                          }
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-zinc-300 hover:bg-zinc-800"
+                        >
+                          <UserX className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.75} />
+                          <span className="truncate">{player.name}</span>
+                          {!player.connected && (
+                            <span className="ml-auto text-xs text-zinc-600">offline</span>
+                          )}
+                        </button>
+                      ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <span className="ml-auto text-xs text-zinc-600">
           drag to move · click to tap · right-click for actions
         </span>
