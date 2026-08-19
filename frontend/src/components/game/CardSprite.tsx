@@ -13,6 +13,8 @@ type Props = {
   className?: string;
   dragging?: boolean;
   attachedStackIndex?: number;
+  /** left/top % refer to the card's center (battlefield placement). */
+  centered?: boolean;
   onCardPointerDown?: (card: CardView, event: ReactPointerEvent) => void;
   onCardContextMenu?: (card: CardView, event: ReactMouseEvent) => void;
   onCardHover?: (def: CardDef | null) => void;
@@ -42,6 +44,7 @@ const CardSprite = memo(function CardSprite({
   className = "",
   dragging = false,
   attachedStackIndex,
+  centered = false,
   onCardPointerDown,
   onCardContextMenu,
   onCardHover,
@@ -67,11 +70,15 @@ const CardSprite = memo(function CardSprite({
       style={{
         width,
         height,
-        transform: `rotate(${card.tapped ? 90 : 0}deg) ${
+        transform: [
+          centered ? "translate(-50%, -50%)" : "",
+          `rotate(${card.tapped ? 90 : 0}deg)`,
           attachedStackIndex !== undefined
             ? `translate(${-attachedStackIndex * 18}%, ${-attachedStackIndex * 26}%)`
-            : ""
-        }`,
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
         transformOrigin: "center",
         zIndex: attachedStackIndex !== undefined ? 1 : 2,
         ...style,

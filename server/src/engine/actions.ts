@@ -116,6 +116,8 @@ export function applyAction(
       return endGame(game, actor, ctx);
     case "KICK_PLAYER":
       return kickPlayer(game, actor, action, ctx);
+    case "BAN_PLAYER":
+      return banPlayer(game, actor, action, ctx);
   }
 }
 
@@ -446,19 +448,15 @@ function createToken(
     return err("bad token card id");
   }
 
-  const n = game.players.length;
-  const seatIndex = game.players.indexOf(actor);
-  // Default position: spread across the owner's band of the battlefield.
-  const bandTop = (seatIndex / n) * 100;
-  const bandHeight = 100 / n;
-  const baseY = bandTop + bandHeight * 0.5;
+  // Default position: spread across the middle of the owner's battlefield
+  // band (positions are band-relative percentages).
   const start = actor.zones.battlefield.length;
   for (let i = 0; i < action.count; i++) {
     const token = newInstance(action.cardId ?? "", ctx);
     token.cardId = action.cardId ?? "";
     token.annotations = [`${TOKEN_MARKER}${name}`];
-    token.x = 6 + ((start + i) % 12) * 7.5;
-    token.y = baseY + Math.floor((start + i) / 12) * (bandHeight * 0.3);
+    token.x = 8 + ((start + i) % 11) * 7.6;
+    token.y = 35 + Math.floor((start + i) / 11) * 25;
     actor.zones.battlefield.push(token);
   }
   systemMessage(
@@ -622,6 +620,37 @@ function kickPlayer(
   }
   systemMessage(game, `${actor.name} removed ${target.name} from the game`, ctx.rng, ctx.now());
   return ok(game);
+}
+
+/** Host only: remove a player and bar them (name + IP) from rejoining. */
+function banPlayer(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "BAN_PLAYER" }>,
+  ctx: Ctx
+): ActionResult {
+  if (game.hostId !== actor.id) return err("only the host can ban players");
+  if (action.playerId === actor.id) return err("leave the game instead of banning yourself");
+  const target = findPlayer(game, action.playerId);
+  if (!target) return err("player not found");
+  removePlayer(game, target.id);
+  if (game.activePlayerId && game.players.length > 0) {
+    const next = game.players.find((p) => p.id === game.activePlayerId);
+    if (next) systemMessage(game, `It is now ${next.name}'s turn`, ctx.rng, ctx.now());
+  }
+  game.banned.names.push(target.name.toLowerCase());
+  if (target.ip && !game.banned.ips.includes(target.ip)) {
+    game.banned.ips.push(target.ip);
+  }
+  systemMessage(game, `${actor.name} banned ${target.name} from the table`, ctx.rng, ctx.now());
+  return ok(game);
+}
+
+/** Is this name/IP on the room's ban list? */
+export function isBanned(game: Game, name: string, ip?: string): boolean {
+  if (game.banned.names.includes(name.trim().toLowerCase())) return true;
+  if (ip && game.banned.ips.includes(ip)) return true;
+  return false;
 }
 
 function shuffle(list: CardInstance[], rng: Rng): void {

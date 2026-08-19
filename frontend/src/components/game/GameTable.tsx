@@ -10,7 +10,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Action, CardView, GameView, PlayerId, Zone } from "@mythic/shared";
-import { Check, Copy, Crown, Shield, UserX } from "lucide-react";
+import { Ban, Check, Copy, Crown, Shield, UserX } from "lucide-react";
 import { useCardDefs } from "@/lib/useCardDefs";
 import type { CardDef } from "@/lib/scryfall";
 import Battlefield from "./Battlefield";
@@ -147,16 +147,21 @@ export default function GameTable({
       const drop = dropTarget?.dataset.drop;
       if (drop === "battlefield" && battlefieldRef.current) {
         const rect = battlefieldRef.current.getBoundingClientRect();
+        // Positions are relative to YOUR band (bottom of the battlefield) so
+        // every viewer renders the card in the same spot within your band.
+        const bandCount = Math.max(1, view.players.length);
+        const bandTop = (rect.height * (bandCount - 1)) / bandCount;
+        const bandHeight = rect.height / bandCount;
         const px = ((x - rect.left) / rect.width) * 100;
-        const py = ((y - rect.top) / rect.height) * 100;
+        const py = ((y - rect.top - bandTop) / bandHeight) * 100;
         if (current.from !== "battlefield") {
           send({ type: "MOVE_CARD", uid: current.uid, to: "battlefield" });
         }
         send({
           type: "SET_POSITION",
           uid: current.uid,
-          x: Math.round(Math.min(96, Math.max(2, px)) * 10) / 10,
-          y: Math.round(Math.min(94, Math.max(3, py)) * 10) / 10,
+          x: Math.round(Math.min(96, Math.max(4, px)) * 10) / 10,
+          y: Math.round(Math.min(92, Math.max(8, py)) * 10) / 10,
         });
         return;
       }
@@ -168,7 +173,7 @@ export default function GameTable({
         send({ type: "MOVE_CARD", uid: current.uid, to: drop.slice(5) as Zone });
       }
     },
-    [drag, send]
+    [drag, send, view.players.length]
   );
 
   useEffect(() => {
@@ -363,19 +368,41 @@ export default function GameTable({
                     {view.players
                       .filter((p) => p.id !== you)
                       .map((player) => (
-                        <button
+                        <div
                           key={player.id}
-                          onClick={() =>
-                            send({ type: "KICK_PLAYER", playerId: player.id })
-                          }
-                          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-zinc-300 hover:bg-zinc-800"
+                          className="flex items-center gap-1 px-2 py-1"
                         >
-                          <UserX className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.75} />
-                          <span className="truncate">{player.name}</span>
-                          {!player.connected && (
-                            <span className="ml-auto text-xs text-zinc-600">offline</span>
-                          )}
-                        </button>
+                          <span className="min-w-0 flex-1 truncate px-1 text-zinc-300">
+                            {player.name}
+                            {!player.connected && (
+                              <span className="ml-1.5 text-xs text-zinc-600">offline</span>
+                            )}
+                          </span>
+                          <button
+                            title={`Remove ${player.name} (they can rejoin)`}
+                            onClick={() =>
+                              send({ type: "KICK_PLAYER", playerId: player.id })
+                            }
+                            className="rounded p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+                          >
+                            <UserX className="h-4 w-4" strokeWidth={1.75} />
+                          </button>
+                          <button
+                            title={`Ban ${player.name} (name + IP blocked from rejoining)`}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Ban ${player.name} from this table? They won't be able to rejoin.`
+                                )
+                              ) {
+                                send({ type: "BAN_PLAYER", playerId: player.id });
+                              }
+                            }}
+                            className="rounded p-1.5 text-zinc-400 hover:bg-red-900/60 hover:text-red-200"
+                          >
+                            <Ban className="h-4 w-4" strokeWidth={1.75} />
+                          </button>
+                        </div>
                       ))}
                   </>
                 )}

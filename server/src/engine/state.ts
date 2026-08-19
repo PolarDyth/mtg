@@ -13,9 +13,17 @@ export type Player = {
   connected: boolean;
   /** True once a disconnect has been announced in chat (rejoin stays quiet otherwise). */
   disconnectedAnnounced?: boolean;
+  /** Connection IP at seat time (server-private; used by the ban list). */
+  ip?: string;
   life: number;
   zones: Record<Zone, CardInstance[]>;
   hasDeck: boolean;
+};
+
+/** Room-level ban list: rejected by name and by IP on join. */
+export type BanList = {
+  names: string[];
+  ips: string[];
 };
 
 export type Game = {
@@ -25,6 +33,7 @@ export type Game = {
   activePlayerId: PlayerId | null;
   /** First player seated; runs host actions. Transfers when they leave. */
   hostId: PlayerId | null;
+  banned: BanList;
   players: Player[];
   chat: ChatMessage[];
 };
@@ -48,6 +57,7 @@ export function createGame(code: string): Game {
     format: "freeform",
     activePlayerId: null,
     hostId: null,
+    banned: { names: [], ips: [] },
     players: [],
     chat: [],
   };

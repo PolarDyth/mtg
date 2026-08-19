@@ -71,6 +71,7 @@ export default function Battlefield({
                     card={card}
                     def={getDef(card.cardId)}
                     width={90}
+                    centered
                     dragging={draggedUid === card.uid}
                     onCardPointerDown={onCardPointerDown}
                     onCardContextMenu={onCardContextMenu}
@@ -83,6 +84,7 @@ export default function Battlefield({
                       card={follower}
                       def={getDef(follower.cardId)}
                       width={90}
+                      centered
                       dragging={draggedUid === follower.uid}
                       attachedStackIndex={i + 1}
                       onCardPointerDown={onCardPointerDown}

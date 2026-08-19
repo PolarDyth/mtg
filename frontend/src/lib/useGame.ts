@@ -39,15 +39,15 @@ export function useGame(code: string) {
           setView(msg.state);
           break;
         case "error":
-          if (msg.message.startsWith("You were removed")) {
-            // kicked by the host — the seat is gone; don't keep retrying
+          if (msg.message.startsWith("You were removed") || msg.message.startsWith("You were banned")) {
+            // kicked/banned by the host — the seat is gone and rejoining is
+            // pointless (or blocked), so leave the game URL entirely
             clearSession(code);
-            setFatal(msg.message);
-          } else if (hasView.current) {
-            setToast(msg.message);
-          } else {
-            setFatal(msg.message);
+            window.location.replace("/");
+            return;
           }
+          if (hasView.current) setToast(msg.message);
+          else setFatal(msg.message);
           break;
       }
     },

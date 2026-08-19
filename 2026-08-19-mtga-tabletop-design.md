@@ -136,6 +136,7 @@ SEND_CHAT { text }
 LEAVE_GAME
 END_GAME                            // host only: back to lobby, table cleared
 KICK_PLAYER { playerId }            // host only: remove a player and their cards
+BAN_PLAYER { playerId }             // host only: also blocks rejoining by name + IP
 ```
 
 **Validation is structural, not rules-based:** does the `uid` exist, is the player
@@ -152,10 +153,16 @@ alone in your public command zone, visible to the whole table.
 
 **Host:** the first player to sit is the host (crown marker); the role transfers
 when they leave. Host-only actions: `END_GAME` (everyone returns to the lobby
-with the table cleared for a rematch) and `KICK_PLAYER` (removes a player and
-everything they own; their client is dropped to a "removed by the host" screen
-and stops reconnecting). In game, the room code lives in the header as a
+with the table cleared for a rematch), `KICK_PLAYER` (removes a player and
+everything they own), and `BAN_PLAYER` (removal plus a room-level ban list of
+name + connection IP that rejects rejoins — per-room only, lives in RAM).
+Removed/banned clients are redirected off the game URL so a refresh can't
+silently re-seat them. In game, the room code lives in the header as a
 one-click copy chip so inviting friends mid-session is obvious.
+
+**Battlefield coordinates** are percentages of the *owner's band* and refer to
+the card's center — the same card renders in the same spot of the owner's band
+for every viewer, regardless of where that band sits on their screen.
 
 **Server-side randomness:** shuffling and dice rolls happen on the server with an
 injectable RNG, so clients can't influence them and tests are deterministic.

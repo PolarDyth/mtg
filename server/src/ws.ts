@@ -12,7 +12,7 @@ import {
   type ClientMessage,
   type ServerMessage,
 } from "@mythic/shared";
-import { applyAction, type Ctx } from "./engine/actions";
+import { applyAction, isBanned, type Ctx } from "./engine/actions";
 import { systemRng, type Rng } from "./engine/rng";
 import {
   addPlayer,
@@ -31,6 +31,7 @@ type Conn = {
   missedPings: number;
   /** pending "disconnected" announcement (cancelled by a quick rejoin) */
   announceTimer: ReturnType<typeof setTimeout> | null;
+  ip?: string;
 };
 
 const HEARTBEAT_MS = 30_000;
@@ -73,8 +74,15 @@ const heartbeat = setInterval(() => {
 }, HEARTBEAT_MS);
 heartbeat.unref();
 
-wss.on("connection", (ws) => {
-  const conn: Conn = { ws, game: null, playerId: null, missedPings: 0, announceTimer: null };
+wss.on("connection", (ws, req) => {
+  const conn: Conn = {
+    ws,
+    game: null,
+    playerId: null,
+    missedPings: 0,
+    announceTimer: null,
+    ip: clientIp(req),
+  };
   conns.add(conn);
 
   ws.on("pong", () => {
@@ -152,6 +160,9 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
     }
     const name = cleanName(msg.name);
     if (!name) return sendError(conn, "pick a name first (1–24 characters)");
+    if (isBanned(game, name, conn.ip)) {
+      return sendError(conn, "you are banned from this table");
+    }
     seat(conn, game, name);
     return;
   }
@@ -185,6 +196,7 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
 
 function seat(conn: Conn, game: Game, name: string): void {
   const player: Player = makePlayer(game, name, randomUUID(), rng);
+  player.ip = conn.ip;
   addPlayer(game, player); // first player seated becomes the host
   conn.game = game;
   conn.playerId = player.id;
@@ -211,11 +223,15 @@ function handleAction(conn: Conn, action: Action): void {
         if (c.game === game) c.ws.close();
       }
       rooms.delete(game.code);
-    } else if (action.type === "KICK_PLAYER") {
-      // drop the kicked player's connections so they land on the fatal screen
+    } else if (action.type === "KICK_PLAYER" || action.type === "BAN_PLAYER") {
+      // drop the removed player's connections so they land on the fatal screen
+      const verb = action.type === "BAN_PLAYER" ? "banned" : "removed";
       for (const c of conns) {
         if (c.game === game && c.playerId === action.playerId) {
-          send(c.ws, { type: "error", message: "You were removed from the game by the host" });
+          send(c.ws, {
+            type: "error",
+            message: `You were ${verb} from the game by the host`,
+          });
           c.ws.close();
         }
       }
@@ -247,4 +263,13 @@ function systemMessageNow(game: Game, text: string): void {
 function cleanName(raw: unknown): string {
   if (typeof raw !== "string") return "";
   return raw.replace(/\s+/g, " ").trim().slice(0, 24);
+}
+
+/** Client IP: first hop of X-Forwarded-For when behind a proxy, else the socket. */
+function clientIp(req: IncomingMessage): string | undefined {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.length > 0) {
+    return forwarded.split(",")[0].trim();
+  }
+  return req.socket.remoteAddress ?? undefined;
 }

@@ -33,24 +33,22 @@ export default function HandFan({
       className="relative flex h-[150px] shrink-0 items-end justify-center rounded-lg border border-zinc-800 bg-zinc-950/60"
     >
       {cards.map((card, i) => (
-        <CardSprite
+        <div
           key={card.uid}
-          card={card}
-          def={getDef(card.cardId)}
-          width={width}
-          dragging={draggedUid === card.uid}
-          onCardPointerDown={onCardPointerDown}
-          onCardContextMenu={onCardContextMenu}
-          onCardHover={onCardHover}
-          className="transition-transform duration-150 hover:z-50 hover:-translate-y-6 hover:scale-110"
-          style={{
-            position: "relative",
-            left: 0,
-            top: 0,
-            marginLeft: i === 0 ? 0 : -width + overlap,
-            zIndex: i,
-          }}
-        />
+          className="relative transition-transform duration-150 hover:z-50 hover:-translate-y-6 hover:scale-110"
+          style={{ marginLeft: i === 0 ? 0 : -width + overlap, zIndex: i }}
+        >
+          <CardSprite
+            card={card}
+            def={getDef(card.cardId)}
+            width={width}
+            dragging={draggedUid === card.uid}
+            onCardPointerDown={onCardPointerDown}
+            onCardContextMenu={onCardContextMenu}
+            onCardHover={onCardHover}
+            style={{ position: "relative", left: 0, top: 0 }}
+          />
+        </div>
       ))}
       {cards.length === 0 && (
         <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-zinc-600">

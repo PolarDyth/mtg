@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Action, CardInstance } from "@mythic/shared";
-import { applyAction, type Ctx } from "./actions";
+import { applyAction, isBanned, type Ctx } from "./actions";
 import { seededRng } from "./rng";
 import {
   addPlayer,
@@ -559,6 +559,24 @@ describe("END_GAME and KICK_PLAYER", () => {
     startWithDeck(game, ctx, ada);
     mustFail(act(game, ctx, bob, { type: "KICK_PLAYER", playerId: ada.id }), "only the host");
     mustFail(act(game, ctx, ada, { type: "KICK_PLAYER", playerId: ada.id }), "yourself");
+  });
+
+  it("banning removes the player and blocks their name and IP from rejoining", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    bob.ip = "203.0.113.7";
+    mustOk(act(game, ctx, ada, { type: "BAN_PLAYER", playerId: bob.id }));
+    expect(game.players.map((p) => p.id)).toEqual([ada.id]);
+    expect(game.banned.names).toContain("bob");
+    expect(game.banned.ips).toContain("203.0.113.7");
+    expect(isBanned(game, "Bob")).toBe(true);
+    expect(isBanned(game, "someone else", "203.0.113.7")).toBe(true);
+    expect(isBanned(game, "someone else", "198.51.100.9")).toBe(false);
+  });
+
+  it("bans are host-only", () => {
+    const { game, ctx, ada, bob } = setup();
+    mustFail(act(game, ctx, bob, { type: "BAN_PLAYER", playerId: ada.id }), "only the host");
   });
 
   it("views expose the host", () => {

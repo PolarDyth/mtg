@@ -71,7 +71,8 @@ export type Action =
   | { type: "SEND_CHAT"; text: string }
   | { type: "LEAVE_GAME" }
   | { type: "END_GAME" }
-  | { type: "KICK_PLAYER"; playerId: PlayerId };
+  | { type: "KICK_PLAYER"; playerId: PlayerId }
+  | { type: "BAN_PLAYER"; playerId: PlayerId };
 
 // --- Wire protocol -----------------------------------------------------------
 
