@@ -9,13 +9,8 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import type {
-  Action,
-  CardView,
-  GameView,
-  PlayerId,
-  Zone,
-} from "@mythic/shared";
+import type { Action, CardView, GameView, PlayerId, Zone } from "@mythic/shared";
+import { Crown } from "lucide-react";
 import { useCardDefs } from "@/lib/useCardDefs";
 import type { CardDef } from "@/lib/scryfall";
 import Battlefield from "./Battlefield";
@@ -281,6 +276,15 @@ export default function GameTable({
     <div className="flex min-h-screen flex-col gap-2 p-2">
       <header className="flex items-center gap-3">
         <h1 className="font-mono text-sm tracking-widest text-zinc-400">{view.code}</h1>
+        {view.format === "commander" && (
+          <span
+            className="flex items-center gap-1 rounded-full border border-amber-700/60 bg-amber-950/40 px-2.5 py-0.5 text-xs text-amber-200"
+            title="Commander game — everyone started at 40 life"
+          >
+            <Crown className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Commander
+          </span>
+        )}
         <button
           onClick={onOpenDeck}
           className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-emerald-600"

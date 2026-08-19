@@ -116,7 +116,8 @@ only, never per-mousemove, so drags don't flood the wire.
 
 ```
 LOAD_DECK { library, sideboard }     // resolved {cardId, count} entries
-START_GAME
+START_GAME { format? }               // "freeform" (20 life) | "commander" (40 life)
+SET_COMMANDER { cardId, name }       // sits alone in your public command zone
 DRAW_CARDS { count }
 MOVE_CARD { uid, to: Zone, index? }  // index 0 = top of library
 MOVE_CARD_INDEX { uid, index }
@@ -140,6 +141,12 @@ seated, is the game started — plus **ownership**: only the player who owns a c
 may act on it (seat hygiene, not rules enforcement). `ROLL_DIE`, `NEXT_TURN`,
 `SEND_CHAT`, and `START_GAME` are open to any seated player. The server never says
 "you can't do that" for game *reasons*.
+
+**Formats** tweak starting setup, never enforce rules: *Freeform* (default, 20
+life) and *Commander* (everyone starts at 40 life). The lobby's commander picker
+searches Scryfall for commander-eligible cards — legendary creatures plus
+planeswalkers with "can be your commander" — and `SET_COMMANDER` places the pick
+alone in your public command zone, visible to the whole table.
 
 **Server-side randomness:** shuffling and dice rolls happen on the server with an
 injectable RNG, so clients can't influence them and tests are deterministic.

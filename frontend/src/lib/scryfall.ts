@@ -140,3 +140,18 @@ export async function searchTokenCards(name: string): Promise<CardDef[]> {
     .map((card) => toDef(card))
     .filter((def): def is CardDef => def !== null);
 }
+
+/** Commander-eligible cards matching a name: legendary creatures plus the
+ *  planeswalkers that say they can be your commander. */
+export async function searchCommanderCandidates(name: string): Promise<CardDef[]> {
+  const query = encodeURIComponent(
+    `${name.trim()} ((t:legendary t:creature) or (t:planeswalker o:"can be your commander"))`
+  );
+  const response = await fetch(`${API}/cards/search?q=${query}&unique=print`);
+  if (!response.ok) return [];
+  const payload = (await response.json()) as { data: ScryfallCard[] };
+  return payload.data
+    .slice(0, 12)
+    .map((card) => toDef(card))
+    .filter((def): def is CardDef => def !== null);
+}

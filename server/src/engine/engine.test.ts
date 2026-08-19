@@ -142,6 +142,60 @@ describe("START_GAME and NEXT_TURN", () => {
     startWithDeck(game, ctx, ada);
     mustFail(act(game, ctx, ada, { type: "START_GAME" }), "already started");
   });
+
+  it("commander format sets 40 life for everyone", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    // can't switch format after start — a fresh game is needed
+    mustFail(act(game, ctx, ada, { type: "START_GAME", format: "commander" }), "already started");
+
+    const fresh = setup();
+    mustOk(act(fresh.game, fresh.ctx, fresh.ada, { type: "START_GAME", format: "commander" }));
+    expect(fresh.game.format).toBe("commander");
+    expect(fresh.ada.life).toBe(40);
+    expect(fresh.bob.life).toBe(40);
+    expect(fresh.game.chat.at(-1)?.kind).toBe("system");
+  });
+});
+
+describe("SET_COMMANDER", () => {
+  it("places the chosen card alone in the command zone", () => {
+    const { game, ctx, ada } = setup();
+    mustOk(
+      act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "cmd-atarxa", name: "Atraxa" })
+    );
+    expect(ada.zones.command).toHaveLength(1);
+    expect(ada.zones.command[0]?.cardId).toBe("cmd-atarxa");
+    expect(ada.zones.command[0]?.annotations[0]).toBe("¶Atraxa");
+    expect(ada.hasDeck).toBe(true);
+    expect(game.chat.at(-1)?.kind).toBe("system");
+  });
+
+  it("re-picking replaces the previous commander", () => {
+    const { game, ctx, ada } = setup();
+    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "a", name: "First" }));
+    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "b", name: "Second" }));
+    expect(ada.zones.command).toHaveLength(1);
+    expect(ada.zones.command[0]?.cardId).toBe("b");
+  });
+
+  it("rejects junk ids", () => {
+    const { game, ctx, ada } = setup();
+    mustFail(
+      act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "", name: "X" }),
+      "bad commander"
+    );
+  });
+
+  it("shows the commander to everyone via the public command zone", () => {
+    const { game, ctx, ada, bob } = setup();
+    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "cmd-1", name: "Krenko" }));
+    const bobView = personalize(game, bob.id);
+    const adaFromBob = bobView.players.find((p) => p.id === ada.id);
+    if (adaFromBob?.zones.command.kind !== "cards") throw new Error("expected cards");
+    expect(adaFromBob.zones.command.cards[0]?.cardId).toBe("cmd-1");
+    expect(bobView.format).toBe("freeform");
+  });
 });
 
 // --- DRAW_CARDS ---------------------------------------------------------------

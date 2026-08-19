@@ -8,7 +8,7 @@ import {
   type Action,
   type CardInstance,
   type ChatMessage,
-  type DieSides,
+  type Format,
   type PlayerId,
 } from "@mythic/shared";
 import {
@@ -52,7 +52,9 @@ export function applyAction(
     case "LOAD_DECK":
       return loadDeck(game, actor, action, ctx);
     case "START_GAME":
-      return startGame(game, actor, ctx);
+      return startGame(game, actor, action, ctx);
+    case "SET_COMMANDER":
+      return setCommander(game, actor, action, ctx);
     case "DRAW_CARDS":
       return drawCards(game, actor, action, ctx);
     case "MOVE_CARD":
@@ -226,12 +228,53 @@ function newInstance(cardId: string, ctx: Ctx): CardInstance {
   };
 }
 
-function startGame(game: Game, actor: Player, ctx: Ctx): ActionResult {
+function startGame(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "START_GAME" }>,
+  ctx: Ctx
+): ActionResult {
   if (game.started) return err("game already started");
   if (game.players.length === 0) return err("no players");
+  const format: Format =
+    action.format === "commander" ? "commander" : "freeform";
+  game.format = format;
+  if (format === "commander") {
+    for (const player of game.players) player.life = 40;
+  }
   game.started = true;
   game.activePlayerId = game.players[0].id;
-  systemMessage(game, `${actor.name} started the game`, ctx.rng, ctx.now());
+  systemMessage(
+    game,
+    format === "commander"
+      ? `${actor.name} started a Commander game — everyone starts at 40 life`
+      : `${actor.name} started the game`,
+    ctx.rng,
+    ctx.now()
+  );
+  return ok(game);
+}
+
+function setCommander(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "SET_COMMANDER" }>,
+  ctx: Ctx
+): ActionResult {
+  const name = (action.name ?? "").trim().slice(0, 100) || "Commander";
+  if (
+    typeof action.cardId !== "string" ||
+    action.cardId.length === 0 ||
+    action.cardId.length > 64
+  ) {
+    return err("bad commander card id");
+  }
+  // The command zone holds exactly the chosen commander (replace on re-pick).
+  const commander = newInstance(action.cardId, ctx);
+  commander.annotations = [`${TOKEN_MARKER}${name}`];
+  actor.zones.command = [commander];
+  actor.hasDeck = true; // a commander alone is enough to be "ready"
+  systemMessage(game, `${actor.name} set ${name} as their commander`, ctx.rng, ctx.now());
   return ok(game);
 }
 

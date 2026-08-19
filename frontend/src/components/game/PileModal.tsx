@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Action, CardView, Zone } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
+import { Eye, Hand, Layers, Swords } from "lucide-react";
 
 const ZONE_TITLES: Record<Zone, string> = {
   library: "Library",
@@ -106,13 +107,13 @@ export default function PileModal({
                 )}
                 {canAct && (
                   <div className="absolute inset-x-0 bottom-0 hidden gap-1 bg-gradient-to-t from-black/90 to-transparent p-1 group-hover:flex">
-                    <PileButton label="✋" title="to hand" onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "hand" })} />
-                    <PileButton label="⚔" title="to battlefield" onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "battlefield" })} />
+                    <PileButton label="to hand" Icon={Hand} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "hand" })} />
+                    <PileButton label="to battlefield" Icon={Swords} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "battlefield" })} />
                     {(zone === "graveyard" || zone === "exile" || zone === "sideboard" || zone === "command") && (
-                      <PileButton label="📚" title="on top of library" onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "library", index: 0 })} />
+                      <PileButton label="on top of library" Icon={Layers} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "library", index: 0 })} />
                     )}
                     {zone !== "library" && (
-                      <PileButton label="🔍" title="reveal to table" onClick={() => send({ type: "REVEAL_CARDS", cards: [{ uid: card.uid, name: def?.name ?? "Card" }] })} />
+                      <PileButton label="reveal to table" Icon={Eye} onClick={() => send({ type: "REVEAL_CARDS", cards: [{ uid: card.uid, name: def?.name ?? "Card" }] })} />
                     )}
                   </div>
                 )}
@@ -139,20 +140,21 @@ export default function PileModal({
 
 function PileButton({
   label,
-  title,
+  Icon,
   onClick,
 }: {
   label: string;
-  title: string;
+  Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   onClick: () => void;
 }) {
   return (
     <button
-      title={title}
+      title={label}
+      aria-label={label}
       onClick={onClick}
-      className="flex-1 rounded bg-zinc-800/90 py-1 text-xs text-zinc-200 hover:bg-emerald-700"
+      className="flex flex-1 items-center justify-center rounded bg-zinc-800/90 py-1 text-zinc-200 hover:bg-emerald-700"
     >
-      {label}
+      <Icon className="h-4 w-4" strokeWidth={1.75} />
     </button>
   );
 }

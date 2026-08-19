@@ -44,11 +44,15 @@ export type CardView = CardBase & { cardId: string | null };
 
 export type DieSides = 4 | 6 | 8 | 10 | 12 | 20 | 100;
 
+/** Game formats. They tweak starting setup, never enforce rules. */
+export type Format = "freeform" | "commander";
+
 export type DeckEntry = { cardId: string; count: number };
 
 export type Action =
   | { type: "LOAD_DECK"; library: DeckEntry[]; sideboard: DeckEntry[] }
-  | { type: "START_GAME" }
+  | { type: "START_GAME"; format?: Format }
+  | { type: "SET_COMMANDER"; cardId: string; name: string }
   | { type: "DRAW_CARDS"; count: number }
   | { type: "MOVE_CARD"; uid: string; to: Zone; index?: number }
   | { type: "MOVE_CARD_INDEX"; uid: string; index: number }
@@ -106,6 +110,7 @@ export type ChatMessage =
 export type GameView = {
   code: string;
   started: boolean;
+  format: Format;
   activePlayerId: PlayerId;
   players: PlayerView[];
   chat: ChatMessage[];
