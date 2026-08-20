@@ -19,6 +19,7 @@ import { deckHandlers } from "./deck";
 import { gameHandlers } from "./game";
 import {
   err,
+  pruneArrows,
   type ActionResult,
   type Ctx,
   type Handler,
@@ -48,7 +49,11 @@ export function applyAction(
   // collapse to an intersection). Widen for the call — sound, because the
   // key and the payload come from the same action object.
   const handler = handlers[action.type] as Handler<Action>;
-  return handler(game, actor, action, ctx);
+  const result = handler(game, actor, action, ctx);
+  // Arrows are annotations: whatever the action did, anything they point at
+  // must still exist.
+  if (result.ok) pruneArrows(game);
+  return result;
 }
 
 export { isBanned } from "./admin";

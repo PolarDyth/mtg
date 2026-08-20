@@ -35,6 +35,10 @@ export default function PlayerBand({
   onCardContextMenu,
   onCardHover,
   draggedUid,
+  /** uid of the card currently hovered as an arrow target (drawing UI) */
+  arrowTargetedUid,
+  /** this band's header is hovered as an arrow target */
+  headTargeted,
   onFocus,
   onDuel,
   onPile,
@@ -53,8 +57,10 @@ export default function PlayerBand({
   getDef: (id: string | null) => CardDef | null;
   onCardPointerDown: (card: CardView, event: ReactPointerEvent) => void;
   onCardContextMenu: (card: CardView, event: ReactMouseEvent) => void;
-  onCardHover: (def: CardDef | null) => void;
+  onCardHover: (def: CardDef | null, card: CardView | null) => void;
   draggedUid: string | null;
+  arrowTargetedUid: string | null;
+  headTargeted: boolean;
   onFocus?: () => void;
   onDuel?: () => void;
   /** open one of this opponent's public piles (only set for opponents) */
@@ -91,7 +97,14 @@ export default function PlayerBand({
         gridColumn: `${col + 1} / span ${colSpan}`,
       }}
     >
-      <div className="flex h-7 shrink-0 items-center gap-2 border-b border-zinc-800/60 px-2">
+      <div
+        data-player-head={player.id}
+        className={`flex h-7 shrink-0 items-center gap-2 border-b px-2 transition-colors ${
+          headTargeted
+            ? "border-emerald-500/80 bg-emerald-950/40"
+            : "border-zinc-800/60"
+        }`}
+      >
         <span
           className={`truncate text-[10px] font-medium uppercase tracking-wider ${
             activeTurn ? "text-emerald-400" : "text-zinc-500"
@@ -156,6 +169,7 @@ export default function PlayerBand({
                 image={image}
                 centered
                 dragging={draggedUid === card.uid}
+                arrowTargeted={arrowTargetedUid === card.uid}
                 onCardPointerDown={onCardPointerDown}
                 onCardContextMenu={onCardContextMenu}
                 onCardHover={onCardHover}
@@ -170,6 +184,7 @@ export default function PlayerBand({
                   image={image}
                   centered
                   dragging={draggedUid === follower.uid}
+                  arrowTargeted={arrowTargetedUid === follower.uid}
                   attachedStackIndex={i + 1}
                   onCardPointerDown={onCardPointerDown}
                   onCardContextMenu={onCardContextMenu}

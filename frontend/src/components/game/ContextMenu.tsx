@@ -101,6 +101,7 @@ export default function ContextMenu({
   onPicker,
   onViewLibrary,
   onRevealTo,
+  onDrawArrowFrom,
 }: {
   menu: MenuState;
   send: (action: Action) => void;
@@ -110,6 +111,8 @@ export default function ContextMenu({
   onViewLibrary: () => void;
   /** opens the reveal audience picker for this card */
   onRevealTo: (card: CardView, name: string) => void;
+  /** starts arrow targeting from this card ("Draw arrow to…") */
+  onDrawArrowFrom: (card: CardView) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [countersOpen, setCountersOpen] = useState(false);
@@ -232,6 +235,13 @@ export default function ContextMenu({
             label={card.faceDown ? "Turn face up" : "Turn face down"}
             onClick={() => {
               send({ type: "SET_FACE_DOWN", uid: card.uid, value: !card.faceDown });
+              onClose();
+            }}
+          />
+          <MenuItem
+            label="Draw arrow to…"
+            onClick={() => {
+              onDrawArrowFrom(card);
               onClose();
             }}
           />

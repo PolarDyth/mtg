@@ -15,12 +15,18 @@ export default function ChatPanel({
   send,
   getDef,
   previewWidth,
+  chatFocusTick,
+  lifeFocusTick,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
   getDef: (id: string | null) => CardDef | null;
   previewWidth: number;
+  /** increments when a shortcut (Shift+Enter) asks the chat input to focus */
+  chatFocusTick: number;
+  /** increments when a shortcut (Ctrl+L) asks the life editor to open */
+  lifeFocusTick: number;
 }) {
   return (
     <aside className="flex w-[280px] shrink-0 flex-col gap-3">
@@ -34,6 +40,7 @@ export default function ChatPanel({
               isHost={player.id === view.hostId}
               isSelf={player.id === you}
               send={send}
+              focusTick={player.id === you ? lifeFocusTick : 0}
             />
           ))}
         </ul>
@@ -68,7 +75,10 @@ export default function ChatPanel({
           className="flex-1 overflow-y-auto pr-1"
         />
         <div className="mt-3">
-          <ChatInput onSend={(text) => send({ type: "SEND_CHAT", text })} />
+          <ChatInput
+            onSend={(text) => send({ type: "SEND_CHAT", text })}
+            focusTick={chatFocusTick}
+          />
         </div>
       </section>
     </aside>
@@ -81,15 +91,26 @@ function PlayerRow({
   isHost,
   isSelf,
   send,
+  focusTick,
 }: {
   player: PlayerView;
   active: boolean;
   isHost: boolean;
   isSelf: boolean;
   send: (action: Action) => void;
+  /** increments when a shortcut asks this editor to open (self only) */
+  focusTick: number;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(player.life));
+  // shortcut-driven editor focus: render-time reset (no setState in effects);
+  // the input's autoFocus does the actual focusing once it mounts
+  const [seenTick, setSeenTick] = useState(focusTick);
+  if (focusTick !== seenTick) {
+    setSeenTick(focusTick);
+    setValue(String(player.life));
+    setEditing(true);
+  }
 
   function commit() {
     const parsed = parseInt(value, 10);

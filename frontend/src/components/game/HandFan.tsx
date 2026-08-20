@@ -26,7 +26,7 @@ export default function HandFan({
   getDef: (id: string | null) => CardDef | null;
   onCardPointerDown: (card: CardView, event: ReactPointerEvent) => void;
   onCardContextMenu: (card: CardView, event: ReactMouseEvent) => void;
-  onCardHover: (def: CardDef | null) => void;
+  onCardHover: (def: CardDef | null, card: CardView | null) => void;
   draggedUid: string | null;
   selectMode: boolean;
   selected: ReadonlySet<string>;

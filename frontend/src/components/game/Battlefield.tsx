@@ -2,8 +2,9 @@
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Maximize2, Minimize2, X } from "lucide-react";
-import type { CardView, PlayerId, PlayerView } from "@mythic/shared";
+import type { Arrow, CardView, PlayerId, PlayerView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
+import ArrowLayer from "./ArrowLayer";
 import PlayerBand from "./PlayerBand";
 import { cardWidthFor, focusPlayerId, imageFor, seatGrid, type FocusMode } from "./tableLayout";
 
@@ -21,6 +22,10 @@ export default function Battlefield({
   activePlayerId,
   focus,
   maximized,
+  arrows,
+  arrowTargetedUid,
+  arrowTargetedPlayerId,
+  onRemoveArrow,
   onFocus,
   onDuel,
   onExitFocus,
@@ -38,6 +43,11 @@ export default function Battlefield({
   activePlayerId: PlayerId;
   focus: FocusMode | null;
   maximized: boolean;
+  arrows: Arrow[];
+  /** drawing UI: hovered arrow target (card / player head) */
+  arrowTargetedUid: string | null;
+  arrowTargetedPlayerId: PlayerId | null;
+  onRemoveArrow: (id: string) => void;
   onFocus: (playerId: PlayerId) => void;
   onDuel: (playerId: PlayerId) => void;
   onExitFocus: () => void;
@@ -47,7 +57,7 @@ export default function Battlefield({
   getDef: (id: string | null) => CardDef | null;
   onCardPointerDown: (card: CardView, event: ReactPointerEvent) => void;
   onCardContextMenu: (card: CardView, event: ReactMouseEvent) => void;
-  onCardHover: (def: CardDef | null) => void;
+  onCardHover: (def: CardDef | null, card: CardView | null) => void;
   draggedUid: string | null;
   /** anchors to YOUR board's container in whatever mode is active */
   battlefieldRef: React.RefObject<HTMLDivElement | null>;
@@ -163,6 +173,8 @@ export default function Battlefield({
             onCardContextMenu={onCardContextMenu}
             onCardHover={onCardHover}
             draggedUid={draggedUid}
+            arrowTargetedUid={arrowTargetedUid}
+            headTargeted={arrowTargetedPlayerId === band.player.id}
             onFocus={() => onFocus(band.player.id)}
             onDuel={band.isYou ? undefined : () => onDuel(band.player.id)}
             onPile={
@@ -174,6 +186,8 @@ export default function Battlefield({
           />
         ))}
       </div>
+      {/* arrows sit above every band so they can cross board borders */}
+      <ArrowLayer arrows={arrows} players={players} onRemove={onRemoveArrow} />
     </div>
   );
 }

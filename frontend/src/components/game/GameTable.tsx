@@ -13,6 +13,8 @@ import type { Action, CardView, GameView, PlayerId, Zone } from "@mythic/shared"
 import { Ban, Check, Copy, Crown, Shield, Sparkles, UserX, ZoomIn } from "lucide-react";
 import { useCardDefs } from "@/lib/useCardDefs";
 import type { CardDef } from "@/lib/scryfall";
+import { nameColor } from "@/lib/playerColor";
+import { isTypingTarget, matchKeybind } from "@/lib/keybinds";
 import {
   clampPreviewWidth,
   loadPreviewWidth,
@@ -23,6 +25,7 @@ import {
 } from "@/lib/settings";
 import ActionsModal from "./ActionsModal";
 import AudiencePickerModal from "./AudiencePickerModal";
+import { ArrowDraft } from "./ArrowLayer";
 import Battlefield from "./Battlefield";
 import { CARD_RATIO } from "./CardSprite";
 import CardPreview from "./CardPreview";
@@ -67,6 +70,33 @@ function findOwnCard(
     const card = zoneView.cards.find((c) => c.uid === uid);
     if (card) return { card, zone };
   }
+  return null;
+}
+
+/** Is this uid a battlefield card right now (any player's)? Arrow
+ *  endpoints may be anyone's permanents. */
+function onAnyBattlefield(view: GameView, uid: string): boolean {
+  return view.players.some(
+    (p) =>
+      p.zones.battlefield.kind === "cards" &&
+      p.zones.battlefield.cards.some((c) => c.uid === uid)
+  );
+}
+
+/** What arrow target sits under this viewport point: a battlefield card or
+ *  a player's band header. Hand/pile cards never qualify. */
+function arrowTargetAt(
+  x: number,
+  y: number
+): { uid: string } | { playerId: PlayerId } | null {
+  const element = document.elementFromPoint(x, y);
+  if (!element) return null;
+  const card = element.closest<HTMLElement>("[data-card-uid]");
+  if (card?.dataset.cardUid && card.closest("[data-drop='battlefield']")) {
+    return { uid: card.dataset.cardUid };
+  }
+  const head = element.closest<HTMLElement>("[data-player-head]");
+  if (head?.dataset.playerHead) return { playerId: head.dataset.playerHead };
   return null;
 }
 
@@ -146,13 +176,58 @@ export default function GameTable({
   const [maximized, setMaximized] = useState(false);
   const battlefieldRef = useRef<HTMLDivElement | null>(null);
   const pending = useRef<PendingDrag | null>(null);
+  // arrow drawing: live rubber band while picking a target
+  const [arrowDraft, setArrowDraft] = useState<{
+    fromUid: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  // arrow source chosen (menu, Alt+A, or ctrl+right-click) — target pending
+  const [arrowPicking, setArrowPicking] = useState<CardView | null>(null);
+  // hovered arrow target while drawing (drives the highlight rings)
+  const [arrowTarget, setArrowTarget] = useState<{
+    uid?: string;
+    playerId?: PlayerId;
+  } | null>(null);
+  // card under the cursor (feeds hovered-card shortcuts; null when hidden)
+  const [hoverCard, setHoverCard] = useState<CardView | null>(null);
+  // shortcut-driven focus requests: incrementing ticks consumed by ChatPanel
+  const [chatFocusTick, setChatFocusTick] = useState(0);
+  const [lifeFocusTick, setLifeFocusTick] = useState(0);
+  // last token created this session — "create another" (Ctrl+G) resends it
+  const [lastToken, setLastToken] = useState<{
+    name: string;
+    cardId?: string;
+    count: number;
+  } | null>(null);
+
+  // hover feeds both the zoom preview and hovered-card shortcuts
+  const onHover = useCallback((def: CardDef | null, card: CardView | null) => {
+    setZoom(def);
+    setHoverCard(card);
+  }, []);
 
   // --- pointer plumbing ------------------------------------------------------
 
   const onCardPointerDown = useCallback(
     (card: CardView, event: ReactPointerEvent) => {
+      if (event.button === 2) {
+        // ctrl/⌘ + right-click on any battlefield card starts a sticky
+        // arrow: it follows the cursor and the next left click places it.
+        // Plain right-clicks open the card menu in onCardContextMenu.
+        if ((event.ctrlKey || event.metaKey) && onAnyBattlefield(view, card.uid)) {
+          setArrowPicking(card);
+          setArrowDraft({
+            fromUid: card.uid,
+            x: event.clientX,
+            y: event.clientY,
+          });
+        }
+        return;
+      }
       if (event.button !== 0) return;
       if (selectMode) return; // clicks toggle selection instead of dragging
+      if (arrowPicking) return; // clicks pick arrow targets instead
       const own = findOwnCard(view, you, card.uid);
       if (!own || (own.zone !== "battlefield" && own.zone !== "hand")) return;
       pending.current = {
@@ -163,7 +238,7 @@ export default function GameTable({
         started: false,
       };
     },
-    [view, you, selectMode]
+    [view, you, selectMode, arrowPicking]
   );
 
   const finishDrag = useCallback(
@@ -273,9 +348,8 @@ export default function GameTable({
 
   // --- menus and overlays ------------------------------------------------------
 
-  const onCardContextMenu = useCallback(
-    (card: CardView, event: ReactMouseEvent) => {
-      event.preventDefault();
+  const openCardMenu = useCallback(
+    (card: CardView, x: number, y: number) => {
       const own = findOwnCard(view, you, card.uid);
       if (!own) return;
       setMenu({
@@ -283,12 +357,71 @@ export default function GameTable({
         card,
         zone: own.zone,
         name: get(own.card.cardId)?.name ?? own.card.annotations[0] ?? "Card",
-        x: event.clientX,
-        y: event.clientY,
+        x,
+        y,
       });
     },
     [view, you, get]
   );
+
+  const onCardContextMenu = useCallback(
+    (card: CardView, event: ReactMouseEvent) => {
+      event.preventDefault();
+      // no menu while an arrow is being placed, and none for the
+      // ctrl/⌘-right-click gesture that starts one
+      if (arrowPicking || arrowDraft || event.ctrlKey || event.metaKey) return;
+      openCardMenu(card, event.clientX, event.clientY);
+    },
+    [openCardMenu, arrowPicking, arrowDraft]
+  );
+
+  // --- arrow drawing -----------------------------------------------------------
+
+  function cancelArrowPicking() {
+    setArrowPicking(null);
+    setArrowDraft(null);
+    setArrowTarget(null);
+  }
+
+  const commitArrow = useCallback(
+    (fromUid: string, x: number, y: number) => {
+      const target = arrowTargetAt(x, y);
+      if (!target || ("uid" in target && target.uid === fromUid)) return;
+      send({ type: "DRAW_ARROW", fromUid, to: target });
+    },
+    [send]
+  );
+
+  // arrow placing (menu "Draw arrow to…", Alt+A over a card, or
+  // ctrl/⌘+right-click): the rubber band follows the cursor; the next left
+  // click on a card or player head commits; any other click or Escape cancels
+  useEffect(() => {
+    const source = arrowPicking;
+    if (!source) return;
+    const fromUid = source.uid;
+    function onMove(event: PointerEvent) {
+      setArrowDraft({ fromUid, x: event.clientX, y: event.clientY });
+      const target = arrowTargetAt(event.clientX, event.clientY);
+      setArrowTarget(
+        target && !("uid" in target && target.uid === fromUid) ? target : null
+      );
+    }
+    function onUp(event: PointerEvent) {
+      if (event.button !== 0) return;
+      setArrowPicking(null);
+      setArrowDraft(null);
+      setArrowTarget(null);
+      if (arrowTargetAt(event.clientX, event.clientY)) {
+        commitArrow(fromUid, event.clientX, event.clientY);
+      }
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [arrowPicking, commitArrow]);
 
   function onPileClick(zone: Zone) {
     if (zone === "library") {
@@ -321,16 +454,19 @@ export default function GameTable({
     }
   }
 
-  function addNote(card: CardView) {
-    const note = window.prompt("Sticky note for this card (leave empty to clear)");
-    if (note === null) return;
-    const trimmed = note.trim();
-    const existing = card.annotations.filter((a) => a.trim() !== "");
-    const notes = trimmed
-      ? [...existing.filter((a) => a !== trimmed), trimmed].slice(0, 8)
-      : existing.filter((a) => a !== "");
-    send({ type: "SET_NOTES", uid: card.uid, notes });
-  }
+  const addNote = useCallback(
+    (card: CardView) => {
+      const note = window.prompt("Sticky note for this card (leave empty to clear)");
+      if (note === null) return;
+      const trimmed = note.trim();
+      const existing = card.annotations.filter((a) => a.trim() !== "");
+      const notes = trimmed
+        ? [...existing.filter((a) => a !== trimmed), trimmed].slice(0, 8)
+        : existing.filter((a) => a !== "");
+      send({ type: "SET_NOTES", uid: card.uid, notes });
+    },
+    [send]
+  );
 
   // --- N-action flows (dock, library menu) -------------------------------------
 
@@ -463,6 +599,10 @@ export default function GameTable({
         setAudience(null);
         return;
       }
+      if (arrowPicking || arrowDraft) {
+        cancelArrowPicking();
+        return;
+      }
       setMenu(null);
       setActionsOpen(false);
       setPicker(null);
@@ -480,7 +620,7 @@ export default function GameTable({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [maximized, selectMode, closePile, revealPopup, audience]);
+  }, [maximized, selectMode, closePile, revealPopup, audience, arrowPicking, arrowDraft]);
 
   useEffect(() => {
     if (!hostMenuOpen) return;
@@ -512,6 +652,127 @@ export default function GameTable({
     window.addEventListener("wheel", onWheel, { passive: false });
     return () => window.removeEventListener("wheel", onWheel);
   }, [zoom]);
+
+  // --- keyboard shortcuts (Cockatrice defaults, lib/keybinds.ts) ---------------
+
+  // Inert while typing and on key repeats; every match claims the browser
+  // default too (no bookmark/save/find/refresh mid-game).
+  useEffect(() => {
+    function ownHovered() {
+      return hoverCard ? findOwnCard(view, you, hoverCard.uid) : null;
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.repeat || isTypingTarget(event.target)) return;
+      const id = matchKeybind(event);
+      if (!id) return;
+      event.preventDefault();
+      switch (id) {
+        case "drawOne":
+          send({ type: "DRAW_CARDS", count: 1 });
+          break;
+        case "drawMany":
+          setPicker("draw");
+          break;
+        case "nextTurn":
+          send({ type: "NEXT_TURN" });
+          break;
+        case "untapAll": {
+          const cards =
+            self?.zones.battlefield.kind === "cards" ? self.zones.battlefield.cards : [];
+          for (const card of cards) {
+            if (card.tapped) send({ type: "SET_TAPPED", uid: card.uid, value: false });
+          }
+          break;
+        }
+        case "shuffleLibrary":
+          send({ type: "SHUFFLE_LIBRARY" });
+          break;
+        case "rollDie":
+          send({ type: "ROLL_DIE", sides: 20 });
+          break;
+        case "millOne":
+          send({ type: "MILL_CARDS", count: 1 });
+          break;
+        case "millMany":
+          setPicker("mill");
+          break;
+        case "playTopCard": {
+          const top =
+            self?.zones.library.kind === "cards" ? self.zones.library.cards[0] : undefined;
+          if (top) send({ type: "MOVE_CARD", uid: top.uid, to: "battlefield" });
+          break;
+        }
+        case "viewLibrary":
+          setPile({ zone: "library" });
+          break;
+        case "viewGraveyard":
+          setPile({ zone: "graveyard" });
+          break;
+        case "viewSideboard":
+          setPile({ zone: "sideboard" });
+          break;
+        case "viewTopCards":
+          setPicker("lookTop");
+          break;
+        case "createToken":
+          setTokenOpen(true);
+          break;
+        case "createAnotherToken":
+          if (lastToken) send({ type: "CREATE_TOKEN", ...lastToken });
+          break;
+        case "removeMyArrows":
+          if (you) send({ type: "CLEAR_ARROWS", playerId: you });
+          break;
+        case "lifeSet":
+          setLifeFocusTick((t) => t + 1);
+          break;
+        case "lifeInc":
+          if (self) send({ type: "SET_LIFE", life: self.life + 1 });
+          break;
+        case "lifeDec":
+          if (self) send({ type: "SET_LIFE", life: self.life - 1 });
+          break;
+        case "focusChat":
+          setChatFocusTick((t) => t + 1);
+          break;
+        case "selectAll": {
+          const cards = self?.zones.hand.kind === "cards" ? self.zones.hand.cards : [];
+          setSelected(new Set(cards.map((c) => c.uid)));
+          setSelectMode(true);
+          break;
+        }
+        case "arrowFromHover": {
+          const own = ownHovered();
+          if (own?.zone === "battlefield") setArrowPicking(own.card);
+          break;
+        }
+        case "flipHover": {
+          const own = ownHovered();
+          if (own?.zone === "battlefield") {
+            send({ type: "SET_FACE_DOWN", uid: own.card.uid, value: !own.card.faceDown });
+          }
+          break;
+        }
+        case "graveyardHover": {
+          const own = ownHovered();
+          if (own) send({ type: "MOVE_CARD", uid: own.card.uid, to: "graveyard" });
+          break;
+        }
+        case "bottomHover": {
+          const own = ownHovered();
+          if (own) {
+            send({ type: "MOVE_CARD", uid: own.card.uid, to: "library", index: "bottom" });
+          }
+          break;
+        }
+        case "noteHover":
+          if (hoverCard && ownHovered()) addNote(hoverCard);
+          break;
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [send, view, you, self, hoverCard, lastToken, addNote]);
 
   if (!self) {
     return (
@@ -561,7 +822,11 @@ export default function GameTable({
   const pileCards = pileZoneView?.kind === "cards" ? pileZoneView.cards : [];
 
   return (
-    <div className="flex h-dvh flex-col gap-2 overflow-hidden p-2">
+    <div
+      className={`flex h-dvh flex-col gap-2 overflow-hidden p-2 ${
+        arrowPicking ? "arrow-picking" : ""
+      }`}
+    >
       <header className="relative flex items-center gap-3">
         <button
           onClick={copyCode}
@@ -604,6 +869,15 @@ export default function GameTable({
           <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
           Actions
         </button>
+        {view.arrows.length > 0 && (
+          <button
+            onClick={() => send({ type: "CLEAR_ARROWS" })}
+            title="Remove every drawn arrow"
+            className="rounded border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 hover:border-emerald-600"
+          >
+            Clear arrows ({view.arrows.length})
+          </button>
+        )}
         <div className="relative">
           <button
             onClick={() => setPreviewMenuOpen((v) => !v)}
@@ -730,7 +1004,8 @@ export default function GameTable({
           </div>
         )}
         <span className="ml-auto text-xs text-zinc-600">
-          drag to move · click to tap · right-click for actions
+          drag to move · click to tap · right-click for actions ·
+          ctrl+right-click to draw an arrow
         </span>
       </header>
 
@@ -749,6 +1024,10 @@ export default function GameTable({
               activePlayerId={view.activePlayerId}
               focus={focusLive}
               maximized={false}
+              arrows={view.arrows}
+              arrowTargetedUid={arrowTarget?.uid ?? null}
+              arrowTargetedPlayerId={arrowTarget?.playerId ?? null}
+              onRemoveArrow={(id) => send({ type: "CLEAR_ARROWS", id })}
               onFocus={openBoardFocus}
               onDuel={openDuel}
               onExitFocus={exitFocus}
@@ -757,7 +1036,7 @@ export default function GameTable({
               getDef={get}
               onCardPointerDown={onCardPointerDown}
               onCardContextMenu={onCardContextMenu}
-              onCardHover={setZoom}
+              onCardHover={onHover}
               draggedUid={drag?.uid ?? null}
               battlefieldRef={battlefieldRef}
             />
@@ -780,12 +1059,27 @@ export default function GameTable({
               </div>
             </div>
           )}
+          {arrowPicking && (
+            <div className="bar-in flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-xs">
+              <span className="font-medium text-emerald-300">Draw arrow</span>
+              <span className="text-zinc-500">
+                from {get(arrowPicking.cardId)?.name ?? "card"} — click a card
+                or a player&apos;s name to point at it
+              </span>
+              <button
+                onClick={cancelArrowPicking}
+                className="ml-auto rounded border border-zinc-700 px-2 py-0.5 text-zinc-400 transition-colors hover:border-emerald-600 hover:text-zinc-200"
+              >
+                Cancel (Esc)
+              </button>
+            </div>
+          )}
           <HandFan
             cards={hand}
             getDef={get}
             onCardPointerDown={onCardPointerDown}
             onCardContextMenu={onCardContextMenu}
-            onCardHover={setZoom}
+            onCardHover={onHover}
             draggedUid={drag?.uid ?? null}
             selectMode={selectMode}
             selected={selected}
@@ -800,6 +1094,8 @@ export default function GameTable({
           send={send}
           getDef={get}
           previewWidth={previewWidth}
+          chatFocusTick={chatFocusTick}
+          lifeFocusTick={lifeFocusTick}
         />
       </div>
 
@@ -812,6 +1108,10 @@ export default function GameTable({
             activePlayerId={view.activePlayerId}
             focus={focusLive}
             maximized
+            arrows={view.arrows}
+            arrowTargetedUid={arrowTarget?.uid ?? null}
+            arrowTargetedPlayerId={arrowTarget?.playerId ?? null}
+            onRemoveArrow={(id) => send({ type: "CLEAR_ARROWS", id })}
             onFocus={openBoardFocus}
             onDuel={openDuel}
             onExitFocus={exitFocus}
@@ -820,7 +1120,7 @@ export default function GameTable({
             getDef={get}
             onCardPointerDown={onCardPointerDown}
             onCardContextMenu={onCardContextMenu}
-            onCardHover={setZoom}
+            onCardHover={onHover}
             draggedUid={drag?.uid ?? null}
             battlefieldRef={battlefieldRef}
           />
@@ -833,6 +1133,16 @@ export default function GameTable({
           def={zoom}
           width={previewWidth}
           className="fixed bottom-[160px] left-[100px] z-50"
+        />
+      )}
+
+      {/* arrow rubber band while placing an arrow */}
+      {arrowDraft && (
+        <ArrowDraft
+          fromUid={arrowDraft.fromUid}
+          x={arrowDraft.x}
+          y={arrowDraft.y}
+          color={you ? nameColor(you) : "#6ee7b7"}
         />
       )}
 
@@ -874,6 +1184,7 @@ export default function GameTable({
         onPicker={(mode) => setPicker(mode)}
         onViewLibrary={() => setPile({ zone: "library" })}
         onRevealTo={(card, name) => setAudience({ cards: [{ uid: card.uid, name }] })}
+        onDrawArrowFrom={(card) => setArrowPicking(card)}
       />
 
       {actionsOpen && (
@@ -938,7 +1249,13 @@ export default function GameTable({
         />
       )}
 
-      {tokenOpen && <TokenModal send={send} onClose={() => setTokenOpen(false)} />}
+      {tokenOpen && (
+        <TokenModal
+          send={send}
+          onCreate={setLastToken}
+          onClose={() => setTokenOpen(false)}
+        />
+      )}
 
       {audience && (
         <AudiencePickerModal

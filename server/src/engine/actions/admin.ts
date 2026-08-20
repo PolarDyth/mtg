@@ -32,6 +32,7 @@ function endGame(
   game.started = false;
   game.format = "freeform";
   game.activePlayerId = null;
+  game.arrows = [];
   for (const player of game.players) {
     player.zones = emptyZones();
     player.life = 20;

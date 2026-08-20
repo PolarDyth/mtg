@@ -1,16 +1,25 @@
 // Battlefield card state: flags, counters, position, notes, attachments,
-// and tokens.
+// tokens, and drawn arrows.
 
 import type { Action, CardInstance } from "@mythic/shared";
-import { systemMessage, TOKEN_MARKER, type Game, type Player } from "../state";
+import {
+  findPlayer,
+  randomId,
+  systemMessage,
+  TOKEN_MARKER,
+  type Game,
+  type Player,
+} from "../state";
 import {
   clamp,
   err,
   MAX_ANNOTATIONS,
+  MAX_ARROWS,
   MAX_COUNTER_KINDS,
   MAX_TOKENS_AT_ONCE,
   newInstance,
   ok,
+  onBattlefield,
   ownCard,
   requireStarted,
   type ActionResult,
@@ -169,6 +178,65 @@ function createToken(
   return ok(game);
 }
 
+function drawArrow(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "DRAW_ARROW" }>,
+  ctx: Ctx
+): ActionResult {
+  if (!onBattlefield(game, action.fromUid)) {
+    return err("source card is not on the battlefield");
+  }
+  if ("uid" in action.to) {
+    if (action.to.uid === action.fromUid) {
+      return err("cannot point an arrow at its own card");
+    }
+    if (!onBattlefield(game, action.to.uid)) {
+      return err("target card is not on the battlefield");
+    }
+  } else if (!findPlayer(game, action.to.playerId)) {
+    return err("target player not found");
+  }
+  // One outgoing arrow per card per author — redrawing replaces, so
+  // re-declaring an attack never stacks duplicates.
+  const replaces = game.arrows.some(
+    (a) => a.playerId === actor.id && a.fromUid === action.fromUid
+  );
+  if (!replaces && game.arrows.length >= MAX_ARROWS) {
+    return err("too many arrows on the table");
+  }
+  game.arrows = game.arrows.filter(
+    (a) => !(a.playerId === actor.id && a.fromUid === action.fromUid)
+  );
+  game.arrows.push({
+    id: randomId(ctx.rng),
+    playerId: actor.id,
+    fromUid: action.fromUid,
+    to: action.to,
+    at: ctx.now(),
+  });
+  return ok(game);
+}
+
+function clearArrows(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "CLEAR_ARROWS" }>
+): ActionResult {
+  if (action.id !== undefined) {
+    const before = game.arrows.length;
+    game.arrows = game.arrows.filter((a) => a.id !== action.id);
+    if (game.arrows.length === before) return err("arrow not found");
+    return ok(game);
+  }
+  if (action.playerId !== undefined) {
+    game.arrows = game.arrows.filter((a) => a.playerId !== action.playerId);
+    return ok(game);
+  }
+  game.arrows = [];
+  return ok(game);
+}
+
 export const cardsHandlers = {
   SET_TAPPED: setTapped,
   SET_FACE_DOWN: setFaceDown,
@@ -177,4 +245,6 @@ export const cardsHandlers = {
   SET_NOTES: setNotes,
   ATTACH_CARD: attachCard,
   CREATE_TOKEN: createToken,
+  DRAW_ARROW: drawArrow,
+  CLEAR_ARROWS: clearArrows,
 } satisfies Partial<HandlerMap>;

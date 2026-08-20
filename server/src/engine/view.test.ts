@@ -98,3 +98,34 @@ describe("host in views", () => {
     expect(personalize(game, ada.id).hostId).toBe(ada.id);
   });
 });
+
+describe("arrows in views", () => {
+  it("arrows are public — identical for every viewer", () => {
+    const { game, ctx, ada, bob, adaUid, bobUid } = (() => {
+      const s = setup();
+      startWithDeck(s.game, s.ctx, s.ada);
+      mustOk(
+        act(s.game, s.ctx, s.bob, {
+          type: "LOAD_DECK",
+          library: [{ cardId: "bob-card", count: 5 }],
+          sideboard: [],
+        })
+      );
+      mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 1 }));
+      mustOk(act(s.game, s.ctx, s.bob, { type: "DRAW_CARDS", count: 1 }));
+      const adaUid = uidAt(s.ada.zones.hand, 0);
+      const bobUid = uidAt(s.bob.zones.hand, 0);
+      mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: adaUid, to: "battlefield" }));
+      mustOk(act(s.game, s.ctx, s.bob, { type: "MOVE_CARD", uid: bobUid, to: "battlefield" }));
+      return { ...s, adaUid, bobUid };
+    })();
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } })
+    );
+    mustOk(
+      act(game, ctx, bob, { type: "DRAW_ARROW", fromUid: bobUid, to: { playerId: ada.id } })
+    );
+    expect(personalize(game, ada.id).arrows).toEqual(game.arrows);
+    expect(personalize(game, bob.id).arrows).toEqual(game.arrows);
+  });
+});

@@ -32,6 +32,8 @@ export function personalize(game: Game, viewerId: PlayerId): GameView {
         message.playerId === viewerId ||
         message.to?.includes(viewerId) === true
     ),
+    // Arrows point at public battlefield state — identical for everyone.
+    arrows: game.arrows,
   };
 }
 

@@ -15,11 +15,15 @@ type Props = {
   className?: string;
   dragging?: boolean;
   attachedStackIndex?: number;
+  /** highlighted as the hovered target of an arrow being drawn */
+  arrowTargeted?: boolean;
   /** left/top % refer to the card's center (battlefield placement). */
   centered?: boolean;
   onCardPointerDown?: (card: CardView, event: ReactPointerEvent) => void;
   onCardContextMenu?: (card: CardView, event: ReactMouseEvent) => void;
-  onCardHover?: (def: CardDef | null) => void;
+  /** card is null for hidden cards and on leave — defs alone can't drive
+   *  hovered-card shortcuts, which need the uid */
+  onCardHover?: (def: CardDef | null, card: CardView | null) => void;
   style?: React.CSSProperties;
 };
 
@@ -47,6 +51,7 @@ const CardSprite = memo(function CardSprite({
   className = "",
   dragging = false,
   attachedStackIndex,
+  arrowTargeted = false,
   centered = false,
   onCardPointerDown,
   onCardContextMenu,
@@ -64,12 +69,14 @@ const CardSprite = memo(function CardSprite({
         onCardContextMenu ? (e) => onCardContextMenu(card, e) : undefined
       }
       onMouseEnter={
-        onCardHover ? () => onCardHover(hidden ? null : def) : undefined
+        onCardHover ? () => onCardHover(hidden ? null : def, card) : undefined
       }
-      onMouseLeave={onCardHover ? () => onCardHover(null) : undefined}
+      onMouseLeave={onCardHover ? () => onCardHover(null, null) : undefined}
       className={`absolute select-none touch-none ${
         onCardPointerDown ? "cursor-grab active:cursor-grabbing" : ""
-      } ${dragging ? "opacity-30" : "hover:brightness-110"} ${className}`}
+      } ${dragging ? "opacity-30" : "hover:brightness-110"} ${
+        arrowTargeted ? "rounded-md ring-2 ring-emerald-400 brightness-110" : ""
+      } ${className}`}
       style={{
         width,
         height,

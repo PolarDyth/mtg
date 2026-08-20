@@ -46,6 +46,7 @@ export const MAX_COUNTER_KINDS = 12;
 export const MAX_ANNOTATIONS = 8;
 export const MAX_DISCARD_AT_ONCE = 30;
 export const MAX_LOOK = 10;
+export const MAX_ARROWS = 40;
 
 export function err(error: string): ActionResult {
   return { ok: false, error };
@@ -95,6 +96,30 @@ export function detachFollowers(game: Game, uid: string): void {
       if (card.attachedTo === uid) card.attachedTo = undefined;
     }
   }
+}
+
+/** Is this uid currently a battlefield card (any player's)? */
+export function onBattlefield(game: Game, uid: string): boolean {
+  return game.players.some((player) =>
+    player.zones.battlefield.some((c) => c.uid === uid)
+  );
+}
+
+/**
+ * Drop arrows whose endpoint cards left the battlefield (or whose target
+ * player left the table) — annotations must never outlive what they point
+ * at. Runs after every applied action.
+ */
+export function pruneArrows(game: Game): void {
+  if (game.arrows.length === 0) return;
+  const seated = new Set(game.players.map((p) => p.id));
+  game.arrows = game.arrows.filter(
+    (arrow) =>
+      onBattlefield(game, arrow.fromUid) &&
+      ("playerId" in arrow.to
+        ? seated.has(arrow.to.playerId)
+        : onBattlefield(game, arrow.to.uid))
+  );
 }
 
 export function newInstance(cardId: string, ctx: Ctx): CardInstance {

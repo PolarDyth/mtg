@@ -6,14 +6,10 @@ import type { CardDef } from "@/lib/scryfall";
 import { PREVIEW_DEFAULT } from "@/lib/settings";
 import CardPreview from "./CardPreview";
 import { CARD_RATIO } from "./CardSprite";
+import { nameColor } from "@/lib/playerColor";
 
-/** Stable per-player hue for names in chat. */
-export function nameColor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  const hue = Math.abs(hash) % 360;
-  return `hsl(${hue} 70% 72%)`;
-}
+// re-exported for the components that historically imported it from here
+export { nameColor };
 
 export function ChatLog({
   messages,
@@ -145,11 +141,19 @@ export function ChatLog({
 export function ChatInput({
   onSend,
   placeholder = "Message the table…",
+  focusTick = 0,
 }: {
   onSend: (text: string) => void;
   placeholder?: string;
+  /** increments when a shortcut (Shift+Enter) asks the input to focus */
+  focusTick?: number;
 }) {
   const [text, setText] = useState("");
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (focusTick > 0) inputRef.current?.focus();
+  }, [focusTick]);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -161,6 +165,7 @@ export function ChatInput({
   return (
     <form onSubmit={submit} className="flex gap-2">
       <input
+        ref={inputRef}
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={placeholder}

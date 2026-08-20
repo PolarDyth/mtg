@@ -42,6 +42,25 @@ export type CardInstance = CardBase & { cardId: string };
 /** A card as a client sees it: cardId is null when hidden (face-down). */
 export type CardView = CardBase & { cardId: string | null };
 
+/** Where an arrow points: another battlefield card, or a player's board. */
+export type ArrowTarget = { uid: string } | { playerId: PlayerId };
+
+/**
+ * A drawn arrow on the battlefield — attack/block/target declarations in the
+ * Cockatrice style. Fully public (battlefield uids are visible to every
+ * viewer). Arrows clear when the turn passes, when an endpoint leaves play,
+ * or on demand.
+ */
+export type Arrow = {
+  id: string;
+  /** Author; arrows render in the author's color. */
+  playerId: PlayerId;
+  /** Source battlefield card (any player's). */
+  fromUid: string;
+  to: ArrowTarget;
+  at: number;
+};
+
 export type DieSides = 4 | 6 | 8 | 10 | 12 | 20 | 100;
 
 /** Game formats. They tweak starting setup, never enforce rules. */
@@ -71,6 +90,9 @@ export type Action =
   | { type: "SET_NOTES"; uid: string; notes: string[] }
   | { type: "ATTACH_CARD"; uid: string; to: string | null }
   | { type: "CREATE_TOKEN"; name: string; cardId?: string; count: number }
+  | { type: "DRAW_ARROW"; fromUid: string; to: ArrowTarget }
+  /** Remove arrows: one by `id`, one author's by `playerId`, or all. */
+  | { type: "CLEAR_ARROWS"; id?: string; playerId?: PlayerId }
   | {
       type: "REVEAL_CARDS";
       cards: { uid: string; name: string }[];
@@ -148,6 +170,8 @@ export type GameView = {
   hostId: PlayerId;
   players: PlayerView[];
   chat: ChatMessage[];
+  /** Drawn arrows — public, identical for every viewer. */
+  arrows: Arrow[];
 };
 
 /** Max chat messages retained in state and sent in snapshots. */

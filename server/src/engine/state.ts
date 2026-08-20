@@ -2,7 +2,7 @@
 // server: they contain secrets (rejoin tokens) and true card identities that
 // view.ts filters before anything reaches a client.
 
-import { ALL_ZONES, CHAT_CAP, type CardInstance, type ChatMessage, type Format, type PlayerId, type Zone } from "@mythic/shared";
+import { ALL_ZONES, CHAT_CAP, type Arrow, type CardInstance, type ChatMessage, type Format, type PlayerId, type Zone } from "@mythic/shared";
 import type { Rng } from "./rng";
 
 export type Player = {
@@ -36,6 +36,8 @@ export type Game = {
   banned: BanList;
   players: Player[];
   chat: ChatMessage[];
+  /** Drawn arrows (attack/target markers); public, pruned when endpoints go. */
+  arrows: Arrow[];
 };
 
 export function emptyZones(): Record<Zone, CardInstance[]> {
@@ -60,6 +62,7 @@ export function createGame(code: string): Game {
     banned: { names: [], ips: [] },
     players: [],
     chat: [],
+    arrows: [],
   };
 }
 

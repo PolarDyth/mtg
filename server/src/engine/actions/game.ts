@@ -67,6 +67,8 @@ function nextTurn(
   const i = game.players.findIndex((p) => p.id === game.activePlayerId);
   const next = game.players[(i + 1 + game.players.length) % game.players.length];
   game.activePlayerId = next.id;
+  // Passing the turn ends combat talk — attack/block arrows go with it.
+  game.arrows = [];
   systemMessage(game, `It is now ${next.name}'s turn`, ctx.rng, ctx.now());
   return ok(game);
 }

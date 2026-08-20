@@ -69,6 +69,30 @@ per-tab sessionStorage).
   switches animate via entrance keyframes in `globals.css` (`.board-in`,
   `.bar-in`, `.overlay-in` — the band grid is keyed per mode to replay
   them).
+- Arrows (attack/target markers) are `game.arrows: Arrow[]` — public state,
+  cleared by NEXT_TURN and END_GAME, pruned in `applyAction` when an
+  endpoint card leaves the battlefield (`pruneArrows` is the single choke
+  point). One outgoing arrow per author per source card (redraw replaces);
+  anyone may clear. Rendered by `ArrowLayer`, a whole-table SVG inside
+  Battlefield's root div that resolves endpoints from live DOM rects
+  (`[data-card-uid]`, `[data-player-head]`) — never duplicate the
+  mirroring math there; tips shorten to endpoint edges so they don't eat
+  card clicks (arrowhead is pointer-events: none). Drawn by ctrl/⌘+right-
+  click on any battlefield card — a sticky draft follows the cursor and the
+  next left click on a card/player head places it (Esc cancels) — or via
+  the menu's "Draw arrow to…" mode or Alt+A over a hovered card; a plain
+  right-click always opens the card menu. Geometry math is pure in
+  `arrowGeometry.ts`.
+- Game shortcuts mirror Cockatrice's defaults, centralized in
+  `frontend/src/lib/keybinds.ts` (Ctrl+D draw, Ctrl+E draw N, Ctrl+Enter
+  next turn, Ctrl+U untap all, Ctrl+S shuffle, F3/F4/Ctrl+F3 view piles,
+  Alt+Y/Alt+M mill, Ctrl+R remove my arrows, Shift+Enter focus chat…).
+  Browser-reserved combos are remapped: token = Ctrl+Alt+T, look at top N
+  = Ctrl+Alt+W, life ±1 = Ctrl+Alt+= / Ctrl+Alt+-. Card-level binds
+  (Alt+A arrow, Alt+F flip, Ctrl+Del graveyard, Ctrl+B bottom, Alt+N
+  note) act on the **hovered card** — `hoverCard` in GameTable, fed by
+  `onCardHover(def, card)` from CardSprite. The dispatcher ignores keys
+  typed into INPUT/TEXTAREA and preventDefaults every matched combo.
 - No database: games live in server RAM; card definitions are cached in
   localStorage (versioned key `mtg:cards:vN` in `frontend/src/lib/cardCache.ts`;
   bump the version when CardDef's shape changes). UI preferences use

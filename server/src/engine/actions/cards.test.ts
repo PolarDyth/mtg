@@ -115,3 +115,180 @@ describe("CREATE_TOKEN", () => {
     mustFail(act(game, ctx, ada, { type: "CREATE_TOKEN", name: "  ", count: 1 }), "name");
   });
 });
+
+describe("DRAW_ARROW / CLEAR_ARROWS", () => {
+  /** Both players with one battlefield card each. */
+  function playTwo(): {
+    game: Game;
+    ctx: Ctx;
+    ada: Player;
+    bob: Player;
+    adaUid: string;
+    bobUid: string;
+  } {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(
+      act(s.game, s.ctx, s.bob, {
+        type: "LOAD_DECK",
+        library: [{ cardId: "bob-card", count: 5 }],
+        sideboard: [],
+      })
+    );
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 1 }));
+    mustOk(act(s.game, s.ctx, s.bob, { type: "DRAW_CARDS", count: 1 }));
+    const adaUid = uidAt(s.ada.zones.hand, 0);
+    const bobUid = uidAt(s.bob.zones.hand, 0);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: adaUid, to: "battlefield" }));
+    mustOk(act(s.game, s.ctx, s.bob, { type: "MOVE_CARD", uid: bobUid, to: "battlefield" }));
+    return { ...s, adaUid, bobUid };
+  }
+
+  it("draws card→card and card→player arrows", () => {
+    const { game, ctx, ada, bob, adaUid, bobUid } = playTwo();
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } })
+    );
+    mustOk(
+      act(game, ctx, bob, { type: "DRAW_ARROW", fromUid: bobUid, to: { playerId: ada.id } })
+    );
+    expect(game.arrows).toHaveLength(2);
+    expect(game.arrows[0]).toMatchObject({
+      playerId: ada.id,
+      fromUid: adaUid,
+      to: { uid: bobUid },
+      at: 1_000,
+    });
+    expect(game.arrows[1]?.to).toEqual({ playerId: ada.id });
+  });
+
+  it("redrawing from the same card replaces the author's arrow; other authors stack", () => {
+    const { game, ctx, ada, bob, adaUid, bobUid } = playTwo();
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } })
+    );
+    mustOk(
+      act(game, ctx, ada, {
+        type: "DRAW_ARROW",
+        fromUid: adaUid,
+        to: { playerId: bob.id },
+      })
+    );
+    expect(game.arrows).toHaveLength(1);
+    expect(game.arrows[0]?.to).toEqual({ playerId: bob.id });
+    // a different author may arrow from the same card
+    mustOk(
+      act(game, ctx, bob, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } })
+    );
+    expect(game.arrows).toHaveLength(2);
+  });
+
+  it("rejects arrows whose endpoints are not on the battlefield", () => {
+    const { game, ctx, ada, adaUid, bobUid } = playTwo();
+    // a hand card can be a target's stand-in for "not on battlefield"
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const handUid = uidAt(ada.zones.hand, 0);
+    mustFail(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: handUid, to: { uid: bobUid } }),
+      "source card"
+    );
+    mustFail(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: handUid } }),
+      "target card"
+    );
+    mustFail(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { playerId: "ghost" } }),
+      "player"
+    );
+    mustFail(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: adaUid } }),
+      "own card"
+    );
+  });
+
+  it("caps the table at 40 arrows", () => {
+    const { game, ctx, ada, bob, adaUid, bobUid } = playTwo();
+    mustOk(
+      act(game, ctx, ada, { type: "CREATE_TOKEN", name: "Goblin", count: 20 })
+    );
+    mustOk(
+      act(game, ctx, ada, { type: "CREATE_TOKEN", name: "Goblin", count: 20 })
+    );
+    const sources = ada.zones.battlefield.map((c) => c.uid).filter((u) => u !== adaUid);
+    expect(sources.length).toBeGreaterThanOrEqual(40);
+    for (let i = 0; i < 40; i++) {
+      mustOk(
+        act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: sources[i]!, to: { uid: bobUid } })
+      );
+    }
+    expect(game.arrows).toHaveLength(40);
+    mustFail(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } }),
+      "too many arrows"
+    );
+    // but replacing an existing arrow at the cap still works
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: sources[0]!, to: { uid: bobUid } })
+    );
+    expect(game.arrows).toHaveLength(40);
+  });
+
+  it("clears by id, by author, or all; unknown ids error", () => {
+    const { game, ctx, ada, bob, adaUid, bobUid } = playTwo();
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } })
+    );
+    mustOk(
+      act(game, ctx, bob, { type: "DRAW_ARROW", fromUid: bobUid, to: { uid: adaUid } })
+    );
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: bobUid, to: { uid: adaUid } })
+    );
+    const [first] = game.arrows;
+    mustFail(
+      act(game, ctx, ada, { type: "CLEAR_ARROWS", id: "nope" }),
+      "not found"
+    );
+    mustOk(act(game, ctx, bob, { type: "CLEAR_ARROWS", id: first!.id }));
+    expect(game.arrows).toHaveLength(2);
+    mustOk(act(game, ctx, ada, { type: "CLEAR_ARROWS", playerId: bob.id }));
+    expect(game.arrows).toHaveLength(1); // the survivor is Ada's
+    mustOk(act(game, ctx, bob, { type: "CLEAR_ARROWS" }));
+    expect(game.arrows).toHaveLength(0);
+  });
+
+  it("prunes arrows when their endpoint cards leave the battlefield", () => {
+    const { game, ctx, ada, adaUid, bobUid } = playTwo();
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } })
+    );
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: bobUid, to: { uid: adaUid } })
+    );
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid: adaUid, to: "graveyard" }));
+    expect(game.arrows).toHaveLength(0);
+  });
+
+  it("prunes card→player arrows when the target player leaves", () => {
+    const { game, ctx, ada, bob, adaUid } = playTwo();
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { playerId: bob.id } })
+    );
+    mustOk(act(game, ctx, bob, { type: "LEAVE_GAME" }));
+    expect(game.arrows).toHaveLength(0);
+  });
+
+  it("clears all arrows when the turn passes or the game ends", () => {
+    const { game, ctx, ada, adaUid, bobUid } = playTwo();
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } })
+    );
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
+    expect(game.arrows).toHaveLength(0);
+    mustOk(
+      act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: adaUid, to: { uid: bobUid } })
+    );
+    mustOk(act(game, ctx, ada, { type: "END_GAME" }));
+    expect(game.arrows).toHaveLength(0);
+  });
+});

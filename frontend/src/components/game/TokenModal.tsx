@@ -7,9 +7,12 @@ import { searchTokenCards, type CardDef } from "@/lib/scryfall";
 /** Create tokens: search Scryfall's token cards, or mint a generic one. */
 export default function TokenModal({
   send,
+  onCreate,
   onClose,
 }: {
   send: (action: Action) => void;
+  /** remembers the token for "create another" (Ctrl+G) */
+  onCreate?: (token: { name: string; cardId?: string; count: number }) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -32,12 +35,9 @@ export default function TokenModal({
 
   function create() {
     const trimmed = (selected?.name ?? name).trim().slice(0, 64) || "Token";
-    send({
-      type: "CREATE_TOKEN",
-      name: trimmed,
-      cardId: selected?.id,
-      count,
-    });
+    const token = { name: trimmed, cardId: selected?.id, count };
+    send({ type: "CREATE_TOKEN", ...token });
+    onCreate?.(token);
     onClose();
   }
 
