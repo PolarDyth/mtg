@@ -23,6 +23,7 @@ npm run dev     # dev server on :3000 (custom server + Turbopack HMR)
 npm test        # vitest: server engine tests + frontend decklist-parser tests
 npm run build   # next build + server typecheck (tsc --noEmit)
 npm start       # production — runs SOURCE via tsx, not dist (see gotchas)
+docker compose up -d --build   # production Docker image (Dockerfile at root)
 ```
 
 Focused typecheck/lint: `npx tsc --noEmit` and `npx eslint src` inside
@@ -81,7 +82,10 @@ per-tab sessionStorage).
 
 - **Production runs source through tsx** (`node --import tsx server/src/index.ts`).
   Don't switch `npm start` to `server/dist` — compiled CJS cannot `require`
-  the raw-TS `@mythic/shared` package (this broke once already).
+  the raw-TS `@mythic/shared` package (this broke once already). The Docker
+  runtime stage mirrors this on purpose; don't "optimize" it to compiled
+  dist either. `.dockerignore` must keep `*.test.ts` in the context — the
+  in-image `npm run build` typechecks them.
 - **Orphaned dev servers** can hold port 3000 after a session ("Another next
   dev server is already running", with a PID). Kill the PID
   (`taskkill /PID <pid> /T /F`), confirm with curl, then restart. Port-listen

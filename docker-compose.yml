@@ -1,0 +1,9 @@
+services:
+  mythic-table:
+    build: .
+    image: mythic-table:latest
+    container_name: mythic-table
+    init: true # tini as PID 1 -> clean SIGTERM handling
+    restart: unless-stopped
+    ports:
+      - "${MYTHIC_PORT:-3000}:3000"

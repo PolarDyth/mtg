@@ -58,10 +58,23 @@ npm start          # production server (NODE_ENV=production implied)
 
 ## Deployment
 
-Single Node process, `npm run build && npm start` (or the Dockerfile of your
-choice). Works on Railway, Fly.io, Render, or any VPS. **Not Vercel** —
-serverless functions can't hold WebSocket connections. Games live in server
-RAM only; a restart clears rooms (accepted v1 trade-off).
+Single Node process, `npm run build && npm start` (or Docker, below). Works
+on Railway, Fly.io, Render, or any VPS. **Not Vercel** — serverless functions
+can't hold WebSocket connections. Games live in server RAM only; a restart
+clears rooms (accepted v1 trade-off).
+
+### Docker (Linux)
+
+```bash
+docker compose up -d --build   # build + start on http://localhost:3000
+docker compose logs -f         # follow
+docker compose down            # stop (rooms are RAM-only; they're gone)
+```
+
+Custom host port: `MYTHIC_PORT=8080 docker compose up -d --build` (or put
+`MYTHIC_PORT=8080` in a `.env` file). The image runs the same command as
+`npm start` — the production Next build booted by the custom server via tsx —
+as the non-root `node` user, with a healthcheck on `/`.
 
 ## Card data
 
