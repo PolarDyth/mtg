@@ -24,7 +24,14 @@ export function personalize(game: Game, viewerId: PlayerId): GameView {
     activePlayerId: game.activePlayerId ?? "",
     hostId: game.hostId ?? "",
     players: game.players.map((player) => playerView(player, viewerId)),
-    chat: game.chat,
+    // Chat is shared — except targeted reveals (the only variant carrying
+    // `to`), which stay between the revealer and their chosen audience.
+    chat: game.chat.filter(
+      (message) =>
+        !("to" in message) ||
+        message.playerId === viewerId ||
+        message.to?.includes(viewerId) === true
+    ),
   };
 }
 

@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 import { act, mustOk, setup, startWithDeck, uidAt } from "./actions/testUtils";
+import { addPlayer, makePlayer } from "./state";
 import { personalize } from "./view";
 
 describe("personalized snapshots", () => {
@@ -62,6 +63,31 @@ describe("personalized snapshots", () => {
     const lastMsg = bobView.chat.at(-1);
     if (lastMsg?.kind !== "text") throw new Error("expected text message");
     expect(lastMsg.text).toBe("hi");
+  });
+  it("targeted reveal chat reaches only the revealer and chosen players", () => {
+    const { game, ctx, ada, bob } = setup();
+    const cal = makePlayer(game, "Cal", "tok-cal", ctx.rng);
+    addPlayer(game, cal);
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(ada.zones.hand, 0);
+    mustOk(
+      act(game, ctx, ada, {
+        type: "REVEAL_CARDS",
+        cards: [{ uid, name: "X" }],
+        to: [bob.id],
+      })
+    );
+    mustOk(act(game, ctx, ada, { type: "REVEAL_CARDS", cards: [{ uid, name: "X" }] }));
+
+    const revealsOf = (viewer: string) =>
+      personalize(game, viewer).chat.filter((m) => m.kind === "reveal");
+    expect(revealsOf(ada.id)).toHaveLength(2); // revealer sees both
+    expect(revealsOf(bob.id)).toHaveLength(2); // target sees both
+    expect(revealsOf(cal.id)).toHaveLength(1); // outsider sees only the broadcast
+    const outsiderReveal = revealsOf(cal.id)[0];
+    if (outsiderReveal?.kind !== "reveal") throw new Error("expected reveal");
+    expect(outsiderReveal.to).toBeUndefined();
   });
 });
 

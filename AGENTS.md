@@ -49,7 +49,9 @@ per-tab sessionStorage).
   tests in `engine/view.test.ts`).
 - Hidden info is filtered per-viewer in `view.ts`: opponents' hand/library/
   sideboard collapse to counts; face-down cards carry `cardId: null` for
-  non-owners. `CardInstance` (server, real id) vs `CardView` (wire, nullable).
+  non-owners; reveal chat messages with `to` are delivered only to the
+  revealer + named players (all other chat is shared verbatim).
+  `CardInstance` (server, real id) vs `CardView` (wire, nullable).
 - Battlefield layout is **per-viewer like a real table**: players fill a
   corner grid (`seatGrid` in `frontend/src/components/game/tableLayout.ts`)
   with your board anchoring the bottom row flush-LEFT when opponents share
@@ -68,7 +70,8 @@ per-tab sessionStorage).
   them).
 - No database: games live in server RAM; card definitions are cached in
   localStorage (versioned key `mtg:cards:vN` in `frontend/src/lib/cardCache.ts`;
-  bump the version when CardDef's shape changes).
+  bump the version when CardDef's shape changes). UI preferences use
+  `frontend/src/lib/settings.ts` (plain keys like `mtg:preview-width`).
 - Scryfall is called browser-side only; batch via POST /cards/collection
   (≤75 identifiers, ~100ms between batches). Server never makes HTTP calls.
 - First seated player is host (transfers on leave); host-only actions:

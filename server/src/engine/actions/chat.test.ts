@@ -25,6 +25,46 @@ describe("REVEAL_CARDS", () => {
     }
   });
 
+  it("targets reveals at specific players and dedupes the audience", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(ada.zones.hand, 0);
+    mustOk(
+      act(game, ctx, ada, {
+        type: "REVEAL_CARDS",
+        cards: [{ uid, name: "X" }],
+        to: [bob.id, bob.id],
+      })
+    );
+    const last = game.chat.at(-1);
+    if (last?.kind !== "reveal") throw new Error("expected reveal message");
+    expect(last.to).toEqual([bob.id]);
+  });
+
+  it("rejects bad audiences: empty, unknown, self", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(ada.zones.hand, 0);
+    mustFail(
+      act(game, ctx, ada, { type: "REVEAL_CARDS", cards: [{ uid, name: "X" }], to: [] }),
+      "target"
+    );
+    mustFail(
+      act(game, ctx, ada, { type: "REVEAL_CARDS", cards: [{ uid, name: "X" }], to: ["ghost"] }),
+      "target"
+    );
+    mustFail(
+      act(game, ctx, ada, { type: "REVEAL_CARDS", cards: [{ uid, name: "X" }], to: [ada.id] }),
+      "target"
+    );
+    mustFail(
+      act(game, ctx, bob, { type: "REVEAL_CARDS", cards: [{ uid, name: "X" }], to: [bob.id] }),
+      "target"
+    );
+  });
+
   it("refuses to reveal another player's cards or nothing", () => {
     const { game, ctx, ada, bob } = setup();
     startWithDeck(game, ctx, ada);

@@ -100,6 +100,7 @@ export default function ContextMenu({
   onNote,
   onPicker,
   onViewLibrary,
+  onRevealTo,
 }: {
   menu: MenuState;
   send: (action: Action) => void;
@@ -107,6 +108,8 @@ export default function ContextMenu({
   onNote: (card: CardView) => void;
   onPicker: (mode: PickerMode) => void;
   onViewLibrary: () => void;
+  /** opens the reveal audience picker for this card */
+  onRevealTo: (card: CardView, name: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [countersOpen, setCountersOpen] = useState(false);
@@ -289,6 +292,13 @@ export default function ContextMenu({
         label="Reveal to table"
         onClick={() => {
           send({ type: "REVEAL_CARDS", cards: [{ uid: card.uid, name }] });
+          onClose();
+        }}
+      />
+      <MenuItem
+        label="Reveal to…"
+        onClick={() => {
+          onRevealTo(card, name);
           onClose();
         }}
       />

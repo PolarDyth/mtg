@@ -4,6 +4,7 @@ import {
   CHAT_CAP,
   type Action,
   type ChatMessage,
+  type PlayerId,
 } from "@mythic/shared";
 import { chatId, pushChat, type Game, type Player } from "../state";
 import {
@@ -67,6 +68,18 @@ function revealCards(
   if (action.cards.length === 0 || action.cards.length > MAX_REVEAL_AT_ONCE) {
     return err(`reveal 1–${MAX_REVEAL_AT_ONCE} cards`);
   }
+  // Audience: absent = whole table. When present, every id must be a seated
+  // other player — strict rejection (not silent drop) so a stale target can
+  // never accidentally broadcast a private reveal to everyone.
+  let to: PlayerId[] | undefined;
+  if (action.to !== undefined) {
+    if (action.to.length === 0) return err("no reveal target selected");
+    to = [...new Set(action.to)];
+    for (const id of to) {
+      if (id === actor.id) return err("unknown reveal target");
+      if (!game.players.some((p) => p.id === id)) return err("unknown reveal target");
+    }
+  }
   const revealed: { name: string; cardId: string }[] = [];
   const seen = new Set<string>();
   for (const entry of action.cards) {
@@ -84,6 +97,7 @@ function revealCards(
     playerId: actor.id,
     kind: "reveal",
     cards: revealed,
+    ...(to !== undefined ? { to } : {}),
   });
   return ok(game);
 }

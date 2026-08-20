@@ -127,7 +127,7 @@ SET_COUNTERS { uid, counters }
 SET_POSITION { uid, x, y }
 ATTACH_CARD { uid, to: uid | null }
 CREATE_TOKEN { name, cardId?, count }
-REVEAL_CARDS { uids }
+REVEAL_CARDS { uids, to? }          // to = specific seated players; absent = whole table
 SHUFFLE_LIBRARY
 SET_LIFE { life }
 ROLL_DIE { sides }
@@ -202,7 +202,12 @@ The server knows everything but sends each player a filtered view:
 
 `REVEAL_CARDS` publishes chosen cards' identities to the whole table as a chat
 message (carrying resolved name + `cardId` so every client can render them)
-without moving them. Cheating is impossible by construction.
+without moving them. Cheating is impossible by construction. An optional `to`
+list scopes the reveal to specific seated players: the chat message then
+carries `to` and each snapshot filters it — only the revealer and the named
+players ever receive it (chat is otherwise shared verbatim). Target ids are
+validated strictly (seated, not the actor) so a stale id can never silently
+fall back to a broadcast.
 
 ## 6. UI Design
 

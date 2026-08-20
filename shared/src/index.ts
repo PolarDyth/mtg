@@ -71,7 +71,13 @@ export type Action =
   | { type: "SET_NOTES"; uid: string; notes: string[] }
   | { type: "ATTACH_CARD"; uid: string; to: string | null }
   | { type: "CREATE_TOKEN"; name: string; cardId?: string; count: number }
-  | { type: "REVEAL_CARDS"; cards: { uid: string; name: string }[] }
+  | {
+      type: "REVEAL_CARDS";
+      cards: { uid: string; name: string }[];
+      /** Audience: absent = whole table; present = only these seated players
+       * (plus the revealer) ever see the message. */
+      to?: PlayerId[];
+    }
   | { type: "SHUFFLE_LIBRARY" }
   | { type: "DISCARD_CARDS"; uids: string[] }
   | { type: "MILL_CARDS"; count: number }
@@ -124,7 +130,13 @@ type ChatBase = { id: string; at: number; playerId: PlayerId };
 export type ChatMessage =
   | (ChatBase & { kind: "text"; text: string })
   | (ChatBase & { kind: "dice"; sides: number; result: number })
-  | (ChatBase & { kind: "reveal"; cards: { name: string; cardId: string }[] })
+  | (ChatBase & {
+      kind: "reveal";
+      cards: { name: string; cardId: string }[];
+      /** Present when the reveal targets specific players: only they (and the
+       * revealer) receive this message in their snapshot. */
+      to?: PlayerId[];
+    })
   | (ChatBase & { kind: "system"; text: string });
 
 export type GameView = {

@@ -3,7 +3,9 @@
 import { useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { Action, CardView, Zone } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
+import { PREVIEW_DEFAULT } from "@/lib/settings";
 import { Eye, Hand, Layers, Swords } from "lucide-react";
+import CardPreview from "./CardPreview";
 
 const ZONE_TITLES: Record<Zone, string> = {
   library: "Library",
@@ -41,6 +43,8 @@ export default function PileModal({
   playerName,
   highlightTop,
   onCardContextMenu,
+  previewWidth = PREVIEW_DEFAULT,
+  onRevealTo,
 }: {
   zone: Zone;
   cards: CardView[];
@@ -53,6 +57,10 @@ export default function PileModal({
   /** dim library cards beyond the top N — the "look at top N" surface */
   highlightTop?: number;
   onCardContextMenu?: (card: CardView, event: ReactMouseEvent) => void;
+  /** width of the hover preview bubble (user preference) */
+  previewWidth?: number;
+  /** opens the reveal audience picker for the given cards */
+  onRevealTo?: (cards: CardView[]) => void;
 }) {
   const [filter, setFilter] = useState("");
   const [zoom, setZoom] = useState<CardDef | null>(null);
@@ -240,6 +248,19 @@ export default function PileModal({
                   {dest.label}
                 </button>
               ))}
+              {onRevealTo && (
+                <button
+                  disabled={!selectedIds.length}
+                  onClick={() => {
+                    onRevealTo(cards.filter((c) => selected.has(c.uid)));
+                    setSelected(new Set());
+                    setSelectActive(false);
+                  }}
+                  className="rounded border border-zinc-700 px-2.5 py-1 text-xs text-emerald-300 transition-colors hover:border-emerald-600 hover:text-white disabled:opacity-40 disabled:hover:border-zinc-700"
+                >
+                  reveal to…
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -259,10 +280,7 @@ export default function PileModal({
         )}
 
         {zoom && (
-          <div className="pointer-events-none absolute left-4 top-16 z-10 rounded-lg bg-black/80 p-1 shadow-2xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={zoom.normal} alt={zoom.name} className="w-[220px] rounded" />
-          </div>
+          <CardPreview def={zoom} width={previewWidth} className="absolute left-4 top-16 z-10" />
         )}
       </div>
     </div>

@@ -10,17 +10,28 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Action, CardView, GameView, PlayerId, Zone } from "@mythic/shared";
-import { Ban, Check, Copy, Crown, Shield, Sparkles, UserX } from "lucide-react";
+import { Ban, Check, Copy, Crown, Shield, Sparkles, UserX, ZoomIn } from "lucide-react";
 import { useCardDefs } from "@/lib/useCardDefs";
 import type { CardDef } from "@/lib/scryfall";
+import {
+  clampPreviewWidth,
+  loadPreviewWidth,
+  PREVIEW_DEFAULT,
+  PREVIEW_MAX,
+  PREVIEW_MIN,
+  savePreviewWidth,
+} from "@/lib/settings";
 import ActionsModal from "./ActionsModal";
+import AudiencePickerModal from "./AudiencePickerModal";
 import Battlefield from "./Battlefield";
 import { CARD_RATIO } from "./CardSprite";
+import CardPreview from "./CardPreview";
 import ContextMenu, { type MenuState } from "./ContextMenu";
 import ChatPanel from "./ChatPanel";
 import CountPickerModal, { type PickerMode } from "./CountPickerModal";
 import HandFan from "./HandFan";
 import PileModal from "./PileModal";
+import RevealPopup, { type RevealChatMessage } from "./RevealPopup";
 import ScryModal from "./ScryModal";
 import TokenModal from "./TokenModal";
 import { cardWidthFor, focusPlayerId, imageFor, type FocusMode } from "./tableLayout";
@@ -118,6 +129,17 @@ export default function GameTable({
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [copied, setCopied] = useState(false);
   const [hostMenuOpen, setHostMenuOpen] = useState(false);
+  const [previewMenuOpen, setPreviewMenuOpen] = useState(false);
+  // user's preferred hover-preview width, persisted in localStorage
+  const [previewWidth, setPreviewWidth] = useState(loadPreviewWidth);
+  // reveal popups: chat ids present at mount already "happened" — their
+  // reveals must not replay; dismissed ids never pop up again
+  const [dismissedReveals, setDismissedReveals] = useState<Set<string>>(() => new Set());
+  const [chatBaseline] = useState<Set<string>>(() => new Set(view.chat.map((m) => m.id)));
+  // pending "reveal to…" — cards chosen, waiting on an audience
+  const [audience, setAudience] = useState<{ cards: { uid: string; name: string }[] } | null>(
+    null
+  );
   // battlefield view mode: null = full table; focus modes swap in one board
   // or a you-vs-one duel, maximized = true fullscreen overlay
   const [focus, setFocus] = useState<FocusMode | null>(null);
@@ -228,6 +250,27 @@ export default function GameTable({
     };
   }, [drag, finishDrag, send]);
 
+  // --- fresh-reveal popup (derived, no effects) -------------------------------
+
+  // first undismissed reveal that arrived after mount — the popup for it
+  // (and the next one, once this is dismissed)
+  const revealPopup = view.chat.find(
+    (m): m is RevealChatMessage =>
+      m.kind === "reveal" &&
+      !chatBaseline.has(m.id) &&
+      !dismissedReveals.has(m.id)
+  ) ?? null;
+
+  function dismissReveal() {
+    if (!revealPopup) return;
+    const id = revealPopup.id;
+    setDismissedReveals((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }
+
   // --- menus and overlays ------------------------------------------------------
 
   const onCardContextMenu = useCallback(
@@ -321,11 +364,17 @@ export default function GameTable({
     } else if (mode === "revealTop") {
       const top =
         self?.zones.library.kind === "cards" ? self.zones.library.cards.slice(0, n) : [];
-      send({
-        type: "REVEAL_CARDS",
+      setAudience({
         cards: top.map((c) => ({ uid: c.uid, name: get(c.cardId)?.name ?? "Card" })),
       });
     }
+  }
+
+  function confirmAudience(to: PlayerId[] | null) {
+    if (audience) {
+      send({ type: "REVEAL_CARDS", cards: audience.cards, ...(to ? { to } : {}) });
+    }
+    setAudience(null);
   }
 
   // --- hand selection (group discard / exile / reveal / bottom) ----------------
@@ -383,11 +432,35 @@ export default function GameTable({
     exitSelect();
   }
 
+  function revealToSelected() {
+    if (selectedInHand.length === 0) return;
+    setAudience({
+      cards: selectedInHand.map((uid) => {
+        const card = hand.find((c) => c.uid === uid);
+        return { uid, name: get(card?.cardId ?? null)?.name ?? "Card" };
+      }),
+    });
+    exitSelect();
+  }
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (maximized) {
         setMaximized(false);
+        return;
+      }
+      if (revealPopup) {
+        const id = revealPopup.id;
+        setDismissedReveals((prev) => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
+        return;
+      }
+      if (audience) {
+        setAudience(null);
         return;
       }
       setMenu(null);
@@ -402,11 +475,12 @@ export default function GameTable({
       setTokenOpen(false);
       setZoom(null);
       setHostMenuOpen(false);
+      setPreviewMenuOpen(false);
       setFocus(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [maximized, selectMode, closePile]);
+  }, [maximized, selectMode, closePile, revealPopup, audience]);
 
   useEffect(() => {
     if (!hostMenuOpen) return;
@@ -414,6 +488,30 @@ export default function GameTable({
     window.addEventListener("pointerdown", close);
     return () => window.removeEventListener("pointerdown", close);
   }, [hostMenuOpen]);
+
+  useEffect(() => {
+    if (!previewMenuOpen) return;
+    const close = () => setPreviewMenuOpen(false);
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [previewMenuOpen]);
+
+  useEffect(() => {
+    savePreviewWidth(previewWidth);
+  }, [previewWidth]);
+
+  // ctrl/⌘ + scroll while a preview is showing resizes it — the only time we
+  // claim the gesture; plain scrolling (and pinch-zoom elsewhere) stays native
+  useEffect(() => {
+    function onWheel(event: WheelEvent) {
+      if (!(event.ctrlKey || event.metaKey)) return;
+      if (!zoom) return;
+      event.preventDefault();
+      setPreviewWidth((w) => clampPreviewWidth(w + (event.deltaY < 0 ? 16 : -16)));
+    }
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, [zoom]);
 
   if (!self) {
     return (
@@ -506,6 +604,54 @@ export default function GameTable({
           <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
           Actions
         </button>
+        <div className="relative">
+          <button
+            onClick={() => setPreviewMenuOpen((v) => !v)}
+            title="Card preview size (ctrl/⌘ + scroll over a card also resizes)"
+            aria-label="Card preview size"
+            className="flex items-center rounded border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 hover:border-emerald-600"
+          >
+            <ZoomIn className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </button>
+          {previewMenuOpen && (
+            <div
+              className="absolute left-0 top-full z-50 mt-1.5 w-64 rounded-md border border-zinc-700 bg-zinc-900 p-3 shadow-2xl"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+                Card preview size
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="range"
+                  min={PREVIEW_MIN}
+                  max={PREVIEW_MAX}
+                  step={4}
+                  value={previewWidth}
+                  onChange={(e) => setPreviewWidth(clampPreviewWidth(Number(e.target.value)))}
+                  aria-label="Card preview size"
+                  className="h-1.5 min-w-0 flex-1 accent-emerald-500"
+                />
+                <span className="w-11 shrink-0 text-right font-mono text-xs text-zinc-400">
+                  {previewWidth}px
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setPreviewWidth(PREVIEW_DEFAULT)}
+                  className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                >
+                  Reset
+                </button>
+                <span className="text-right text-[10px] leading-tight text-zinc-600">
+                  ctrl/⌘ + scroll over a card
+                  <br />
+                  also resizes
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
         {you === view.hostId && (
           <div className="relative">
             <button
@@ -625,6 +771,7 @@ export default function GameTable({
                 <GroupButton label="Discard" disabled={!selectedInHand.length} onClick={discardSelected} />
                 <GroupButton label="Exile" disabled={!selectedInHand.length} onClick={exileSelected} />
                 <GroupButton label="Reveal" disabled={!selectedInHand.length} onClick={revealSelected} />
+                <GroupButton label="Reveal to…" disabled={!selectedInHand.length} onClick={revealToSelected} />
                 <GroupButton
                   label="To bottom"
                   disabled={!selectedInHand.length}
@@ -647,7 +794,13 @@ export default function GameTable({
           />
         </div>
 
-        <ChatPanel view={view} you={you} send={send} />
+        <ChatPanel
+          view={view}
+          you={you}
+          send={send}
+          getDef={get}
+          previewWidth={previewWidth}
+        />
       </div>
 
       {/* true-fullscreen battlefield overlay (maximize while focused) */}
@@ -676,10 +829,11 @@ export default function GameTable({
 
       {/* hover zoom (above the fullscreen overlay) */}
       {zoom && (
-        <div className="pointer-events-none fixed bottom-[160px] left-[100px] z-50 rounded-lg bg-black/70 p-1 shadow-2xl">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={zoom.normal} alt={zoom.name} className="w-56 rounded" draggable={false} />
-        </div>
+        <CardPreview
+          def={zoom}
+          width={previewWidth}
+          className="fixed bottom-[160px] left-[100px] z-50"
+        />
       )}
 
       {/* drag ghost */}
@@ -719,6 +873,7 @@ export default function GameTable({
         onNote={addNote}
         onPicker={(mode) => setPicker(mode)}
         onViewLibrary={() => setPile({ zone: "library" })}
+        onRevealTo={(card, name) => setAudience({ cards: [{ uid: card.uid, name }] })}
       />
 
       {actionsOpen && (
@@ -774,10 +929,38 @@ export default function GameTable({
           playerName={pile.playerId ? pileSource?.name : undefined}
           highlightTop={pile.highlightTop}
           onCardContextMenu={onCardContextMenu}
+          previewWidth={previewWidth}
+          onRevealTo={(cards) =>
+            setAudience({
+              cards: cards.map((c) => ({ uid: c.uid, name: get(c.cardId)?.name ?? "Card" })),
+            })
+          }
         />
       )}
 
       {tokenOpen && <TokenModal send={send} onClose={() => setTokenOpen(false)} />}
+
+      {audience && (
+        <AudiencePickerModal
+          players={view.players.filter((p) => p.id !== you)}
+          onCancel={() => setAudience(null)}
+          onConfirm={confirmAudience}
+        />
+      )}
+
+      {revealPopup && (
+        <RevealPopup
+          message={revealPopup}
+          revealerName={
+            view.players.find((p) => p.id === revealPopup.playerId)?.name ?? "someone"
+          }
+          you={you}
+          players={view.players}
+          getDef={get}
+          previewWidth={previewWidth}
+          onClose={dismissReveal}
+        />
+      )}
     </div>
   );
 }

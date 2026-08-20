@@ -1,6 +1,7 @@
 "use client";
 
 import type { Action, DieSides, GameView, PlayerId, PlayerView } from "@mythic/shared";
+import type { CardDef } from "@/lib/scryfall";
 import { Crown } from "lucide-react";
 import { useState } from "react";
 import { ChatInput, ChatLog, nameColor } from "./ChatLog";
@@ -12,10 +13,14 @@ export default function ChatPanel({
   view,
   you,
   send,
+  getDef,
+  previewWidth,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
+  getDef: (id: string | null) => CardDef | null;
+  previewWidth: number;
 }) {
   return (
     <aside className="flex w-[280px] shrink-0 flex-col gap-3">
@@ -54,7 +59,14 @@ export default function ChatPanel({
       </section>
 
       <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
-        <ChatLog messages={view.chat} players={view.players} className="flex-1 overflow-y-auto pr-1" />
+        <ChatLog
+          messages={view.chat}
+          players={view.players}
+          you={you}
+          getDef={getDef}
+          previewWidth={previewWidth}
+          className="flex-1 overflow-y-auto pr-1"
+        />
         <div className="mt-3">
           <ChatInput onSend={(text) => send({ type: "SEND_CHAT", text })} />
         </div>
