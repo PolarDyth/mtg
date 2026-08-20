@@ -1,15 +1,19 @@
 // Card flow between zones: drawing, moving, reordering, shuffling.
 
-import type { Action } from "@mythic/shared";
+import type { Action, CardInstance } from "@mythic/shared";
 import { systemMessage, type Game, type Player } from "../state";
 import {
   detachFollowers,
   err,
+  MAX_DISCARD_AT_ONCE,
+  MAX_LOOK,
   ok,
   ownCard,
   removeFromZone,
   requireStarted,
   shuffle,
+  takeTopPartition,
+  zoneOf,
   type ActionResult,
   type Ctx,
   type HandlerMap,
@@ -31,6 +35,9 @@ function drawCards(
     const card = actor.zones.library.shift();
     if (card) actor.zones.hand.push(card);
   }
+  if (drawn > 0) {
+    systemMessage(game, `${actor.name} draws ${drawn} ${drawn === 1 ? "card" : "cards"}`, ctx.rng, ctx.now());
+  }
   return ok(game);
 }
 
@@ -46,25 +53,39 @@ function moveCard(
   if (!found) return err("card not found");
   const target = actor.zones[action.to];
   if (!target) return err("unknown zone");
-  if (action.index !== undefined && (!Number.isInteger(action.index) || action.index < 0)) {
-    return err("bad index");
+
+  let index: number;
+  if (action.index === "top") index = 0;
+  else if (action.index === "bottom") index = target.length;
+  else if (action.index !== undefined) {
+    if (!Number.isInteger(action.index) || action.index < 0) {
+      return err("bad index");
+    }
+    index = Math.min(action.index, target.length);
+  } else {
+    // Default placement: top of library, end of everything else.
+    index = action.to === "library" ? 0 : target.length;
   }
 
   const wasOnBattlefield = actor.zones.battlefield.includes(found.card);
+  const from = zoneOf(actor.zones, found.card);
   detachFollowers(game, found.card.uid);
   removeFromZone(found.card, actor.zones);
-
-  // Default placement: top of library, end of everything else.
-  const index =
-    action.index !== undefined
-      ? Math.min(action.index, target.length)
-      : action.to === "library"
-        ? 0
-        : target.length;
   target.splice(index, 0, found.card);
 
   if (action.to !== "battlefield" || !wasOnBattlefield) {
     found.card.attachedTo = undefined;
+  }
+  if (from && from !== action.to) {
+    const dest =
+      action.to === "library"
+        ? index === 0
+          ? "the top of their library"
+          : index === target.length - 1
+            ? "the bottom of their library"
+            : "their library"
+        : action.to;
+    systemMessage(game, `${actor.name} moves a card from ${from} to ${dest}`, ctx.rng, ctx.now());
   }
   return ok(game);
 }
@@ -104,9 +125,141 @@ function shuffleLibrary(
   return ok(game);
 }
 
+function discardCards(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "DISCARD_CARDS" }>,
+  ctx: Ctx
+): ActionResult {
+  const started = requireStarted(game);
+  if (started) return err(started);
+  if (
+    !Array.isArray(action.uids) ||
+    action.uids.length < 1 ||
+    action.uids.length > MAX_DISCARD_AT_ONCE
+  ) {
+    return err("bad discard");
+  }
+  if (new Set(action.uids).size !== action.uids.length) return err("duplicate card");
+  const cards: CardInstance[] = [];
+  for (const uid of action.uids) {
+    const found = ownCard(game, actor, uid);
+    if (!found || !actor.zones.hand.includes(found.card)) {
+      return err("card not in hand");
+    }
+    cards.push(found.card);
+  }
+  for (const card of cards) {
+    actor.zones.hand.splice(actor.zones.hand.indexOf(card), 1);
+    card.attachedTo = undefined;
+    actor.zones.graveyard.push(card);
+  }
+  systemMessage(
+    game,
+    `${actor.name} discards ${cards.length} ${cards.length === 1 ? "card" : "cards"}`,
+    ctx.rng,
+    ctx.now()
+  );
+  return ok(game);
+}
+
+function millCards(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "MILL_CARDS" }>,
+  ctx: Ctx
+): ActionResult {
+  const started = requireStarted(game);
+  if (started) return err(started);
+  if (!Number.isInteger(action.count) || action.count < 1 || action.count > 100) {
+    return err("bad mill count");
+  }
+  const milled = Math.min(action.count, actor.zones.library.length);
+  for (let i = 0; i < milled; i++) {
+    const card = actor.zones.library.shift();
+    if (card) actor.zones.graveyard.push(card);
+  }
+  systemMessage(
+    game,
+    `${actor.name} mills ${milled} ${milled === 1 ? "card" : "cards"}`,
+    ctx.rng,
+    ctx.now()
+  );
+  return ok(game);
+}
+
+function scry(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "SCRY" }>,
+  ctx: Ctx
+): ActionResult {
+  const started = requireStarted(game);
+  if (started) return err(started);
+  if (!Number.isInteger(action.look) || action.look < 1 || action.look > MAX_LOOK) {
+    return err("bad scry count");
+  }
+  const part = takeTopPartition(actor.zones.library, action.look, action.top, action.bottom);
+  if (!part.ok) return err(part.error);
+  const byUid = new Map(part.cards.map((c) => [c.uid, c]));
+  const topCards = action.top
+    .map((uid) => byUid.get(uid))
+    .filter((c): c is CardInstance => c !== undefined);
+  actor.zones.library.unshift(...topCards);
+  for (const uid of action.bottom) {
+    const card = byUid.get(uid);
+    if (card) actor.zones.library.push(card);
+  }
+  systemMessage(
+    game,
+    `${actor.name} scries ${action.look} (${action.top.length} on top, ${action.bottom.length} on bottom)`,
+    ctx.rng,
+    ctx.now()
+  );
+  return ok(game);
+}
+
+function surveil(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "SURVEIL" }>,
+  ctx: Ctx
+): ActionResult {
+  const started = requireStarted(game);
+  if (started) return err(started);
+  if (!Number.isInteger(action.look) || action.look < 1 || action.look > MAX_LOOK) {
+    return err("bad surveil count");
+  }
+  const part = takeTopPartition(actor.zones.library, action.look, action.top, action.graveyard);
+  if (!part.ok) return err(part.error);
+  const byUid = new Map(part.cards.map((c) => [c.uid, c]));
+  const topCards = action.top
+    .map((uid) => byUid.get(uid))
+    .filter((c): c is CardInstance => c !== undefined);
+  actor.zones.library.unshift(...topCards);
+  for (const uid of action.graveyard) {
+    const card = byUid.get(uid);
+    if (card) {
+      card.attachedTo = undefined;
+      actor.zones.graveyard.push(card);
+    }
+  }
+  systemMessage(
+    game,
+    `${actor.name} surveils ${action.look} (${action.top.length} on top, ${action.graveyard.length} to graveyard)`,
+    ctx.rng,
+    ctx.now()
+  );
+  return ok(game);
+}
+
 export const zonesHandlers = {
   DRAW_CARDS: drawCards,
   MOVE_CARD: moveCard,
   MOVE_CARD_INDEX: moveCardIndex,
   SHUFFLE_LIBRARY: shuffleLibrary,
+  DISCARD_CARDS: discardCards,
+  MILL_CARDS: millCards,
+  SCRY: scry,
+  SURVEIL: surveil,
 } satisfies Partial<HandlerMap>;

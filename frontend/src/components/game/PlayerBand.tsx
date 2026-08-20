@@ -1,10 +1,17 @@
 "use client";
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
-import { Maximize2, Swords } from "lucide-react";
+import { Ban, Crown, Maximize2, Skull, Swords } from "lucide-react";
 import type { CardView, PlayerView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
 import CardSprite from "./CardSprite";
+
+/** Opponent piles you can peek at from their band header. */
+const PILE_CHIPS: { zone: "graveyard" | "exile" | "command"; label: string; Icon: typeof Skull }[] = [
+  { zone: "graveyard", label: "graveyard", Icon: Skull },
+  { zone: "exile", label: "exile", Icon: Ban },
+  { zone: "command", label: "command zone", Icon: Crown },
+];
 
 /**
  * One player's board as a grid cell: a slim header (name, focus buttons)
@@ -30,6 +37,7 @@ export default function PlayerBand({
   draggedUid,
   onFocus,
   onDuel,
+  onPile,
   boardRef,
 }: {
   player: PlayerView;
@@ -49,6 +57,8 @@ export default function PlayerBand({
   draggedUid: string | null;
   onFocus?: () => void;
   onDuel?: () => void;
+  /** open one of this opponent's public piles (only set for opponents) */
+  onPile?: (zone: "graveyard" | "exile" | "command") => void;
   /** drop-math anchor — attached only to your own board */
   boardRef?: React.Ref<HTMLDivElement>;
 }) {
@@ -92,6 +102,25 @@ export default function PlayerBand({
         </span>
         {!player.connected && (
           <span className="shrink-0 text-[10px] text-zinc-600">offline</span>
+        )}
+        {onPile && (
+          <span className="flex shrink-0 items-center gap-0.5">
+            {PILE_CHIPS.map(({ zone, label, Icon }) => {
+              const view = player.zones[zone];
+              const count = view.kind === "cards" ? view.cards.length : view.count;
+              return (
+                <button
+                  key={zone}
+                  onClick={() => onPile(zone)}
+                  title={`View ${player.name}'s ${label} (${count})`}
+                  className="flex items-center gap-0.5 rounded px-1 py-0.5 font-mono text-[10px] text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+                >
+                  <Icon className="h-3 w-3" strokeWidth={1.75} />
+                  {count}
+                </button>
+              );
+            })}
+          </span>
         )}
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
           {onDuel && (

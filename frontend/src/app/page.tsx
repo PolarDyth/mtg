@@ -103,7 +103,7 @@ export default function HomePage() {
             Mythic Table
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
-            A no-rules-enforced virtual tabletop for Magic: The Gathering
+            A virtual tabletop for Magic: The Gathering
           </p>
         </header>
 
@@ -158,7 +158,6 @@ export default function HomePage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-zinc-600">
-          No accounts, no rules enforcement — just a shared table.
           Bring your own decklist.
         </p>
       </div>

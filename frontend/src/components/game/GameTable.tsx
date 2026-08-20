@@ -10,15 +10,18 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Action, CardView, GameView, PlayerId, Zone } from "@mythic/shared";
-import { Ban, Check, Copy, Crown, Shield, UserX } from "lucide-react";
+import { Ban, Check, Copy, Crown, Shield, Sparkles, UserX } from "lucide-react";
 import { useCardDefs } from "@/lib/useCardDefs";
 import type { CardDef } from "@/lib/scryfall";
+import ActionsModal from "./ActionsModal";
 import Battlefield from "./Battlefield";
 import { CARD_RATIO } from "./CardSprite";
 import ContextMenu, { type MenuState } from "./ContextMenu";
 import ChatPanel from "./ChatPanel";
+import CountPickerModal, { type PickerMode } from "./CountPickerModal";
 import HandFan from "./HandFan";
 import PileModal from "./PileModal";
+import ScryModal from "./ScryModal";
 import TokenModal from "./TokenModal";
 import { cardWidthFor, focusPlayerId, imageFor, type FocusMode } from "./tableLayout";
 import ZoneRail from "./ZoneRail";
@@ -101,8 +104,18 @@ export default function GameTable({
   const [drag, setDrag] = useState<DragState | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [zoom, setZoom] = useState<CardDef | null>(null);
-  const [pile, setPile] = useState<Zone | null>(null);
+  const [pile, setPile] = useState<{
+    zone: Zone;
+    /** set when viewing an opponent's public pile (read-only) */
+    playerId?: PlayerId;
+    highlightTop?: number;
+  } | null>(null);
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [picker, setPicker] = useState<PickerMode | null>(null);
+  const [scry, setScry] = useState<{ mode: "scry" | "surveil"; n: number } | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [copied, setCopied] = useState(false);
   const [hostMenuOpen, setHostMenuOpen] = useState(false);
   // battlefield view mode: null = full table; focus modes swap in one board
@@ -117,6 +130,7 @@ export default function GameTable({
   const onCardPointerDown = useCallback(
     (card: CardView, event: ReactPointerEvent) => {
       if (event.button !== 0) return;
+      if (selectMode) return; // clicks toggle selection instead of dragging
       const own = findOwnCard(view, you, card.uid);
       if (!own || (own.zone !== "battlefield" && own.zone !== "hand")) return;
       pending.current = {
@@ -127,7 +141,7 @@ export default function GameTable({
         started: false,
       };
     },
-    [view, you]
+    [view, you, selectMode]
   );
 
   const finishDrag = useCallback(
@@ -224,12 +238,13 @@ export default function GameTable({
       setMenu({
         kind: "card",
         card,
-        onBattlefield: own.zone === "battlefield",
+        zone: own.zone,
+        name: get(own.card.cardId)?.name ?? own.card.annotations[0] ?? "Card",
         x: event.clientX,
         y: event.clientY,
       });
     },
-    [view, you]
+    [view, you, get]
   );
 
   function onPileClick(zone: Zone) {
@@ -237,12 +252,21 @@ export default function GameTable({
       send({ type: "DRAW_CARDS", count: 1 });
       return;
     }
-    setPile(zone);
+    setPile({ zone });
   }
 
   function onPileContextMenu(zone: Zone, x: number, y: number) {
     if (zone === "library") setMenu({ kind: "library", x, y });
   }
+
+  // Closing the library viewer = done searching, so shuffle — unless it was
+  // opened as a "look at top N" peek, which must preserve the order.
+  const closePile = useCallback(() => {
+    if (pile && pile.zone === "library" && !pile.playerId && pile.highlightTop === undefined) {
+      send({ type: "SHUFFLE_LIBRARY" });
+    }
+    setPile(null);
+  }, [pile, send]);
 
   async function copyCode() {
     try {
@@ -265,6 +289,100 @@ export default function GameTable({
     send({ type: "SET_NOTES", uid: card.uid, notes });
   }
 
+  // --- N-action flows (dock, library menu) -------------------------------------
+
+  function pickerMax(mode: PickerMode): number {
+    switch (mode) {
+      case "draw":
+      case "mill":
+        return 100;
+      case "scry":
+      case "surveil":
+        return Math.min(10, libraryCount);
+      case "lookTop":
+        return libraryCount;
+      case "revealTop":
+        return Math.min(30, libraryCount);
+    }
+  }
+
+  function confirmPicker(n: number) {
+    const mode = picker;
+    setPicker(null);
+    if (!mode) return;
+    if (mode === "draw") {
+      send({ type: "DRAW_CARDS", count: n });
+    } else if (mode === "mill") {
+      send({ type: "MILL_CARDS", count: n });
+    } else if (mode === "scry" || mode === "surveil") {
+      setScry({ mode, n });
+    } else if (mode === "lookTop") {
+      setPile({ zone: "library", highlightTop: n });
+    } else if (mode === "revealTop") {
+      const top =
+        self?.zones.library.kind === "cards" ? self.zones.library.cards.slice(0, n) : [];
+      send({
+        type: "REVEAL_CARDS",
+        cards: top.map((c) => ({ uid: c.uid, name: get(c.cardId)?.name ?? "Card" })),
+      });
+    }
+  }
+
+  // --- hand selection (group discard / exile / reveal / bottom) ----------------
+
+  function toggleSelectMode() {
+    if (selectMode) setSelected(new Set());
+    setSelectMode(!selectMode);
+  }
+
+  function toggleSelected(card: CardView) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(card.uid)) next.delete(card.uid);
+      else next.add(card.uid);
+      return next;
+    });
+  }
+
+  function exitSelect() {
+    setSelected(new Set());
+    setSelectMode(false);
+  }
+
+  function discardSelected() {
+    if (selectedInHand.length === 0) return;
+    send({ type: "DISCARD_CARDS", uids: selectedInHand });
+    exitSelect();
+  }
+
+  function exileSelected() {
+    if (selectedInHand.length === 0) return;
+    for (const uid of selectedInHand) {
+      send({ type: "MOVE_CARD", uid, to: "exile" });
+    }
+    exitSelect();
+  }
+
+  function bottomSelected() {
+    if (selectedInHand.length === 0) return;
+    for (const uid of selectedInHand) {
+      send({ type: "MOVE_CARD", uid, to: "library", index: "bottom" });
+    }
+    exitSelect();
+  }
+
+  function revealSelected() {
+    if (selectedInHand.length === 0) return;
+    send({
+      type: "REVEAL_CARDS",
+      cards: selectedInHand.map((uid) => {
+        const card = hand.find((c) => c.uid === uid);
+        return { uid, name: get(card?.cardId ?? null)?.name ?? "Card" };
+      }),
+    });
+    exitSelect();
+  }
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -273,7 +391,14 @@ export default function GameTable({
         return;
       }
       setMenu(null);
-      setPile(null);
+      setActionsOpen(false);
+      setPicker(null);
+      setScry(null);
+      closePile();
+      if (selectMode) {
+        setSelected(new Set());
+        setSelectMode(false);
+      }
       setTokenOpen(false);
       setZoom(null);
       setHostMenuOpen(false);
@@ -281,7 +406,7 @@ export default function GameTable({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [maximized]);
+  }, [maximized, selectMode, closePile]);
 
   useEffect(() => {
     if (!hostMenuOpen) return;
@@ -300,6 +425,11 @@ export default function GameTable({
 
   const hand =
     self.zones.hand.kind === "cards" ? self.zones.hand.cards : [];
+  const libraryCount =
+    self.zones.library.kind === "cards" ? self.zones.library.cards.length : 0;
+  const selectedInHand = [...selected].filter((uid) =>
+    hand.some((c) => c.uid === uid)
+  );
   const draggedDef = drag ? get(findOwnCard(view, you, drag.uid)?.card.cardId ?? null) : null;
 
   // focus stays valid only while its player is seated — guarded here for the
@@ -326,11 +456,14 @@ export default function GameTable({
     setMaximized((v) => !v);
   }
 
-  const pileCards =
-    pile && self.zones[pile].kind === "cards" ? self.zones[pile].cards : [];
+  const pileSource = pile?.playerId
+    ? view.players.find((p) => p.id === pile.playerId)
+    : self;
+  const pileZoneView = pile && pileSource ? pileSource.zones[pile.zone] : null;
+  const pileCards = pileZoneView?.kind === "cards" ? pileZoneView.cards : [];
 
   return (
-    <div className="flex min-h-screen flex-col gap-2 p-2">
+    <div className="flex h-dvh flex-col gap-2 overflow-hidden p-2">
       <header className="relative flex items-center gap-3">
         <button
           onClick={copyCode}
@@ -364,6 +497,14 @@ export default function GameTable({
           className="rounded border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:border-emerald-600"
         >
           + Token
+        </button>
+        <button
+          onClick={() => setActionsOpen(true)}
+          title="Every game action you can take"
+          className="flex items-center gap-1.5 rounded border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 hover:border-emerald-600"
+        >
+          <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Actions
         </button>
         {you === view.hostId && (
           <div className="relative">
@@ -466,6 +607,7 @@ export default function GameTable({
               onDuel={openDuel}
               onExitFocus={exitFocus}
               onToggleMaximize={toggleMaximize}
+              onOpponentPile={(playerId, zone) => setPile({ zone, playerId })}
               getDef={get}
               onCardPointerDown={onCardPointerDown}
               onCardContextMenu={onCardContextMenu}
@@ -474,6 +616,23 @@ export default function GameTable({
               battlefieldRef={battlefieldRef}
             />
           )}
+          {selectMode && (
+            <div className="bar-in flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-xs">
+              <span className="text-zinc-500">
+                {selectedInHand.length} selected
+              </span>
+              <div className="ml-auto flex items-center gap-1.5">
+                <GroupButton label="Discard" disabled={!selectedInHand.length} onClick={discardSelected} />
+                <GroupButton label="Exile" disabled={!selectedInHand.length} onClick={exileSelected} />
+                <GroupButton label="Reveal" disabled={!selectedInHand.length} onClick={revealSelected} />
+                <GroupButton
+                  label="To bottom"
+                  disabled={!selectedInHand.length}
+                  onClick={bottomSelected}
+                />
+              </div>
+            </div>
+          )}
           <HandFan
             cards={hand}
             getDef={get}
@@ -481,6 +640,10 @@ export default function GameTable({
             onCardContextMenu={onCardContextMenu}
             onCardHover={setZoom}
             draggedUid={drag?.uid ?? null}
+            selectMode={selectMode}
+            selected={selected}
+            onToggleSelectMode={toggleSelectMode}
+            onToggleSelect={toggleSelected}
           />
         </div>
 
@@ -500,6 +663,7 @@ export default function GameTable({
             onDuel={openDuel}
             onExitFocus={exitFocus}
             onToggleMaximize={toggleMaximize}
+            onOpponentPile={(playerId, zone) => setPile({ zone, playerId })}
             getDef={get}
             onCardPointerDown={onCardPointerDown}
             onCardContextMenu={onCardContextMenu}
@@ -553,20 +717,87 @@ export default function GameTable({
         send={send}
         onClose={() => setMenu(null)}
         onNote={addNote}
+        onPicker={(mode) => setPicker(mode)}
+        onViewLibrary={() => setPile({ zone: "library" })}
       />
+
+      {actionsOpen && (
+        <ActionsModal
+          libraryCount={libraryCount}
+          onPicker={(mode) => {
+            setActionsOpen(false);
+            setPicker(mode);
+          }}
+          onShuffle={() => {
+            setActionsOpen(false);
+            send({ type: "SHUFFLE_LIBRARY" });
+          }}
+          onSearchLibrary={() => {
+            setActionsOpen(false);
+            setPile({ zone: "library" });
+          }}
+          onSelectCards={() => {
+            setActionsOpen(false);
+            setSelectMode(true);
+          }}
+          onClose={() => setActionsOpen(false)}
+        />
+      )}
+
+      {picker && (
+        <CountPickerModal
+          mode={picker}
+          max={pickerMax(picker)}
+          onConfirm={confirmPicker}
+          onClose={() => setPicker(null)}
+        />
+      )}
+
+      {scry && self.zones.library.kind === "cards" && (
+        <ScryModal
+          mode={scry.mode}
+          cards={self.zones.library.cards.slice(0, scry.n)}
+          getDef={get}
+          send={send}
+          onClose={() => setScry(null)}
+        />
+      )}
 
       {pile && (
         <PileModal
-          zone={pile}
+          zone={pile.zone}
           cards={pileCards}
           getDef={get}
-          canAct
+          canAct={!pile.playerId}
           send={send}
-          onClose={() => setPile(null)}
+          onClose={closePile}
+          playerName={pile.playerId ? pileSource?.name : undefined}
+          highlightTop={pile.highlightTop}
+          onCardContextMenu={onCardContextMenu}
         />
       )}
 
       {tokenOpen && <TokenModal send={send} onClose={() => setTokenOpen(false)} />}
     </div>
+  );
+}
+
+function GroupButton({
+  label,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className="rounded border border-zinc-700 px-2.5 py-1 text-xs text-zinc-200 transition-colors hover:border-emerald-600 hover:text-white disabled:opacity-40 disabled:hover:border-zinc-700"
+    >
+      {label}
+    </button>
   );
 }

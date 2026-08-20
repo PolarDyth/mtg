@@ -44,6 +44,8 @@ export const MAX_TOKENS_AT_ONCE = 20;
 export const MAX_REVEAL_AT_ONCE = 30;
 export const MAX_COUNTER_KINDS = 12;
 export const MAX_ANNOTATIONS = 8;
+export const MAX_DISCARD_AT_ONCE = 30;
+export const MAX_LOOK = 10;
 
 export function err(error: string): ActionResult {
   return { ok: false, error };
@@ -121,4 +123,48 @@ export function shuffle(list: CardInstance[], rng: Rng): void {
     const j = rng.int(i + 1);
     [list[i], list[j]] = [list[j], list[i]];
   }
+}
+
+/** Find which of the player's zones currently holds the card. */
+export function zoneOf(
+  zones: Player["zones"],
+  card: CardInstance
+): keyof Player["zones"] | null {
+  for (const [zone, list] of Object.entries(zones) as [
+    keyof Player["zones"],
+    CardInstance[],
+  ][]) {
+    if (list.includes(card)) return zone;
+  }
+  return null;
+}
+
+/**
+ * Validate that `a` and `b` exactly partition (as sets, no duplicates) the
+ * top `look` cards of `library`; remove those cards and return them in
+ * their original top-down order. Shared by SCRY and SURVEIL.
+ */
+export function takeTopPartition(
+  library: CardInstance[],
+  look: number,
+  a: string[],
+  b: string[]
+): { ok: true; cards: CardInstance[] } | { ok: false; error: string } {
+  if (!Array.isArray(a) || !Array.isArray(b)) {
+    return { ok: false, error: "bad card list" };
+  }
+  const window = Math.min(look, library.length);
+  const expected = new Set(library.slice(0, window).map((c) => c.uid));
+  const picked = [...a, ...b];
+  if (picked.length !== new Set(picked).size) {
+    return { ok: false, error: "duplicate card" };
+  }
+  if (picked.length !== expected.size || !picked.every((uid) => expected.has(uid))) {
+    return { ok: false, error: "cards must be exactly the top of the library" };
+  }
+  const cards: CardInstance[] = [];
+  for (const card of library.splice(0, window)) {
+    if (picked.includes(card.uid)) cards.push(card);
+  }
+  return { ok: true, cards };
 }

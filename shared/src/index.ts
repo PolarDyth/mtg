@@ -54,7 +54,15 @@ export type Action =
   | { type: "START_GAME"; format?: Format }
   | { type: "SET_COMMANDER"; cardId: string; name: string }
   | { type: "DRAW_CARDS"; count: number }
-  | { type: "MOVE_CARD"; uid: string; to: Zone; index?: number }
+  | {
+      type: "MOVE_CARD";
+      uid: string;
+      to: Zone;
+      /** Target position: "top"/"bottom" library sentinels (race-safe) or a
+       *  0-based index clamped to the zone length. Default: top of library,
+       *  end of everything else. */
+      index?: number | "top" | "bottom";
+    }
   | { type: "MOVE_CARD_INDEX"; uid: string; index: number }
   | { type: "SET_TAPPED"; uid: string; value: boolean }
   | { type: "SET_FACE_DOWN"; uid: string; value: boolean }
@@ -65,6 +73,15 @@ export type Action =
   | { type: "CREATE_TOKEN"; name: string; cardId?: string; count: number }
   | { type: "REVEAL_CARDS"; cards: { uid: string; name: string }[] }
   | { type: "SHUFFLE_LIBRARY" }
+  | { type: "DISCARD_CARDS"; uids: string[] }
+  | { type: "MILL_CARDS"; count: number }
+  /** `top` + `bottom` must exactly partition the top `min(look, library)`
+   *  cards. The `top` group lands on top in array order; `bottom` goes to
+   *  the bottom in array order. Cards below the window are untouched. */
+  | { type: "SCRY"; look: number; top: string[]; bottom: string[] }
+  /** Same partition contract as SCRY, but the second group goes to the
+   *  graveyard (in array order). */
+  | { type: "SURVEIL"; look: number; top: string[]; graveyard: string[] }
   | { type: "SET_LIFE"; life: number }
   | { type: "ROLL_DIE"; sides: number }
   | { type: "NEXT_TURN" }

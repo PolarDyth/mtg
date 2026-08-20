@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ChatMessage, PlayerView } from "@mythic/shared";
 
 /** Stable per-player hue for names in chat. */
@@ -20,11 +20,29 @@ export function ChatLog({
   players: PlayerView[];
   className?: string;
 }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  // stick to the bottom on new messages unless the reader scrolled up
+  const stick = useRef(true);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
+
   const nameOf = (id: string) =>
     players.find((p) => p.id === id)?.name ?? "someone";
 
   return (
-    <ul className={`space-y-1 text-sm leading-snug ${className}`}>
+    <ul
+      ref={listRef}
+      onScroll={() => {
+        const el = listRef.current;
+        if (el) {
+          stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+        }
+      }}
+      className={`space-y-1 text-sm leading-snug ${className}`}
+    >
       {messages.map((m) => {
         switch (m.kind) {
           case "system":

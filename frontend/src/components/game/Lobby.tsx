@@ -67,7 +67,7 @@ export default function Lobby({
       <header className="text-center">
         <h1 className="font-serif text-2xl text-zinc-100">Waiting room</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Share this code with your friends — {view.players.length} seated
+          Share this code with your friends - {view.players.length} seated
         </p>
         <button
           onClick={copyCode}
@@ -170,7 +170,7 @@ export default function Lobby({
           </div>
           {format === "commander" && !commanderName && (
             <p className="mt-2 text-xs text-amber-300/80">
-              Tip: pick your commander before starting — it sits in your command
+              Tip: pick your commander before starting - it sits in your command
               zone where everyone can see it.
             </p>
           )}

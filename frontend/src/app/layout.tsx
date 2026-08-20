@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Mythic Table",
   description:
-    "A no-rules-enforced virtual tabletop for Magic: The Gathering — room codes, no accounts.",
+    "A no-rules-enforced virtual tabletop for Magic: The Gathering - room codes, no accounts.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -25,6 +25,7 @@ export default function Battlefield({
   onDuel,
   onExitFocus,
   onToggleMaximize,
+  onOpponentPile,
   getDef,
   onCardPointerDown,
   onCardContextMenu,
@@ -41,6 +42,8 @@ export default function Battlefield({
   onDuel: (playerId: PlayerId) => void;
   onExitFocus: () => void;
   onToggleMaximize: () => void;
+  /** open an opponent's public pile (graveyard/exile/command) read-only */
+  onOpponentPile: (playerId: PlayerId, zone: "graveyard" | "exile" | "command") => void;
   getDef: (id: string | null) => CardDef | null;
   onCardPointerDown: (card: CardView, event: ReactPointerEvent) => void;
   onCardContextMenu: (card: CardView, event: ReactMouseEvent) => void;
@@ -162,6 +165,11 @@ export default function Battlefield({
             draggedUid={draggedUid}
             onFocus={() => onFocus(band.player.id)}
             onDuel={band.isYou ? undefined : () => onDuel(band.player.id)}
+            onPile={
+              band.isYou
+                ? undefined
+                : (zone) => onOpponentPile(band.player.id, zone)
+            }
             boardRef={band.isYou ? battlefieldRef : undefined}
           />
         ))}
