@@ -160,12 +160,13 @@ Removed/banned clients are redirected off the game URL so a refresh can't
 silently re-seat them. In game, the room code lives in the header as a
 one-click copy chip so inviting friends mid-session is obvious.
 
-**Battlefield layout** is a single shared map: bands are in fixed seat order —
-the room creator sits at the bottom, later players stack above — identical on
-every viewer's screen. A card's `x/y` are percentages of the *owner's band*
-and refer to the card's *center*, so "bottom of the screen" means the same
-place for everyone. (Joiners see their own band above their hand; that's the
-cost of one consistent map.)
+**Battlefield layout** mirrors a real table: every viewer sees *their own* band
+at the bottom of their screen, with opponents' bands stacked above in seat
+order. A card's `x/y` are percentages of the *owner's band* and refer to the
+card's *center*, stored in the **owner's frame**; each opponent band is
+rendered point-mirrored — position `(100−x, 100−y)` with the card rotated
+180° — so a card near the owner's edge appears near the top of that band on
+everyone else's screen, exactly like sitting across from each other.
 
 **Server-side randomness:** shuffling and dice rolls happen on the server with an
 injectable RNG, so clients can't influence them and tests are deterministic.

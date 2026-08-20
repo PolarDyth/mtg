@@ -42,10 +42,11 @@ per-tab sessionStorage).
 - Hidden info is filtered per-viewer in `view.ts`: opponents' hand/library/
   sideboard collapse to counts; face-down cards carry `cardId: null` for
   non-owners. `CardInstance` (server, real id) vs `CardView` (wire, nullable).
-- Battlefield `x/y` are percentages **of the owning player's band** and refer
-  to the card's **center**; bands are in **fixed seat order** (creator bottom,
-  later players above) identical for every viewer — keep drop math and
-  rendering consistent with this or views desync between players.
+- Battlefield layout is **per-viewer like a real table**: your band is always
+  the bottom one on your screen; opponents' bands render above, point-mirrored
+  (position `(100−x, 100−y)`, cards rotated 180°). `x/y` are percentages **of
+  the owning player's band** (owner's frame) and refer to the card's **center**
+  — keep drop math in the owner's frame or views desync between players.
 - No database: games live in server RAM; card definitions are cached in
   localStorage (versioned key `mtg:cards:vN` in `frontend/src/lib/cardCache.ts`;
   bump the version when CardDef's shape changes).
