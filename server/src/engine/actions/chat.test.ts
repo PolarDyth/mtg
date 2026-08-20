@@ -6,9 +6,8 @@ import { act, mustFail, mustOk, setup, startWithDeck, uidAt } from "./testUtils"
 describe("REVEAL_CARDS", () => {
   it("reveals own cards as a chat message with server-truth cardIds", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada);
-    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 2 }));
-    const uids = ada.zones.hand.map((c) => c.uid);
+    startWithDeck(game, ctx, ada); // opening hand of 7
+    const uids = ada.zones.hand.slice(0, 2).map((c) => c.uid);
     mustOk(
       act(game, ctx, ada, {
         type: "REVEAL_CARDS",

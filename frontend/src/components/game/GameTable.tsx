@@ -31,6 +31,7 @@ import { CARD_RATIO } from "./CardSprite";
 import CardPreview from "./CardPreview";
 import ContextMenu, { type MenuState } from "./ContextMenu";
 import ChatPanel from "./ChatPanel";
+import CounterPopover from "./CounterPopover";
 import CountPickerModal, { type PickerMode } from "./CountPickerModal";
 import HandFan from "./HandFan";
 import PileModal from "./PileModal";
@@ -145,6 +146,13 @@ export default function GameTable({
   const [drag, setDrag] = useState<DragState | null>(null);
   const [menu, setMenu] = useState<MenuState>(null);
   const [zoom, setZoom] = useState<CardDef | null>(null);
+  // counter editor: card uid + anchor position; the live card is re-derived
+  // from every snapshot below, so the popover never goes stale
+  const [countersFor, setCountersFor] = useState<{
+    uid: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const [pile, setPile] = useState<{
     zone: Zone;
     /** set when viewing an opponent's public pile (read-only) */
@@ -189,6 +197,10 @@ export default function GameTable({
     uid?: string;
     playerId?: PlayerId;
   } | null>(null);
+  // attach targeting (menu "Attach to…"): source card chosen, target pending
+  const [attachSource, setAttachSource] = useState<CardView | null>(null);
+  // hovered attach target while picking (drives the highlight ring)
+  const [attachTarget, setAttachTarget] = useState<string | null>(null);
   // card under the cursor (feeds hovered-card shortcuts; null when hidden)
   const [hoverCard, setHoverCard] = useState<CardView | null>(null);
   // shortcut-driven focus requests: incrementing ticks consumed by ChatPanel
@@ -228,6 +240,7 @@ export default function GameTable({
       if (event.button !== 0) return;
       if (selectMode) return; // clicks toggle selection instead of dragging
       if (arrowPicking) return; // clicks pick arrow targets instead
+      if (attachSource) return; // clicks pick attach targets instead
       const own = findOwnCard(view, you, card.uid);
       if (!own || (own.zone !== "battlefield" && own.zone !== "hand")) return;
       pending.current = {
@@ -238,7 +251,7 @@ export default function GameTable({
         started: false,
       };
     },
-    [view, you, selectMode, arrowPicking]
+    [view, you, selectMode, arrowPicking, attachSource]
   );
 
   const finishDrag = useCallback(
@@ -249,16 +262,6 @@ export default function GameTable({
 
       const element = document.elementFromPoint(x, y);
       if (!element) return;
-
-      // dropping onto another battlefield card attaches
-      const cardTarget = element.closest<HTMLElement>("[data-card-uid]");
-      if (cardTarget && current.from === "battlefield") {
-        const hostUid = cardTarget.dataset.cardUid;
-        if (hostUid && hostUid !== current.uid) {
-          send({ type: "ATTACH_CARD", uid: current.uid, to: hostUid });
-          return;
-        }
-      }
 
       const dropTarget = element.closest<HTMLElement>("[data-drop]");
       const drop = dropTarget?.dataset.drop;
@@ -367,12 +370,13 @@ export default function GameTable({
   const onCardContextMenu = useCallback(
     (card: CardView, event: ReactMouseEvent) => {
       event.preventDefault();
-      // no menu while an arrow is being placed, and none for the
-      // ctrl/⌘-right-click gesture that starts one
-      if (arrowPicking || arrowDraft || event.ctrlKey || event.metaKey) return;
+      // no menu while an arrow or attachment is being placed, and none for
+      // the ctrl/⌘-right-click gesture that starts one
+      if (arrowPicking || arrowDraft || attachSource || event.ctrlKey || event.metaKey)
+        return;
       openCardMenu(card, event.clientX, event.clientY);
     },
-    [openCardMenu, arrowPicking, arrowDraft]
+    [openCardMenu, arrowPicking, arrowDraft, attachSource]
   );
 
   // --- arrow drawing -----------------------------------------------------------
@@ -381,6 +385,11 @@ export default function GameTable({
     setArrowPicking(null);
     setArrowDraft(null);
     setArrowTarget(null);
+  }
+
+  function cancelAttachPicking() {
+    setAttachSource(null);
+    setAttachTarget(null);
   }
 
   const commitArrow = useCallback(
@@ -422,6 +431,39 @@ export default function GameTable({
       window.removeEventListener("pointerup", onUp);
     };
   }, [arrowPicking, commitArrow]);
+
+  // attach placing (menu "Attach to…"): the next left click on one of your
+  // own battlefield cards attaches; any other click or Escape cancels
+  useEffect(() => {
+    const source = attachSource;
+    if (!source) return;
+    const fromUid = source.uid;
+    function onMove(event: PointerEvent) {
+      const target = arrowTargetAt(event.clientX, event.clientY);
+      const uid =
+        target && "uid" in target && target.uid !== fromUid ? target.uid : null;
+      // hosts must sit on your own battlefield (server rule) — only those
+      // get the highlight ring
+      setAttachTarget(
+        uid && findOwnCard(view, you, uid)?.zone === "battlefield" ? uid : null
+      );
+    }
+    function onUp(event: PointerEvent) {
+      if (event.button !== 0) return;
+      setAttachSource(null);
+      setAttachTarget(null);
+      const target = arrowTargetAt(event.clientX, event.clientY);
+      if (target && "uid" in target && target.uid !== fromUid) {
+        send({ type: "ATTACH_CARD", uid: fromUid, to: target.uid });
+      }
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [attachSource, view, you, send]);
 
   function onPileClick(zone: Zone) {
     if (zone === "library") {
@@ -475,6 +517,8 @@ export default function GameTable({
       case "draw":
       case "mill":
         return 100;
+      case "mulligan":
+        return 99; // server clamps to the library size
       case "scry":
       case "surveil":
         return Math.min(10, libraryCount);
@@ -493,6 +537,8 @@ export default function GameTable({
       send({ type: "DRAW_CARDS", count: n });
     } else if (mode === "mill") {
       send({ type: "MILL_CARDS", count: n });
+    } else if (mode === "mulligan") {
+      send({ type: "MULLIGAN", draw: n });
     } else if (mode === "scry" || mode === "surveil") {
       setScry({ mode, n });
     } else if (mode === "lookTop") {
@@ -603,6 +649,11 @@ export default function GameTable({
         cancelArrowPicking();
         return;
       }
+      if (attachSource) {
+        cancelAttachPicking();
+        return;
+      }
+      setCountersFor(null);
       setMenu(null);
       setActionsOpen(false);
       setPicker(null);
@@ -620,7 +671,16 @@ export default function GameTable({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [maximized, selectMode, closePile, revealPopup, audience, arrowPicking, arrowDraft]);
+  }, [
+    maximized,
+    selectMode,
+    closePile,
+    revealPopup,
+    audience,
+    arrowPicking,
+    arrowDraft,
+    attachSource,
+  ]);
 
   useEffect(() => {
     if (!hostMenuOpen) return;
@@ -790,6 +850,10 @@ export default function GameTable({
     hand.some((c) => c.uid === uid)
   );
   const draggedDef = drag ? get(findOwnCard(view, you, drag.uid)?.card.cardId ?? null) : null;
+  // live card for the counter popover (null once the card is gone — closes it)
+  const countersCard = countersFor
+    ? findOwnCard(view, you, countersFor.uid)
+    : null;
 
   // focus stays valid only while its player is seated — guarded here for the
   // ghost/overlay and again inside Battlefield for the bands (no effects)
@@ -824,7 +888,7 @@ export default function GameTable({
   return (
     <div
       className={`flex h-dvh flex-col gap-2 overflow-hidden p-2 ${
-        arrowPicking ? "arrow-picking" : ""
+        arrowPicking ? "arrow-picking" : attachSource ? "attach-picking" : ""
       }`}
     >
       <header className="relative flex items-center gap-3">
@@ -1025,7 +1089,7 @@ export default function GameTable({
               focus={focusLive}
               maximized={false}
               arrows={view.arrows}
-              arrowTargetedUid={arrowTarget?.uid ?? null}
+              arrowTargetedUid={arrowTarget?.uid ?? attachTarget}
               arrowTargetedPlayerId={arrowTarget?.playerId ?? null}
               onRemoveArrow={(id) => send({ type: "CLEAR_ARROWS", id })}
               onFocus={openBoardFocus}
@@ -1074,6 +1138,21 @@ export default function GameTable({
               </button>
             </div>
           )}
+          {attachSource && (
+            <div className="bar-in flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-xs">
+              <span className="font-medium text-emerald-300">Attach</span>
+              <span className="text-zinc-500">
+                {get(attachSource.cardId)?.name ?? "card"} — click one of your
+                battlefield cards to attach it
+              </span>
+              <button
+                onClick={cancelAttachPicking}
+                className="ml-auto rounded border border-zinc-700 px-2 py-0.5 text-zinc-400 transition-colors hover:border-emerald-600 hover:text-zinc-200"
+              >
+                Cancel (Esc)
+              </button>
+            </div>
+          )}
           <HandFan
             cards={hand}
             getDef={get}
@@ -1109,7 +1188,7 @@ export default function GameTable({
             focus={focusLive}
             maximized
             arrows={view.arrows}
-            arrowTargetedUid={arrowTarget?.uid ?? null}
+            arrowTargetedUid={arrowTarget?.uid ?? attachTarget}
             arrowTargetedPlayerId={arrowTarget?.playerId ?? null}
             onRemoveArrow={(id) => send({ type: "CLEAR_ARROWS", id })}
             onFocus={openBoardFocus}
@@ -1185,7 +1264,24 @@ export default function GameTable({
         onViewLibrary={() => setPile({ zone: "library" })}
         onRevealTo={(card, name) => setAudience({ cards: [{ uid: card.uid, name }] })}
         onDrawArrowFrom={(card) => setArrowPicking(card)}
+        onAttachFrom={(card) => setAttachSource(card)}
+        onCounters={(card, x, y) => setCountersFor({ uid: card.uid, x, y })}
       />
+
+      {countersCard && countersFor && (
+        <CounterPopover
+          card={countersCard.card}
+          name={
+            get(countersCard.card.cardId)?.name ??
+            countersCard.card.annotations[0] ??
+            "Card"
+          }
+          x={countersFor.x}
+          y={countersFor.y}
+          send={send}
+          onClose={() => setCountersFor(null)}
+        />
+      )}
 
       {actionsOpen && (
         <ActionsModal
@@ -1214,6 +1310,7 @@ export default function GameTable({
         <CountPickerModal
           mode={picker}
           max={pickerMax(picker)}
+          initial={picker === "mulligan" ? hand.length : 1}
           onConfirm={confirmPicker}
           onClose={() => setPicker(null)}
         />

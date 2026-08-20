@@ -39,6 +39,53 @@ describe("START_GAME and NEXT_TURN", () => {
     expect(fresh.bob.life).toBe(40);
     expect(fresh.game.chat.at(-1)?.kind).toBe("system");
   });
+
+  it("auto-draws opening hands for decked players only", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    expect(ada.zones.hand).toHaveLength(7);
+    expect(ada.zones.library).toHaveLength(33);
+    expect(bob.zones.hand).toHaveLength(0); // no deck, no draw
+    const texts = game.chat.map((m) => (m.kind === "system" ? m.text : ""));
+    expect(texts).toContain("Opening hands drawn");
+  });
+
+  it("clamps the opening hand to a short library", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada, 3);
+    expect(ada.zones.hand).toHaveLength(3);
+    expect(ada.zones.library).toHaveLength(0);
+  });
+});
+
+describe("MULLIGAN", () => {
+  it("shuffles the hand away and deals the chosen size", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada); // hand 7 / library 33
+    mustOk(act(game, ctx, ada, { type: "MULLIGAN", draw: 6 }));
+    expect(ada.zones.hand).toHaveLength(6);
+    expect(ada.zones.library).toHaveLength(34);
+    const last = game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    expect(last.text).toContain("mulligan to 6");
+  });
+
+  it("clamps the draw to what the library can give back", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada, 10); // hand 7 / library 3
+    mustOk(act(game, ctx, ada, { type: "MULLIGAN", draw: 99 }));
+    expect(ada.zones.hand).toHaveLength(10);
+    expect(ada.zones.library).toHaveLength(0);
+  });
+
+  it("rejects junk sizes and pre-game mulligans", () => {
+    const { game, ctx, ada } = setup();
+    mustFail(act(game, ctx, ada, { type: "MULLIGAN", draw: 7 }), "not started");
+    startWithDeck(game, ctx, ada);
+    mustFail(act(game, ctx, ada, { type: "MULLIGAN", draw: -1 }), "bad mulligan size");
+    mustFail(act(game, ctx, ada, { type: "MULLIGAN", draw: 1.5 }), "bad mulligan size");
+    mustFail(act(game, ctx, ada, { type: "MULLIGAN", draw: 100 }), "bad mulligan size");
+  });
 });
 
 describe("SET_LIFE", () => {

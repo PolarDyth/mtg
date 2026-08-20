@@ -51,18 +51,41 @@ describe("SET_TAPPED / SET_FACE_DOWN / SET_POSITION / SET_COUNTERS", () => {
 });
 
 describe("ATTACH_CARD", () => {
+  function playTwo(): { game: Game; ctx: Ctx; ada: Player; a: string; b: string } {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 2 }));
+    const a = uidAt(s.ada.zones.hand, 0);
+    const b = uidAt(s.ada.zones.hand, 1);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: a, to: "battlefield" }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: b, to: "battlefield" }));
+    return { ...s, a, b };
+  }
+
   it("attaches and detaches", () => {
-    const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada);
-    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 2 }));
-    const a = uidAt(ada.zones.hand, 0);
-    const b = uidAt(ada.zones.hand, 1);
-    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid: a, to: "battlefield" }));
-    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid: b, to: "battlefield" }));
+    const { game, ctx, ada, a, b } = playTwo();
     mustOk(act(game, ctx, ada, { type: "ATTACH_CARD", uid: b, to: a }));
     expect(ada.zones.battlefield.find((c) => c.uid === b)?.attachedTo).toBe(a);
     mustOk(act(game, ctx, ada, { type: "ATTACH_CARD", uid: b, to: null }));
     expect(ada.zones.battlefield.find((c) => c.uid === b)?.attachedTo).toBeUndefined();
+  });
+
+  it("moving an attached card (SET_POSITION) detaches it", () => {
+    const { game, ctx, ada, a, b } = playTwo();
+    mustOk(act(game, ctx, ada, { type: "ATTACH_CARD", uid: b, to: a }));
+    mustOk(act(game, ctx, ada, { type: "SET_POSITION", uid: b, x: 20, y: 30 }));
+    const moved = ada.zones.battlefield.find((c) => c.uid === b);
+    expect(moved?.attachedTo).toBeUndefined();
+    expect(moved?.x).toBe(20);
+    expect(moved?.y).toBe(30);
+  });
+
+  it("moving the host keeps its followers attached", () => {
+    const { game, ctx, ada, a, b } = playTwo();
+    mustOk(act(game, ctx, ada, { type: "ATTACH_CARD", uid: b, to: a }));
+    mustOk(act(game, ctx, ada, { type: "SET_POSITION", uid: a, x: 75, y: 25 }));
+    expect(ada.zones.battlefield.find((c) => c.uid === b)?.attachedTo).toBe(a);
+    expect(ada.zones.battlefield.find((c) => c.uid === a)?.attachedTo).toBeUndefined();
   });
 
   it("rejects self-attachment and cycles", () => {

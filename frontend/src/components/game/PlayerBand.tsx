@@ -1,7 +1,7 @@
 "use client";
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
-import { Ban, Crown, Maximize2, Skull, Swords } from "lucide-react";
+import { Ban, BookOpen, Crown, Hand, Maximize2, Skull, Swords } from "lucide-react";
 import type { CardView, PlayerView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
 import CardSprite from "./CardSprite";
@@ -11,6 +11,12 @@ const PILE_CHIPS: { zone: "graveyard" | "exile" | "command"; label: string; Icon
   { zone: "graveyard", label: "graveyard", Icon: Skull },
   { zone: "exile", label: "exile", Icon: Ban },
   { zone: "command", label: "command zone", Icon: Crown },
+];
+
+/** Opponent hidden zones shown as counts only — informational, not clickable. */
+const COUNT_CHIPS: { zone: "hand" | "library"; label: string; Icon: typeof Hand }[] = [
+  { zone: "hand", label: "hand", Icon: Hand },
+  { zone: "library", label: "library", Icon: BookOpen },
 ];
 
 /**
@@ -118,6 +124,20 @@ export default function PlayerBand({
         )}
         {onPile && (
           <span className="flex shrink-0 items-center gap-0.5">
+            {COUNT_CHIPS.map(({ zone, label, Icon }) => {
+              const view = player.zones[zone];
+              const count = view.kind === "cards" ? view.cards.length : view.count;
+              return (
+                <span
+                  key={zone}
+                  title={`${player.name}'s ${label} (${count})`}
+                  className="flex items-center gap-0.5 px-1 py-0.5 font-mono text-[10px] text-zinc-500"
+                >
+                  <Icon className="h-3 w-3" strokeWidth={1.75} />
+                  {count}
+                </span>
+              );
+            })}
             {PILE_CHIPS.map(({ zone, label, Icon }) => {
               const view = player.zones[zone];
               const count = view.kind === "cards" ? view.cards.length : view.count;

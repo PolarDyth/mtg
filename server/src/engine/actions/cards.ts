@@ -58,6 +58,9 @@ function setPosition(
   if (!found) return err("card not found");
   found.card.x = clamp(action.x, 0, 100);
   found.card.y = clamp(action.y, 0, 100);
+  // Moving a card by hand is an implicit detach — dragging a follower off
+  // its host separates them (the explicit Detach menu item stays too).
+  found.card.attachedTo = undefined;
   return ok(game);
 }
 

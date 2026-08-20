@@ -114,8 +114,7 @@ async function main() {
   host.send({ kind: "action", action: { type: "START_GAME" } });
   await host.until((s) => s.started === true);
   check("game started", true);
-
-  host.send({ kind: "action", action: { type: "DRAW_CARDS", count: 7 } });
+  // START_GAME auto-draws opening hands — no manual draw needed
   const hostView = await host.until(
     (s) => s.players.find((p) => p.name === "Ada").zones.hand.kind === "cards" &&
       s.players.find((p) => p.name === "Ada").zones.hand.cards.length === 7

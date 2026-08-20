@@ -2,7 +2,7 @@
 
 import type { Action, DieSides, GameView, PlayerId, PlayerView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
-import { Crown } from "lucide-react";
+import { Crown, Hand } from "lucide-react";
 import { useState } from "react";
 import { ChatInput, ChatLog, nameColor } from "./ChatLog";
 
@@ -182,7 +182,18 @@ function PlayerRow({
           ))}
         </span>
       ) : (
-        <span className="ml-auto font-mono text-sm text-red-300">{player.life}</span>
+        <>
+          <span
+            className="ml-auto flex items-center gap-0.5 font-mono text-xs text-zinc-500"
+            title={`${player.name}'s hand`}
+          >
+            <Hand className="h-3 w-3" strokeWidth={1.75} />
+            {player.zones.hand.kind === "cards"
+              ? player.zones.hand.cards.length
+              : player.zones.hand.count}
+          </span>
+          <span className="font-mono text-sm text-red-300">{player.life}</span>
+        </>
       )}
     </li>
   );

@@ -8,20 +8,20 @@ import { personalize } from "./view";
 describe("personalized snapshots", () => {
   it("hides opponents' hand/library/sideboard but shows counts", () => {
     const { game, ctx, ada, bob } = setup();
-    startWithDeck(game, ctx, ada);
-    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 5 }));
+    startWithDeck(game, ctx, ada); // opening hand of 7 auto-drawn
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 5 })); // hand now 12
 
     const bobView = personalize(game, bob.id);
     const adaFromBob = bobView.players.find((p) => p.id === ada.id);
-    expect(adaFromBob?.zones.hand).toEqual({ kind: "count", count: 5 });
-    expect(adaFromBob?.zones.library).toEqual({ kind: "count", count: 35 });
+    expect(adaFromBob?.zones.hand).toEqual({ kind: "count", count: 12 });
+    expect(adaFromBob?.zones.library).toEqual({ kind: "count", count: 28 });
     expect(adaFromBob?.zones.sideboard).toEqual({ kind: "count", count: 15 });
 
     const adaView = personalize(game, ada.id);
     const self = adaView.players.find((p) => p.id === ada.id);
     expect(self?.zones.hand.kind).toBe("cards");
     if (self?.zones.hand.kind === "cards") {
-      expect(self.zones.hand.cards).toHaveLength(5);
+      expect(self.zones.hand.cards).toHaveLength(12);
       expect(self.zones.hand.cards.every((c) => c.cardId !== null)).toBe(true);
     }
   });

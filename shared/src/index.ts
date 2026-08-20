@@ -73,6 +73,8 @@ export type Action =
   | { type: "START_GAME"; format?: Format }
   | { type: "SET_COMMANDER"; cardId: string; name: string }
   | { type: "DRAW_CARDS"; count: number }
+  /** Shuffle your whole hand into your library, then draw `draw` cards. */
+  | { type: "MULLIGAN"; draw: number }
   | {
       type: "MOVE_CARD";
       uid: string;

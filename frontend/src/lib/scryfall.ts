@@ -6,6 +6,8 @@
 const API = "https://api.scryfall.com";
 const BATCH_LIMIT = 75; // POST /cards/collection accepts at most 75 identifiers
 const BATCH_GAP_MS = 120; // good-faith rate limiting between batches
+const FUZZY_LIMIT = 20; // fuzzy-search fallback attempts per resolveCards call
+const FUZZY_GAP_MS = 100; // good-faith rate limiting between fuzzy lookups
 
 export type CardDef = {
   id: string; // Scryfall card id
@@ -22,6 +24,9 @@ type ScryfallCard = {
   object: string;
   id: string;
   name: string;
+  /** Themed printing name (Universes Beyond flavor names, e.g. "The Dead
+   *  Marshes" for an Urborg, Tomb of Yawgmoth printing). */
+  flavor_name?: string;
   mana_cost?: string;
   type_line?: string;
   oracle_text?: string;
@@ -70,13 +75,42 @@ function toDef(card: ScryfallCard): CardDef | null {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Normalize a card name for matching: case-fold, collapse whitespace, and
+ *  strip accents ("Lim-Dul" should match "Lim-Dûl"). */
+function normalizeForMatch(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Does `input` name this card? Matches the canonical name, the front face
+ *  of a split card ("wear" → "Wear // Tear"), or the flavor name of a themed
+ *  printing ("the dead marshes" → Urborg, Tomb of Yawgmoth). */
+export function cardNameMatches(
+  input: string,
+  card: { name: string; flavor_name?: string }
+): boolean {
+  const key = normalizeForMatch(input);
+  const canonical = normalizeForMatch(card.name);
+  if (key === canonical || key === canonical.split(" // ")[0].trim()) return true;
+  return (
+    card.flavor_name !== undefined && key === normalizeForMatch(card.flavor_name)
+  );
+}
+
 export type ResolveResult = {
   /** resolved defs by the exact input name */
   defs: Map<string, CardDef>;
   missing: string[];
+  /** names resolved only through the fuzzy-search fallback */
+  fuzzy: string[];
 };
 
-/** Resolve unique card names via POST /cards/collection, batched. */
+/** Resolve unique card names via POST /cards/collection, batched, with a
+ *  fuzzy-search fallback for names the collection pass can't match. */
 export async function resolveCards(names: string[]): Promise<ResolveResult> {
   const unique = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
   const defs = new Map<string, CardDef>();
@@ -102,19 +136,13 @@ export async function resolveCards(names: string[]): Promise<ResolveResult> {
       data: ScryfallCard[];
       not_found: { name?: string }[];
     };
-    const foundNames = new Set<string>();
     for (const raw of payload.data) {
       const def = toDef(raw);
       if (!def) continue;
-      // Map to every input casing that matches this card's canonical name.
-      const canonical = def.name.toLowerCase();
-      const canonicalFront = canonical.split(" // ")[0].trim();
+      // Map to every input that names this card (canonical, front face, or
+      // flavor name — see cardNameMatches).
       for (const input of batch) {
-        const key = input.toLowerCase();
-        if (key === canonical || key === canonicalFront) {
-          defs.set(input, def);
-          foundNames.add(input);
-        }
+        if (cardNameMatches(input, raw)) defs.set(input, def);
       }
     }
     for (const nf of payload.not_found) {
@@ -126,7 +154,27 @@ export async function resolveCards(names: string[]): Promise<ResolveResult> {
     }
   }
 
-  return { defs, missing };
+  // Fuzzy fallback: typos and odd printings the collection endpoint can't
+  // match by name. Capped + paced like the batch pass (good-faith rate
+  // limit); whatever still misses stays in `missing`.
+  const fuzzy: string[] = [];
+  for (const name of missing.slice(0, FUZZY_LIMIT)) {
+    await sleep(FUZZY_GAP_MS);
+    try {
+      const response = await fetch(`${API}/cards/named?fuzzy=${encodeURIComponent(name)}`);
+      if (!response.ok) continue; // 404 = genuinely unknown name
+      const raw = (await response.json()) as ScryfallCard;
+      const def = toDef(raw);
+      if (def) {
+        defs.set(name, def);
+        fuzzy.push(name);
+      }
+    } catch {
+      // network hiccup — the name simply stays missing
+    }
+  }
+
+  return { defs, missing: missing.filter((n) => !defs.has(n)), fuzzy };
 }
 
 /** Resolve card ids (e.g. opponent permanents you've never loaded). */
@@ -153,9 +201,11 @@ export async function resolveCardsByIds(ids: string[]): Promise<CardDef[]> {
   return defs;
 }
 
-/** Search token cards by name (used by the create-token modal). */
+/** Search tokens and emblems by name (used by the create-token modal).
+ *  Emblems are their own Scryfall type (t:emblem) — planeswalker emblems
+ *  would never show under a plain t:token query. */
 export async function searchTokenCards(name: string): Promise<CardDef[]> {
-  const query = encodeURIComponent(`t:token ${name.trim()}`);
+  const query = encodeURIComponent(`(t:token or t:emblem) ${name.trim()}`);
   const response = await fetch(`${API}/cards/search?q=${query}&unique=print`);
   if (!response.ok) return [];
   const payload = (await response.json()) as { data: ScryfallCard[] };

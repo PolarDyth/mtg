@@ -102,6 +102,8 @@ export default function ContextMenu({
   onViewLibrary,
   onRevealTo,
   onDrawArrowFrom,
+  onAttachFrom,
+  onCounters,
 }: {
   menu: MenuState;
   send: (action: Action) => void;
@@ -113,16 +115,18 @@ export default function ContextMenu({
   onRevealTo: (card: CardView, name: string) => void;
   /** starts arrow targeting from this card ("Draw arrow to…") */
   onDrawArrowFrom: (card: CardView) => void;
+  /** starts attach targeting from this card ("Attach to…") */
+  onAttachFrom: (card: CardView) => void;
+  /** opens the persistent counter popover at the menu position */
+  onCounters: (card: CardView, x: number, y: number) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [countersOpen, setCountersOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
 
   // reset the submenus whenever a new menu opens (render-time reset pattern)
   const [prevMenu, setPrevMenu] = useState(menu);
   if (menu !== prevMenu) {
     setPrevMenu(menu);
-    setCountersOpen(false);
     setMoveOpen(false);
   }
 
@@ -142,7 +146,7 @@ export default function ContextMenu({
   const baseTop = menu ? Math.min(menu.y, window.innerHeight - 120) : 0;
 
   // Keep the menu fully on screen, re-measuring whenever a submenu expands
-  // it (Move to… / Counters… can grow the menu past the viewport bottom).
+  // it (Move to… can grow the menu past the viewport bottom).
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -153,7 +157,7 @@ export default function ContextMenu({
     if (overflowY > 0) el.style.top = `${Math.max(8, baseTop - overflowY)}px`;
     const overflowX = rect.right - (window.innerWidth - 8);
     if (overflowX > 0) el.style.left = `${Math.max(8, baseLeft - overflowX)}px`;
-  }, [menu, countersOpen, moveOpen, baseLeft, baseTop]);
+  }, [menu, moveOpen, baseLeft, baseTop]);
 
   if (!menu) return null;
 
@@ -245,18 +249,25 @@ export default function ContextMenu({
               onClose();
             }}
           />
+          <MenuItem
+            label="Attach to…"
+            onClick={() => {
+              onAttachFrom(card);
+              onClose();
+            }}
+          />
         </>
       )}
 
       <MenuDivider />
 
-      <button
-        className="flex w-full items-center justify-between px-3 py-1.5 text-left text-zinc-200 hover:bg-zinc-800"
-        onClick={() => setCountersOpen((v) => !v)}
-      >
-        Counters… <span className="text-zinc-500">{countersOpen ? "▾" : "▸"}</span>
-      </button>
-      {countersOpen && <CounterEditor card={card} send={send} />}
+      <MenuItem
+        label="Counters…"
+        onClick={() => {
+          onCounters(card, menu.x, menu.y);
+          onClose();
+        }}
+      />
 
       <MenuItem
         label="Add note…"
@@ -312,55 +323,6 @@ export default function ContextMenu({
           onClose();
         }}
       />
-    </div>
-  );
-}
-
-function CounterEditor({ card, send }: { card: CardView; send: (action: Action) => void }) {
-  const [kinds, setKinds] = useState<string[]>(Object.keys(card.counters));
-  const [newKind, setNewKind] = useState("");
-
-  function commit(next: Record<string, number>) {
-    const clean: Record<string, number> = {};
-    for (const [k, v] of Object.entries(next)) if (v > 0) clean[k] = v;
-    send({ type: "SET_COUNTERS", uid: card.uid, counters: clean });
-  }
-
-  function bump(kind: string, delta: number) {
-    const next = { ...card.counters, [kind]: Math.max(0, (card.counters[kind] ?? 0) + delta) };
-    if (next[kind] === 0) delete next[kind];
-    commit(next);
-    if (delta > 0 && !kinds.includes(kind)) setKinds([...kinds, kind]);
-  }
-
-  return (
-    <div className="mx-2 mb-1 rounded border border-zinc-700 bg-zinc-950 p-1.5">
-      {kinds.map((kind) => (
-        <div key={kind} className="flex items-center gap-1 py-0.5 text-xs">
-          <span className="min-w-0 flex-1 truncate text-zinc-300">{kind}</span>
-          <button className="rounded bg-zinc-800 px-1.5 hover:bg-zinc-700" onClick={() => bump(kind, -1)}>−</button>
-          <span className="w-5 text-center font-mono text-zinc-200">{card.counters[kind] ?? 0}</span>
-          <button className="rounded bg-zinc-800 px-1.5 hover:bg-zinc-700" onClick={() => bump(kind, 1)}>+</button>
-        </div>
-      ))}
-      {kinds.length === 0 && <p className="py-0.5 text-xs text-zinc-600">no counters</p>}
-      <form
-        className="mt-1 flex gap-1"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const kind = newKind.trim().slice(0, 20);
-          if (kind) bump(kind, 1);
-          setNewKind("");
-        }}
-      >
-        <input
-          value={newKind}
-          onChange={(e) => setNewKind(e.target.value)}
-          placeholder="+1/+1…"
-          className="min-w-0 flex-1 rounded bg-zinc-900 px-1.5 py-0.5 text-xs outline-none ring-1 ring-zinc-700 focus:ring-emerald-600"
-        />
-        <button type="submit" className="rounded bg-zinc-800 px-1.5 text-xs hover:bg-zinc-700">add</button>
-      </form>
     </div>
   );
 }

@@ -26,6 +26,21 @@ export default function Lobby({
   const [deckOpen, setDeckOpen] = useState(false);
   const [commanderOpen, setCommanderOpen] = useState(false);
   const [format, setFormat] = useState<Format>("freeform");
+  // set once someone tries to start while a player has no deck — warn, but
+  // never block (structural-only philosophy)
+  const [confirmStart, setConfirmStart] = useState(false);
+
+  const decked = view.players.filter((p) => p.hasDeck);
+  const deckless = view.players.filter((p) => !p.hasDeck);
+
+  function start() {
+    if (deckless.length > 0 && !confirmStart) {
+      setConfirmStart(true);
+      return;
+    }
+    setConfirmStart(false);
+    send({ type: "START_GAME", format });
+  }
 
   const self = view.players.find((p) => p.id === you);
   const commandCards =
@@ -161,12 +176,38 @@ export default function Lobby({
                 <span className="ml-2 text-xs text-zinc-500">{option.detail}</span>
               </button>
             ))}
-            <button
-              onClick={() => send({ type: "START_GAME", format })}
-              className="ml-auto rounded-md bg-emerald-700 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-600"
+            <span
+              className={`text-xs ${
+                deckless.length > 0 ? "text-amber-300/80" : "text-emerald-300/80"
+              }`}
             >
-              Start {format === "commander" ? "Commander " : ""}game
-            </button>
+              {decked.length}/{view.players.length} decks loaded
+            </span>
+            {confirmStart && deckless.length > 0 ? (
+              <span className="ml-auto flex items-center gap-2 text-xs text-amber-300">
+                {deckless.map((p) => p.name).join(", ")}{" "}
+                {deckless.length === 1 ? "has" : "have"} no deck — start anyway?
+                <button
+                  onClick={start}
+                  className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600"
+                >
+                  Start anyway
+                </button>
+                <button
+                  onClick={() => setConfirmStart(false)}
+                  className="rounded-md border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-500"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={start}
+                className="ml-auto rounded-md bg-emerald-700 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-600"
+              >
+                Start {format === "commander" ? "Commander " : ""}game
+              </button>
+            )}
           </div>
           {format === "commander" && !commanderName && (
             <p className="mt-2 text-xs text-amber-300/80">

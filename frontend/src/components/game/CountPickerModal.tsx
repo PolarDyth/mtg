@@ -3,7 +3,14 @@
 import { useState } from "react";
 
 /** Count-picking flows; scry/surveil hand off to the ScryModal afterwards. */
-export type PickerMode = "draw" | "mill" | "scry" | "surveil" | "lookTop" | "revealTop";
+export type PickerMode =
+  | "draw"
+  | "mill"
+  | "mulligan"
+  | "scry"
+  | "surveil"
+  | "lookTop"
+  | "revealTop";
 
 type PickerConfig = {
   title: string;
@@ -21,6 +28,11 @@ const CONFIG: Record<PickerMode, PickerConfig> = {
     title: "Mill cards",
     blurb: "Put the top cards of your library into your graveyard.",
     confirm: (n) => `Mill ${n}`,
+  },
+  mulligan: {
+    title: "Mulligan",
+    blurb: "Shuffle your hand into your library, then draw a fresh hand of this size.",
+    confirm: (n) => `Mulligan to ${n}`,
   },
   scry: {
     title: "Scry",
@@ -48,15 +60,18 @@ const CONFIG: Record<PickerMode, PickerConfig> = {
 export default function CountPickerModal({
   mode,
   max,
+  initial = 1,
   onConfirm,
   onClose,
 }: {
   mode: PickerMode;
   max: number;
+  /** starting value (e.g. the current hand size for a mulligan) */
+  initial?: number;
   onConfirm: (n: number) => void;
   onClose: () => void;
 }) {
-  const [value, setValue] = useState(1);
+  const [value, setValue] = useState(initial);
   const config = CONFIG[mode];
   const clamped = Math.min(Math.max(1, value), Math.max(1, max));
 

@@ -8,6 +8,7 @@ import {
   Eye,
   Hand,
   ListChecks,
+  RotateCcw,
   Search,
   Shuffle,
   Skull,
@@ -51,6 +52,12 @@ export default function ActionsModal({
     { name: "Search library…", desc: "view and filter your whole library", Icon: Search, onClick: onSearchLibrary },
   ];
   const hand: Tile[] = [
+    {
+      name: "Mulligan…",
+      desc: "shuffle your hand into your library, then draw a fresh hand of N",
+      Icon: RotateCcw,
+      onClick: () => onPicker("mulligan"),
+    },
     {
       name: "Select cards…",
       desc: "mark cards, then discard / exile / reveal / bottom them together",

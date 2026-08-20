@@ -111,6 +111,12 @@ body {
   cursor: crosshair !important;
 }
 
+/* Same for "Attach to…" targeting (card menu). */
+.attach-picking,
+.attach-picking * {
+  cursor: crosshair !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .board-in,
   .bar-in,

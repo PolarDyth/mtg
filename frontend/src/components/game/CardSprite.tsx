@@ -27,17 +27,38 @@ type Props = {
   style?: React.CSSProperties;
 };
 
-function CounterBadge({ counters }: { counters: Record<string, number> }) {
+/** Compact chip label for a counter kind. */
+function counterChipLabel(kind: string): string {
+  if (kind === "+1/+1") return "+1";
+  if (kind === "-1/-1") return "−1";
+  return kind.length > 4 ? `${kind.slice(0, 3)}…` : kind;
+}
+
+/** One chip per counter kind (up to 3 + an overflow chip), so a card with
+ *  +1/+1 ×3 and Lore ×2 shows both kinds instead of one summed number. */
+function CounterChips({ counters }: { counters: Record<string, number> }) {
   const kinds = Object.keys(counters);
   if (kinds.length === 0) return null;
-  const total = kinds.reduce((sum, k) => sum + counters[k], 0);
-  const label = kinds.length === 1 ? `${total}` : `${total}★`;
+  const visible = kinds.slice(0, 3);
+  const overflow = kinds.length - visible.length;
   return (
     <span
       title={kinds.map((k) => `${k}: ${counters[k]}`).join("\n")}
-      className="absolute -top-1.5 -left-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-900 text-xs font-bold text-emerald-200 shadow"
+      className="absolute -top-1.5 -left-1.5 flex flex-col items-start gap-0.5"
     >
-      {label}
+      {visible.map((kind) => (
+        <span
+          key={kind}
+          className="flex h-4 items-center rounded-full border border-emerald-400/60 bg-emerald-900 px-1.5 text-[9px] font-bold leading-none text-emerald-200 shadow"
+        >
+          {counterChipLabel(kind)} ×{counters[kind]}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="flex h-4 items-center rounded-full border border-emerald-400/60 bg-emerald-900 px-1.5 text-[9px] font-bold leading-none text-emerald-200 shadow">
+          +{overflow}
+        </span>
+      )}
     </span>
   );
 }
@@ -116,7 +137,7 @@ const CardSprite = memo(function CardSprite({
           {card.annotations[0] ?? "unknown card"}
         </div>
       )}
-      <CounterBadge counters={card.counters} />
+      <CounterChips counters={card.counters} />
       {card.attachedTo && (
         <span className="absolute -top-1.5 -right-1.5 text-xs" title="attached">
           🔗

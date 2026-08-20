@@ -24,6 +24,9 @@ export default function DeckLoader({
   const [error, setError] = useState<string | null>(null);
   const [resolved, setResolved] = useState<Map<string, CardDef>>(new Map());
   const [missing, setMissing] = useState<string[]>([]);
+  // names resolved only via Scryfall's fuzzy search — flagged in the review
+  // list so a wrong fuzzy hit is visible before loading
+  const [fuzzy, setFuzzy] = useState<Set<string>>(() => new Set());
 
   const parsed = useMemo(() => parseDecklist(text), [text]);
   const mainMerged = useMemo(() => mergeDuplicates(parsed.main), [parsed]);
@@ -55,6 +58,7 @@ export default function DeckLoader({
       putCards([...result.defs.values()]);
       setResolved(result.defs);
       setMissing(result.missing);
+      setFuzzy(new Set(result.fuzzy));
       setPhase("review");
     } catch (err) {
       setError(err instanceof Error ? err.message : "resolution failed");
@@ -148,11 +152,13 @@ export default function DeckLoader({
                 title={`Library — ${libraryTotal} cards`}
                 lines={mainMerged}
                 resolved={resolved}
+                fuzzy={fuzzy}
               />
               <BoardList
                 title={`Sideboard — ${sideTotal} cards`}
                 lines={sideMerged}
                 resolved={resolved}
+                fuzzy={fuzzy}
               />
             </div>
 
@@ -189,10 +195,12 @@ function BoardList({
   title,
   lines,
   resolved,
+  fuzzy,
 }: {
   title: string;
   lines: { quantity: number; name: string }[];
   resolved: Map<string, CardDef>;
+  fuzzy: Set<string>;
 }) {
   return (
     <section className="flex min-h-0 flex-col">
@@ -213,6 +221,14 @@ function BoardList({
                 {line.quantity}
               </span>
               <span className="truncate">{def?.name ?? line.name}</span>
+              {def && fuzzy.has(line.name) && (
+                <span
+                  title="matched via Scryfall fuzzy search — check it's the right card"
+                  className="shrink-0 rounded bg-amber-950/50 px-1 text-[10px] text-amber-300/80"
+                >
+                  search
+                </span>
+              )}
               {def?.mana_cost && (
                 <span className="ml-auto shrink-0 font-mono text-[11px] text-zinc-500">
                   {def.mana_cost}

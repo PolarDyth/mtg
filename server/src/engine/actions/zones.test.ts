@@ -7,19 +7,19 @@ import { act, mustFail, mustOk, setup, startWithDeck, uidAt } from "./testUtils"
 describe("DRAW_CARDS", () => {
   it("draws from the top of the library into the hand", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada);
+    startWithDeck(game, ctx, ada); // opening hand of 7 auto-drawn on start
     const top = uidAt(ada.zones.library, 0);
-    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 7 }));
-    expect(ada.zones.hand).toHaveLength(7);
-    expect(ada.zones.library).toHaveLength(33);
-    expect(ada.zones.hand[0]?.uid).toBe(top);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    expect(ada.zones.hand).toHaveLength(8);
+    expect(ada.zones.library).toHaveLength(32);
+    expect(ada.zones.hand.at(-1)?.uid).toBe(top);
   });
 
   it("draws only what remains when over-drawing", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada, 3);
+    startWithDeck(game, ctx, ada, 8); // 7 auto-drawn, 1 left in the library
     mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 99 }));
-    expect(ada.zones.hand).toHaveLength(3);
+    expect(ada.zones.hand).toHaveLength(8);
     expect(ada.zones.library).toHaveLength(0);
   });
 });
@@ -56,7 +56,7 @@ describe("MOVE_CARD and MOVE_CARD_INDEX", () => {
 
   it("reorders within the library (put drawn card back on top)", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada, 10);
+    startWithDeck(game, ctx, ada, 20); // 13 left after the opening hand
     mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 3 }));
     const uid = uidAt(ada.zones.hand, 2);
     mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "library", index: 0 }));
@@ -111,8 +111,8 @@ describe("DRAW_CARDS logging", () => {
 
   it("stays silent when the library is empty", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada, 3);
-    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 3 }));
+    startWithDeck(game, ctx, ada, 10); // 7 auto-drawn, 3 left
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 3 })); // now empty
     const chatLen = game.chat.length;
     mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
     expect(game.chat).toHaveLength(chatLen);
@@ -161,11 +161,10 @@ describe("MOVE_CARD logging and sentinels", () => {
 describe("DISCARD_CARDS", () => {
   it("moves the chosen hand cards to the graveyard in order and announces it", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada);
-    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 3 }));
+    startWithDeck(game, ctx, ada); // opening hand of 7
     const uids = [uidAt(ada.zones.hand, 2), uidAt(ada.zones.hand, 0)];
     mustOk(act(game, ctx, ada, { type: "DISCARD_CARDS", uids }));
-    expect(ada.zones.hand).toHaveLength(1);
+    expect(ada.zones.hand).toHaveLength(5);
     expect(ada.zones.graveyard.map((c) => c.uid)).toEqual(uids);
     const last = game.chat.at(-1);
     expect(last?.kind).toBe("system");
@@ -212,10 +211,10 @@ describe("DISCARD_CARDS", () => {
 describe("MILL_CARDS", () => {
   it("moves the top N cards to the graveyard and announces it", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada, 40);
+    startWithDeck(game, ctx, ada, 40); // 33 left after the opening hand
     const top = [uidAt(ada.zones.library, 0), uidAt(ada.zones.library, 1)];
     mustOk(act(game, ctx, ada, { type: "MILL_CARDS", count: 2 }));
-    expect(ada.zones.library).toHaveLength(38);
+    expect(ada.zones.library).toHaveLength(31);
     expect(ada.zones.graveyard.map((c) => c.uid)).toEqual(top);
     const last = game.chat.at(-1);
     expect(last?.kind).toBe("system");
@@ -224,10 +223,10 @@ describe("MILL_CARDS", () => {
 
   it("clamps to the library size when over-milling", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada, 3);
+    startWithDeck(game, ctx, ada, 8); // 7 auto-drawn, 1 left in the library
     mustOk(act(game, ctx, ada, { type: "MILL_CARDS", count: 10 }));
     expect(ada.zones.library).toHaveLength(0);
-    expect(ada.zones.graveyard).toHaveLength(3);
+    expect(ada.zones.graveyard).toHaveLength(1);
   });
 
   it("rejects junk counts", () => {
@@ -241,18 +240,18 @@ describe("MILL_CARDS", () => {
 describe("SCRY", () => {
   it("splits the top N between top and bottom in the given orders", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada, 20);
+    startWithDeck(game, ctx, ada, 20); // 13 left after the opening hand
     const c0 = uidAt(ada.zones.library, 0);
     const c1 = uidAt(ada.zones.library, 1);
     const c2 = uidAt(ada.zones.library, 2);
     const c3 = uidAt(ada.zones.library, 3);
     // keep c1 above c0 on top; c2 to the bottom
     mustOk(act(game, ctx, ada, { type: "SCRY", look: 3, top: [c1, c0], bottom: [c2] }));
-    expect(ada.zones.library).toHaveLength(20);
+    expect(ada.zones.library).toHaveLength(13);
     expect(uidAt(ada.zones.library, 0)).toBe(c1);
     expect(uidAt(ada.zones.library, 1)).toBe(c0);
     expect(uidAt(ada.zones.library, 2)).toBe(c3);
-    expect(uidAt(ada.zones.library, 19)).toBe(c2);
+    expect(uidAt(ada.zones.library, 12)).toBe(c2);
     const last = game.chat.at(-1);
     expect(last?.kind).toBe("system");
     if (last?.kind === "system") expect(last.text).toContain("scries 3 (2 on top, 1 on bottom)");
@@ -260,7 +259,7 @@ describe("SCRY", () => {
 
   it("covers the whole library when it holds fewer cards than look", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada, 2);
+    startWithDeck(game, ctx, ada, 9); // 7 auto-drawn, 2 left
     const c0 = uidAt(ada.zones.library, 0);
     const c1 = uidAt(ada.zones.library, 1);
     mustOk(act(game, ctx, ada, { type: "SCRY", look: 5, top: [c1], bottom: [c0] }));
@@ -280,7 +279,7 @@ describe("SCRY", () => {
 
   it("rejects uids outside the top-look window (and cards not in the library)", () => {
     const { game, ctx, ada } = setup();
-    startWithDeck(game, ctx, ada, 10);
+    startWithDeck(game, ctx, ada, 20); // 13 left after the opening hand
     mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
     const inHand = uidAt(ada.zones.hand, 0); // own card, but not in the library
     const deep = uidAt(ada.zones.library, 5); // in the library, below the window
@@ -322,7 +321,7 @@ describe("SURVEIL", () => {
     const c3 = uidAt(ada.zones.library, 3);
     // c1 stays on top; c0 then c2 go to the graveyard (c0 deeper)
     mustOk(act(game, ctx, ada, { type: "SURVEIL", look: 3, top: [c1], graveyard: [c0, c2] }));
-    expect(ada.zones.library).toHaveLength(18);
+    expect(ada.zones.library).toHaveLength(11);
     expect(uidAt(ada.zones.library, 0)).toBe(c1);
     expect(uidAt(ada.zones.library, 1)).toBe(c3);
     expect(ada.zones.graveyard.map((c) => c.uid)).toEqual([c0, c2]);

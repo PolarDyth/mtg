@@ -12,10 +12,21 @@ import {
   fixTurnAfterRemoval,
   ok,
   requireStarted,
+  shuffle,
   type ActionResult,
   type Ctx,
   type HandlerMap,
 } from "./internal";
+
+/** Draw `min(count, library.length)` cards from the top into the hand. */
+function drawFromTop(player: Player, count: number): number {
+  const drawn = Math.min(count, player.zones.library.length);
+  for (let i = 0; i < drawn; i++) {
+    const card = player.zones.library.shift();
+    if (card) player.zones.hand.push(card);
+  }
+  return drawn;
+}
 
 function startGame(
   game: Game,
@@ -41,6 +52,15 @@ function startGame(
     ctx.rng,
     ctx.now()
   );
+  // Opening hands for everyone who loaded a deck (deterministic top-of-
+  // library splice). Deckless players and mid-game loads draw manually.
+  let drewAny = false;
+  for (const player of game.players) {
+    if (drawFromTop(player, 7) > 0) drewAny = true;
+  }
+  if (drewAny) {
+    systemMessage(game, "Opening hands drawn", ctx.rng, ctx.now());
+  }
   return ok(game);
 }
 
@@ -73,6 +93,32 @@ function nextTurn(
   return ok(game);
 }
 
+function mulligan(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "MULLIGAN" }>,
+  ctx: Ctx
+): ActionResult {
+  const started = requireStarted(game);
+  if (started) return err(started);
+  if (!Number.isInteger(action.draw) || action.draw < 0 || action.draw > 99) {
+    return err("bad mulligan size");
+  }
+  // The whole hand goes back, the library shuffles, then a fresh hand of
+  // the chosen size is dealt (player picks the size, not "one less").
+  actor.zones.library.push(...actor.zones.hand);
+  actor.zones.hand.length = 0;
+  shuffle(actor.zones.library, ctx.rng);
+  const drawn = drawFromTop(actor, action.draw);
+  systemMessage(
+    game,
+    `${actor.name} takes a mulligan to ${drawn}`,
+    ctx.rng,
+    ctx.now()
+  );
+  return ok(game);
+}
+
 function leaveGame(
   game: Game,
   actor: Player,
@@ -89,5 +135,6 @@ export const gameHandlers = {
   START_GAME: startGame,
   NEXT_TURN: nextTurn,
   SET_LIFE: setLife,
+  MULLIGAN: mulligan,
   LEAVE_GAME: leaveGame,
 } satisfies Partial<HandlerMap>;
