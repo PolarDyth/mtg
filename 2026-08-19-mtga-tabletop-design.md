@@ -160,13 +160,31 @@ Removed/banned clients are redirected off the game URL so a refresh can't
 silently re-seat them. In game, the room code lives in the header as a
 one-click copy chip so inviting friends mid-session is obvious.
 
-**Battlefield layout** mirrors a real table: every viewer sees *their own* band
-at the bottom of their screen, with opponents' bands stacked above in seat
-order. A card's `x/y` are percentages of the *owner's band* and refer to the
-card's *center*, stored in the **owner's frame**; each opponent band is
-rendered point-mirrored — position `(100−x, 100−y)` — so a card near the
-owner's edge appears near the top of that band on everyone else's screen. Card
-art itself stays upright and readable for every viewer; only placement mirrors.
+**Battlefield layout** mirrors a real table seen from your chair: every viewer
+is seated at the bottom-left of their own screen. Players fill a corner grid —
+2 players get two full-width rows, 3 players put both opponents on top with
+your board spanning the bottom row, 4 players get quadrants, 5–6 players get a
+3×2 grid — always with *your* board anchoring the bottom row flush left when
+opponents share it (right beside your zone rail), spanning the full row
+otherwise (`seatGrid` in `frontend/src/components/game/tableLayout.ts`;
+opponents fill remaining cells in join order). A card's `x/y` are percentages
+of the *owner's board* and refer to the card's *center*, stored in the
+**owner's frame**; every opponent board renders point-mirrored — position
+`(100−x, 100−y)` — like they're sitting across from you. Card art itself
+stays upright and readable for every viewer; only placement mirrors.
+
+**Focus views** swap the grid for fewer boards without touching positions:
+each board's header has an expand button (one board fills the battlefield
+area, with a maximize toggle for a true fullscreen overlay) and, on opponents,
+a duel button showing your board and theirs stacked like a two-player table —
+for attacking without everyone else's boards in the way. Esc backs out one
+level (fullscreen → focus → table); focusing a player who leaves falls back
+to the table automatically. Every mode switch plays a short entrance
+animation (board grid scales in, mode bar slides down, fullscreen overlay
+expands — disabled under `prefers-reduced-motion`) so the transition reads
+clearly. Cards render bigger in focus views (Scryfall `normal` images);
+drops always resolve against your own board's rectangle in whatever mode is
+active.
 
 **Server-side randomness:** shuffling and dice rolls happen on the server with an
 injectable RNG, so clients can't influence them and tests are deterministic.
@@ -190,8 +208,10 @@ without moving them. Cheating is impossible by construction.
 
 Single full-screen game page, no scrolling:
 
-- **Center:** the battlefield — cards absolutely positioned on a grid; each
-  player's area is a horizontal band (yours at the bottom, opponents' stacked above)
+- **Center:** the battlefield — cards absolutely positioned; each player's
+  board is a bordered grid cell in the corner layout (yours always in the
+  bottom row), with focus views (expand one board / duel one opponent) one
+  click away from every board header
 - **Left of your area:** library (card-back with count badge; click to draw,
   right-click to shuffle), then graveyard, exile, command, sideboard as small piles;
   clicking a pile opens a grid view to drag cards out
@@ -205,9 +225,10 @@ Single full-screen game page, no scrolling:
 - **Tokens:** a "create token" modal searches Scryfall for token cards
   (`q=t:token <name>`); unresolved names become generic labeled rectangles
 - **Rendering:** plain DOM + CSS transforms (`rotate(90deg)` for tap), Scryfall
-  images (`small` on the table, `normal` in the hover-zoom panel), counters/tap
-  indicators overlaid. No canvas or game engine. Battlefield cards ~90px wide with
-  a large hover-zoom panel.
+  images (`small` on the table, `normal` in the hover-zoom panel and in focused
+  board views), counters/tap indicators overlaid. No canvas or game engine.
+  Battlefield cards ~90px wide (up to ~170–260px in focus views) with a large
+  hover-zoom panel.
 
 ### Deck loading
 

@@ -1,0 +1,157 @@
+"use client";
+
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
+import { Maximize2, Swords } from "lucide-react";
+import type { CardView, PlayerView } from "@mythic/shared";
+import type { CardDef } from "@/lib/scryfall";
+import CardSprite from "./CardSprite";
+
+/**
+ * One player's board as a grid cell: a slim header (name, focus buttons)
+ * above the card area. A card's (x%, y%) are percentages of its OWNER's
+ * board (card center) in the owner's frame; opponents render point-mirrored
+ * — position (100−x, 100−y) — so a card near the middle of the table stays
+ * near the middle for every viewer. Card art itself stays upright.
+ */
+export default function PlayerBand({
+  player,
+  isYou,
+  mirrored,
+  cardWidth,
+  image,
+  activeTurn,
+  row,
+  col,
+  colSpan,
+  getDef,
+  onCardPointerDown,
+  onCardContextMenu,
+  onCardHover,
+  draggedUid,
+  onFocus,
+  onDuel,
+  boardRef,
+}: {
+  player: PlayerView;
+  isYou: boolean;
+  /** render point-mirrored positions (opponents across the table) */
+  mirrored: boolean;
+  cardWidth: number;
+  image: "small" | "normal";
+  activeTurn: boolean;
+  row: number;
+  col: number;
+  colSpan: number;
+  getDef: (id: string | null) => CardDef | null;
+  onCardPointerDown: (card: CardView, event: ReactPointerEvent) => void;
+  onCardContextMenu: (card: CardView, event: ReactMouseEvent) => void;
+  onCardHover: (def: CardDef | null) => void;
+  draggedUid: string | null;
+  onFocus?: () => void;
+  onDuel?: () => void;
+  /** drop-math anchor — attached only to your own board */
+  boardRef?: React.Ref<HTMLDivElement>;
+}) {
+  const cards =
+    player.zones.battlefield.kind === "cards" ? player.zones.battlefield.cards : [];
+  const pos = (x: number, y: number): React.CSSProperties =>
+    mirrored
+      ? { left: `${100 - x}%`, top: `${100 - y}%` }
+      : { left: `${x}%`, top: `${y}%` };
+  // attachments grouped per host uid; attached cards follow the host
+  const byUid = new Map(cards.map((c) => [c.uid, c]));
+  const attached = new Map<string, CardView[]>();
+  for (const card of cards) {
+    if (card.attachedTo && byUid.has(card.attachedTo)) {
+      const list = attached.get(card.attachedTo) ?? [];
+      list.push(card);
+      attached.set(card.attachedTo, list);
+    }
+  }
+
+  return (
+    <div
+      className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-md border bg-zinc-950/30 ${
+        activeTurn
+          ? "border-emerald-600/70 shadow-[0_0_12px_rgba(16,185,129,0.18)]"
+          : "border-zinc-800/70"
+      }`}
+      style={{
+        gridRow: row + 1,
+        gridColumn: `${col + 1} / span ${colSpan}`,
+      }}
+    >
+      <div className="flex h-7 shrink-0 items-center gap-2 border-b border-zinc-800/60 px-2">
+        <span
+          className={`truncate text-[10px] font-medium uppercase tracking-wider ${
+            activeTurn ? "text-emerald-400" : "text-zinc-500"
+          }`}
+        >
+          {player.name}
+          {isYou ? " (you)" : ""}
+        </span>
+        {!player.connected && (
+          <span className="shrink-0 text-[10px] text-zinc-600">offline</span>
+        )}
+        <span className="ml-auto flex shrink-0 items-center gap-0.5">
+          {onDuel && (
+            <button
+              onClick={onDuel}
+              title={`Duel view — your board vs ${player.name}'s`}
+              className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-emerald-300"
+            >
+              <Swords className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+          )}
+          {onFocus && (
+            <button
+              onClick={onFocus}
+              title={`Expand ${isYou ? "your" : `${player.name}'s`} board`}
+              className="rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-emerald-300"
+            >
+              <Maximize2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+          )}
+        </span>
+      </div>
+      <div ref={boardRef} className="relative flex-1 overflow-hidden">
+        {cards.map((card) => {
+          if (card.attachedTo && byUid.has(card.attachedTo)) return null;
+          const stack = attached.get(card.uid) ?? [];
+          return (
+            <div key={card.uid}>
+              <CardSprite
+                card={card}
+                def={getDef(card.cardId)}
+                width={cardWidth}
+                image={image}
+                centered
+                dragging={draggedUid === card.uid}
+                onCardPointerDown={onCardPointerDown}
+                onCardContextMenu={onCardContextMenu}
+                onCardHover={onCardHover}
+                style={pos(card.x, card.y)}
+              />
+              {stack.map((follower, i) => (
+                <CardSprite
+                  key={follower.uid}
+                  card={follower}
+                  def={getDef(follower.cardId)}
+                  width={cardWidth}
+                  image={image}
+                  centered
+                  dragging={draggedUid === follower.uid}
+                  attachedStackIndex={i + 1}
+                  onCardPointerDown={onCardPointerDown}
+                  onCardContextMenu={onCardContextMenu}
+                  onCardHover={onCardHover}
+                  style={pos(card.x, card.y)}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

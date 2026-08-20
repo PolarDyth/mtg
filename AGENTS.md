@@ -42,12 +42,22 @@ per-tab sessionStorage).
 - Hidden info is filtered per-viewer in `view.ts`: opponents' hand/library/
   sideboard collapse to counts; face-down cards carry `cardId: null` for
   non-owners. `CardInstance` (server, real id) vs `CardView` (wire, nullable).
-- Battlefield layout is **per-viewer like a real table**: your band is always
-  the bottom one on your screen; opponents' bands render above with
-  point-mirrored positions (`100−x, 100−y`) but **upright card art** (only
-  placement mirrors, never the image). `x/y` are percentages **of the owning
-  player's band** (owner's frame) and refer to the card's **center** — keep
-  drop math in the owner's frame or views desync between players.
+- Battlefield layout is **per-viewer like a real table**: players fill a
+  corner grid (`seatGrid` in `frontend/src/components/game/tableLayout.ts`)
+  with your board anchoring the bottom row flush-LEFT when opponents share
+  it (beside your zone rail), spanning the full row otherwise (2P = two
+  full-width rows, 3P = you span the bottom, 4P = quadrants with you
+  bottom-left, 5–6P = 3×2). Opponents' boards render
+  with point-mirrored positions (`100−x, 100−y`) but **upright card art**
+  (only placement mirrors, never the image). `x/y` are percentages **of the
+  owning player's board** (owner's frame) and refer to the card's **center**
+  — keep drop math in the owner's frame or views desync between players.
+  Focus views (board expand / duel vs one opponent / maximize overlay) live
+  in `GameTable` + `Battlefield` and never touch the wire protocol; drops
+  always resolve against your own board's rect in `battlefieldRef`. Mode
+  switches animate via entrance keyframes in `globals.css` (`.board-in`,
+  `.bar-in`, `.overlay-in` — the band grid is keyed per mode to replay
+  them).
 - No database: games live in server RAM; card definitions are cached in
   localStorage (versioned key `mtg:cards:vN` in `frontend/src/lib/cardCache.ts`;
   bump the version when CardDef's shape changes).

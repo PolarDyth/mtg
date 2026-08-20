@@ -1,21 +1,30 @@
 "use client";
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
+import { Maximize2, Minimize2, X } from "lucide-react";
 import type { CardView, PlayerId, PlayerView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
-import CardSprite from "./CardSprite";
+import PlayerBand from "./PlayerBand";
+import { cardWidthFor, focusPlayerId, imageFor, seatGrid, type FocusMode } from "./tableLayout";
 
 /**
- * The battlefield, laid out like a real table: YOUR band is always at the
- * bottom of your own screen, opponents stack above in seat order. A card's
- * (x%, y%) are percentages of its OWNER's band (card center) in the owner's
- * frame; every opponent band renders point-mirrored — position (100−x, 100−y)
- * — so a card near the owner's edge appears near the top of that band on
- * your screen. Card art itself stays upright and readable for every viewer.
+ * The battlefield, viewed from YOUR chair. Table mode seats everyone into a
+ * corner grid — you always in the bottom row, spanning it when the count is
+ * odd (2 players = two full-width rows, 4 = quadrants, 6 = 3×2). Focus modes
+ * swap the grid for one board (any player) or a you-vs-one-opponent duel
+ * stacked like a two-player table. Positions stay owner-relative
+ * percentages in every mode; see PlayerBand for the mirroring contract.
  */
 export default function Battlefield({
   players,
   you,
+  activePlayerId,
+  focus,
+  maximized,
+  onFocus,
+  onDuel,
+  onExitFocus,
+  onToggleMaximize,
   getDef,
   onCardPointerDown,
   onCardContextMenu,
@@ -25,92 +34,138 @@ export default function Battlefield({
 }: {
   players: PlayerView[];
   you: PlayerId | null;
+  activePlayerId: PlayerId;
+  focus: FocusMode | null;
+  maximized: boolean;
+  onFocus: (playerId: PlayerId) => void;
+  onDuel: (playerId: PlayerId) => void;
+  onExitFocus: () => void;
+  onToggleMaximize: () => void;
   getDef: (id: string | null) => CardDef | null;
   onCardPointerDown: (card: CardView, event: ReactPointerEvent) => void;
   onCardContextMenu: (card: CardView, event: ReactMouseEvent) => void;
   onCardHover: (def: CardDef | null) => void;
   draggedUid: string | null;
+  /** anchors to YOUR board's container in whatever mode is active */
   battlefieldRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  // Viewer-centric: opponents above in seat order, you last = bottom band.
-  const ordered = [
-    ...players.filter((p) => p.id !== you),
-    ...players.filter((p) => p.id === you),
-  ];
-  const bandHeight = 100 / Math.max(1, ordered.length);
+  // render-time guard: focusing a player who left falls back to the table
+  const live =
+    focus && players.some((p) => p.id === focusPlayerId(focus)) ? focus : null;
+  const self = players.find((p) => p.id === you) ?? null;
+
+  type Band = {
+    player: PlayerView;
+    isYou: boolean;
+    mirrored: boolean;
+    row: number;
+    col: number;
+    colSpan: number;
+  };
+  let cols = 1;
+  let rows = "1fr";
+  let bands: Band[] = [];
+  let label = "";
+
+  if (live?.kind === "board") {
+    const player = players.find((p) => p.id === live.playerId)!;
+    const isYou = player.id === you;
+    cols = 1;
+    rows = "1fr";
+    bands = [{ player, isYou, mirrored: !isYou, row: 0, col: 0, colSpan: 1 }];
+    label = isYou ? "Your board" : `${player.name}'s board`;
+  } else if (live?.kind === "duel" && self) {
+    const opponent = players.find((p) => p.id === live.opponentId)!;
+    cols = 1;
+    rows = "1fr 1fr";
+    bands = [
+      { player: opponent, isYou: false, mirrored: true, row: 0, col: 0, colSpan: 1 },
+      { player: self, isYou: true, mirrored: false, row: 1, col: 0, colSpan: 1 },
+    ];
+    label = `You vs ${opponent.name}`;
+  } else {
+    const grid = seatGrid(players, you);
+    cols = grid.cols;
+    rows = grid.rows === 2 ? "1fr 1fr" : "1fr";
+    bands = grid.seats.map((seat) => ({
+      player: seat.player,
+      isYou: seat.player.id === you,
+      mirrored: you !== null && seat.player.id !== you,
+      row: seat.row,
+      col: seat.col,
+      colSpan: seat.colSpan,
+    }));
+  }
+
+  const width = cardWidthFor(live, maximized);
+  const image = imageFor(width);
+  // re-mount the grid per view mode so the entrance animation replays on
+  // every table ↔ board/duel switch
+  const modeKey = live ? `${live.kind}:${focusPlayerId(live)}` : "table";
 
   return (
     <div
-      ref={battlefieldRef}
       data-drop="battlefield"
-      className="relative flex-1 overflow-hidden rounded-lg border border-zinc-800 bg-[radial-gradient(ellipse_at_center,#131a15_0%,#0b0f0c_80%)]"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-zinc-800 bg-[radial-gradient(ellipse_at_center,#131a15_0%,#0b0f0c_80%)]"
     >
-      {ordered.map((player, index) => {
-        const cards =
-          player.zones.battlefield.kind === "cards" ? player.zones.battlefield.cards : [];
-        // across the table from you: point-mirrored position, upright card art
-        const mirrored = you !== null && player.id !== you;
-        const pos = (x: number, y: number): React.CSSProperties =>
-          mirrored
-            ? { left: `${100 - x}%`, top: `${100 - y}%` }
-            : { left: `${x}%`, top: `${y}%` };
-        // attachments grouped per host uid; attached cards follow the host
-        const byUid = new Map(cards.map((c) => [c.uid, c]));
-        const attached = new Map<string, CardView[]>();
-        for (const card of cards) {
-          if (card.attachedTo && byUid.has(card.attachedTo)) {
-            const list = attached.get(card.attachedTo) ?? [];
-            list.push(card);
-            attached.set(card.attachedTo, list);
-          }
-        }
-        return (
-          <div
-            key={player.id}
-            className="absolute inset-x-0 border-b border-dashed border-zinc-800/60"
-            style={{ top: `${index * bandHeight}%`, height: `${bandHeight}%` }}
-          >
-            <span className="pointer-events-none absolute left-2 top-1 text-[10px] uppercase tracking-wider text-zinc-600">
-              {player.name}
-              {player.id === you ? " (you)" : ""}
-            </span>
-            {cards.map((card) => {
-              if (card.attachedTo && byUid.has(card.attachedTo)) return null;
-              const stack = attached.get(card.uid) ?? [];
-              return (
-                <div key={card.uid}>
-                  <CardSprite
-                    card={card}
-                    def={getDef(card.cardId)}
-                    width={90}
-                    centered
-                    dragging={draggedUid === card.uid}
-                    onCardPointerDown={onCardPointerDown}
-                    onCardContextMenu={onCardContextMenu}
-                    onCardHover={onCardHover}
-                    style={pos(card.x, card.y)}
-                  />
-                  {stack.map((follower, i) => (
-                    <CardSprite
-                      key={follower.uid}
-                      card={follower}
-                      def={getDef(follower.cardId)}
-                      width={90}
-                      centered
-                      dragging={draggedUid === follower.uid}
-                      attachedStackIndex={i + 1}
-                      onCardPointerDown={onCardPointerDown}
-                      onCardContextMenu={onCardContextMenu}
-                      onCardHover={onCardHover}
-                      style={pos(card.x, card.y)}
-                    />
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        );
-      })}
+      {live && (
+        <div className="bar-in flex h-8 shrink-0 items-center gap-2 border-b border-zinc-800/70 px-2">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-300/80">
+            {label}
+          </span>
+          <span className="ml-auto flex items-center gap-0.5">
+            <button
+              onClick={onToggleMaximize}
+              title={maximized ? "Exit fullscreen" : "Fullscreen"}
+              className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+            >
+              {maximized ? (
+                <Minimize2 className="h-4 w-4" strokeWidth={1.75} />
+              ) : (
+                <Maximize2 className="h-4 w-4" strokeWidth={1.75} />
+              )}
+            </button>
+            <button
+              onClick={onExitFocus}
+              title="Back to the table"
+              className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+            >
+              <X className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          </span>
+        </div>
+      )}
+      <div
+        key={modeKey}
+        className="board-in grid min-h-0 flex-1 gap-1 p-1"
+        style={{
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gridTemplateRows: rows,
+        }}
+      >
+        {bands.map((band) => (
+          <PlayerBand
+            key={band.player.id}
+            player={band.player}
+            isYou={band.isYou}
+            mirrored={band.mirrored}
+            cardWidth={width}
+            image={image}
+            activeTurn={band.player.id === activePlayerId}
+            row={band.row}
+            col={band.col}
+            colSpan={band.colSpan}
+            getDef={getDef}
+            onCardPointerDown={onCardPointerDown}
+            onCardContextMenu={onCardContextMenu}
+            onCardHover={onCardHover}
+            draggedUid={draggedUid}
+            onFocus={() => onFocus(band.player.id)}
+            onDuel={band.isYou ? undefined : () => onDuel(band.player.id)}
+            boardRef={band.isYou ? battlefieldRef : undefined}
+          />
+        ))}
+      </div>
     </div>
   );
 }

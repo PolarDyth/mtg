@@ -14,11 +14,13 @@ import { Ban, Check, Copy, Crown, Shield, UserX } from "lucide-react";
 import { useCardDefs } from "@/lib/useCardDefs";
 import type { CardDef } from "@/lib/scryfall";
 import Battlefield from "./Battlefield";
+import { CARD_RATIO } from "./CardSprite";
 import ContextMenu, { type MenuState } from "./ContextMenu";
 import ChatPanel from "./ChatPanel";
 import HandFan from "./HandFan";
 import PileModal from "./PileModal";
 import TokenModal from "./TokenModal";
+import { cardWidthFor, focusPlayerId, imageFor, type FocusMode } from "./tableLayout";
 import ZoneRail from "./ZoneRail";
 
 type DragState = {
@@ -103,6 +105,10 @@ export default function GameTable({
   const [tokenOpen, setTokenOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [hostMenuOpen, setHostMenuOpen] = useState(false);
+  // battlefield view mode: null = full table; focus modes swap in one board
+  // or a you-vs-one duel, maximized = true fullscreen overlay
+  const [focus, setFocus] = useState<FocusMode | null>(null);
+  const [maximized, setMaximized] = useState(false);
   const battlefieldRef = useRef<HTMLDivElement | null>(null);
   const pending = useRef<PendingDrag | null>(null);
 
@@ -146,14 +152,12 @@ export default function GameTable({
       const dropTarget = element.closest<HTMLElement>("[data-drop]");
       const drop = dropTarget?.dataset.drop;
       if (drop === "battlefield" && battlefieldRef.current) {
+        // battlefieldRef anchors to YOUR board's container in every view
+        // mode (grid cell, focus board, or duel bottom half); positions are
+        // % of your board in your own frame, un-mirrored.
         const rect = battlefieldRef.current.getBoundingClientRect();
-        // Your own band is always the BOTTOM one on your screen (opponents
-        // render above, point-mirrored); positions are % of your band.
-        const bandCount = Math.max(1, view.players.length);
-        const bandHeight = rect.height / bandCount;
-        const bandTop = rect.height - bandHeight;
         const px = ((x - rect.left) / rect.width) * 100;
-        const py = ((y - rect.top - bandTop) / bandHeight) * 100;
+        const py = ((y - rect.top) / rect.height) * 100;
         if (current.from !== "battlefield") {
           send({ type: "MOVE_CARD", uid: current.uid, to: "battlefield" });
         }
@@ -173,7 +177,7 @@ export default function GameTable({
         send({ type: "MOVE_CARD", uid: current.uid, to: drop.slice(5) as Zone });
       }
     },
-    [drag, send, view.players]
+    [drag, send]
   );
 
   useEffect(() => {
@@ -263,17 +267,21 @@ export default function GameTable({
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMenu(null);
-        setPile(null);
-        setTokenOpen(false);
-        setZoom(null);
-        setHostMenuOpen(false);
+      if (event.key !== "Escape") return;
+      if (maximized) {
+        setMaximized(false);
+        return;
       }
+      setMenu(null);
+      setPile(null);
+      setTokenOpen(false);
+      setZoom(null);
+      setHostMenuOpen(false);
+      setFocus(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [maximized]);
 
   useEffect(() => {
     if (!hostMenuOpen) return;
@@ -293,6 +301,30 @@ export default function GameTable({
   const hand =
     self.zones.hand.kind === "cards" ? self.zones.hand.cards : [];
   const draggedDef = drag ? get(findOwnCard(view, you, drag.uid)?.card.cardId ?? null) : null;
+
+  // focus stays valid only while its player is seated — guarded here for the
+  // ghost/overlay and again inside Battlefield for the bands (no effects)
+  const focusLive =
+    focus && view.players.some((p) => p.id === focusPlayerId(focus)) ? focus : null;
+  const showOverlay = maximized && focusLive !== null;
+  const ghostWidth = cardWidthFor(focusLive, maximized);
+  const ghostHeight = Math.round(ghostWidth * CARD_RATIO);
+
+  function openBoardFocus(playerId: PlayerId) {
+    setFocus({ kind: "board", playerId });
+    setMaximized(false);
+  }
+  function openDuel(playerId: PlayerId) {
+    setFocus({ kind: "duel", opponentId: playerId });
+    setMaximized(false);
+  }
+  function exitFocus() {
+    setFocus(null);
+    setMaximized(false);
+  }
+  function toggleMaximize() {
+    setMaximized((v) => !v);
+  }
 
   const pileCards =
     pile && self.zones[pile].kind === "cards" ? self.zones[pile].cards : [];
@@ -423,16 +455,25 @@ export default function GameTable({
         />
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <Battlefield
-            players={view.players}
-            you={you}
-            getDef={get}
-            onCardPointerDown={onCardPointerDown}
-            onCardContextMenu={onCardContextMenu}
-            onCardHover={setZoom}
-            draggedUid={drag?.uid ?? null}
-            battlefieldRef={battlefieldRef}
-          />
+          {!showOverlay && (
+            <Battlefield
+              players={view.players}
+              you={you}
+              activePlayerId={view.activePlayerId}
+              focus={focusLive}
+              maximized={false}
+              onFocus={openBoardFocus}
+              onDuel={openDuel}
+              onExitFocus={exitFocus}
+              onToggleMaximize={toggleMaximize}
+              getDef={get}
+              onCardPointerDown={onCardPointerDown}
+              onCardContextMenu={onCardContextMenu}
+              onCardHover={setZoom}
+              draggedUid={drag?.uid ?? null}
+              battlefieldRef={battlefieldRef}
+            />
+          )}
           <HandFan
             cards={hand}
             getDef={get}
@@ -446,9 +487,32 @@ export default function GameTable({
         <ChatPanel view={view} you={you} send={send} />
       </div>
 
-      {/* hover zoom */}
+      {/* true-fullscreen battlefield overlay (maximize while focused) */}
+      {showOverlay && (
+        <div className="overlay-in fixed inset-0 z-40 flex flex-col bg-zinc-950 p-1">
+          <Battlefield
+            players={view.players}
+            you={you}
+            activePlayerId={view.activePlayerId}
+            focus={focusLive}
+            maximized
+            onFocus={openBoardFocus}
+            onDuel={openDuel}
+            onExitFocus={exitFocus}
+            onToggleMaximize={toggleMaximize}
+            getDef={get}
+            onCardPointerDown={onCardPointerDown}
+            onCardContextMenu={onCardContextMenu}
+            onCardHover={setZoom}
+            draggedUid={drag?.uid ?? null}
+            battlefieldRef={battlefieldRef}
+          />
+        </div>
+      )}
+
+      {/* hover zoom (above the fullscreen overlay) */}
       {zoom && (
-        <div className="pointer-events-none fixed bottom-[160px] left-[100px] z-30 rounded-lg bg-black/70 p-1 shadow-2xl">
+        <div className="pointer-events-none fixed bottom-[160px] left-[100px] z-50 rounded-lg bg-black/70 p-1 shadow-2xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={zoom.normal} alt={zoom.name} className="w-56 rounded" draggable={false} />
         </div>
@@ -458,21 +522,27 @@ export default function GameTable({
       {drag && draggedDef && (
         <div
           className="pointer-events-none fixed z-50"
-          style={{ left: drag.x - 45, top: drag.y - 63 }}
+          style={{ left: drag.x - ghostWidth / 2, top: drag.y - ghostHeight / 2 }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={draggedDef.small}
+            src={imageFor(ghostWidth) === "normal" ? draggedDef.normal : draggedDef.small}
             alt=""
             draggable={false}
-            className="w-[90px] rounded-md opacity-90 shadow-2xl"
+            style={{ width: ghostWidth }}
+            className="rounded-md opacity-90 shadow-2xl"
           />
         </div>
       )}
       {drag && !draggedDef && (
         <div
-          className="pointer-events-none fixed z-50 flex h-[126px] w-[90px] items-center justify-center rounded-md border border-amber-700 bg-amber-950/80 text-xs text-amber-200"
-          style={{ left: drag.x - 45, top: drag.y - 63 }}
+          className="pointer-events-none fixed z-50 flex items-center justify-center rounded-md border border-amber-700 bg-amber-950/80 text-xs text-amber-200"
+          style={{
+            left: drag.x - ghostWidth / 2,
+            top: drag.y - ghostHeight / 2,
+            width: ghostWidth,
+            height: ghostHeight,
+          }}
         >
           card
         </div>

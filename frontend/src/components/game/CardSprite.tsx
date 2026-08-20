@@ -10,6 +10,8 @@ type Props = {
   card: CardView;
   def: CardDef | null;
   width: number;
+  /** which Scryfall CDN size to render (normal for focused-board widths) */
+  image?: "small" | "normal";
   className?: string;
   dragging?: boolean;
   attachedStackIndex?: number;
@@ -41,6 +43,7 @@ const CardSprite = memo(function CardSprite({
   card,
   def,
   width,
+  image = "small",
   className = "",
   dragging = false,
   attachedStackIndex,
@@ -93,7 +96,7 @@ const CardSprite = memo(function CardSprite({
       ) : def ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={def.small}
+          src={image === "normal" ? def.normal : def.small}
           alt={def.name}
           draggable={false}
           className="h-full w-full rounded-md object-cover shadow-md pointer-events-none"
