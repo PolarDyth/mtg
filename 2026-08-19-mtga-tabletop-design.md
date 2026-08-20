@@ -164,9 +164,9 @@ one-click copy chip so inviting friends mid-session is obvious.
 at the bottom of their screen, with opponents' bands stacked above in seat
 order. A card's `x/y` are percentages of the *owner's band* and refer to the
 card's *center*, stored in the **owner's frame**; each opponent band is
-rendered point-mirrored — position `(100−x, 100−y)` with the card rotated
-180° — so a card near the owner's edge appears near the top of that band on
-everyone else's screen, exactly like sitting across from each other.
+rendered point-mirrored — position `(100−x, 100−y)` — so a card near the
+owner's edge appears near the top of that band on everyone else's screen. Card
+art itself stays upright and readable for every viewer; only placement mirrors.
 
 **Server-side randomness:** shuffling and dice rolls happen on the server with an
 injectable RNG, so clients can't influence them and tests are deterministic.

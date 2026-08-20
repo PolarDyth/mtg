@@ -15,8 +15,6 @@ type Props = {
   attachedStackIndex?: number;
   /** left/top % refer to the card's center (battlefield placement). */
   centered?: boolean;
-  /** opponent's band seen across the table: rotate the card 180°. */
-  mirrored?: boolean;
   onCardPointerDown?: (card: CardView, event: ReactPointerEvent) => void;
   onCardContextMenu?: (card: CardView, event: ReactMouseEvent) => void;
   onCardHover?: (def: CardDef | null) => void;
@@ -47,7 +45,6 @@ const CardSprite = memo(function CardSprite({
   dragging = false,
   attachedStackIndex,
   centered = false,
-  mirrored = false,
   onCardPointerDown,
   onCardContextMenu,
   onCardHover,
@@ -75,7 +72,7 @@ const CardSprite = memo(function CardSprite({
         height,
         transform: [
           centered ? "translate(-50%, -50%)" : "",
-          `rotate(${(card.tapped ? 90 : 0) + (mirrored ? 180 : 0)}deg)`,
+          `rotate(${card.tapped ? 90 : 0}deg)`,
           attachedStackIndex !== undefined
             ? `translate(${-attachedStackIndex * 18}%, ${-attachedStackIndex * 26}%)`
             : "",
