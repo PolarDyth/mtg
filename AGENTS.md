@@ -36,9 +36,17 @@ per-tab sessionStorage).
   snapshots** (`engine/view.ts`). Never send state from the client.
 - `server/src/engine/` is pure TypeScript: no IO, no Date.now/Math.random —
   randomness and time arrive via `Ctx { rng, now }` so tests are deterministic.
-  Every new action needs tests in `engine/engine.test.ts`.
-- Validation is **structural + card ownership** only (`engine/actions.ts`) —
+- Validation is **structural + card ownership** only (`engine/actions/`) —
   never reject an action for game-rule reasons; that's the core philosophy.
+  Handlers live in per-domain files (`deck`, `zones`, `cards`, `game`, `chat`,
+  `admin`) whose maps compose into the exhaustive `HandlerMap` registry in
+  `actions/index.ts` — an Action added to shared without a handler fails
+  `tsc`. To add an action: union member in shared → handler + one map entry
+  in the matching domain file (new domain = new file + one spread line in
+  `index.ts`; a domain file can graduate to a folder `cards/index.ts`
+  aggregating subdomain maps with zero changes elsewhere) → tests colocated
+  in `actions/<domain>.test.ts` (harness in `actions/testUtils.ts`; view
+  tests in `engine/view.test.ts`).
 - Hidden info is filtered per-viewer in `view.ts`: opponents' hand/library/
   sideboard collapse to counts; face-down cards carry `cardId: null` for
   non-owners. `CardInstance` (server, real id) vs `CardView` (wire, nullable).
