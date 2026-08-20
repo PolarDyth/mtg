@@ -6,10 +6,10 @@ import type { CardDef } from "@/lib/scryfall";
 import CardSprite from "./CardSprite";
 
 /**
- * The battlefield: one horizontal band per player (opponents stacked above,
- * yours at the bottom). Cards are absolutely positioned at their (x%, y%)
- * of the whole battlefield; cards attached to a host render stacked behind
- * it and move with it.
+ * The battlefield: one horizontal band per player in a FIXED seat order that
+ * is identical for every viewer — the room creator sits at the bottom, later
+ * players stack above. A card's (x%, y%) are percentages of its owner's band
+ * (card center), so a card occupies the same spot on everyone's screen.
  */
 export default function Battlefield({
   players,
@@ -30,7 +30,8 @@ export default function Battlefield({
   draggedUid: string | null;
   battlefieldRef: React.RefObject<HTMLDivElement | null>;
 }) {
-  const ordered = orderPlayers(players, you);
+  // Seat 0 (creator) renders last = bottom band, identical on every screen.
+  const ordered = [...players].reverse();
   const bandHeight = 100 / Math.max(1, ordered.length);
 
   return (
@@ -104,11 +105,4 @@ export default function Battlefield({
       })}
     </div>
   );
-}
-
-/** Opponents first (seating order), you last. */
-function orderPlayers(players: PlayerView[], you: PlayerId | null): PlayerView[] {
-  const opponents = players.filter((p) => p.id !== you);
-  const self = players.filter((p) => p.id === you);
-  return [...opponents, ...self];
 }

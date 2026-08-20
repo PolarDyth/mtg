@@ -147,10 +147,11 @@ export default function GameTable({
       const drop = dropTarget?.dataset.drop;
       if (drop === "battlefield" && battlefieldRef.current) {
         const rect = battlefieldRef.current.getBoundingClientRect();
-        // Positions are relative to YOUR band (bottom of the battlefield) so
-        // every viewer renders the card in the same spot within your band.
+        // Bands are in fixed seat order (creator bottom, later players
+        // above) identical for every viewer; positions are % of YOUR band.
         const bandCount = Math.max(1, view.players.length);
-        const bandTop = (rect.height * (bandCount - 1)) / bandCount;
+        const seat = Math.max(0, view.players.findIndex((p) => p.id === you));
+        const bandTop = (rect.height * (bandCount - 1 - seat)) / bandCount;
         const bandHeight = rect.height / bandCount;
         const px = ((x - rect.left) / rect.width) * 100;
         const py = ((y - rect.top - bandTop) / bandHeight) * 100;
@@ -173,7 +174,7 @@ export default function GameTable({
         send({ type: "MOVE_CARD", uid: current.uid, to: drop.slice(5) as Zone });
       }
     },
-    [drag, send, view.players.length]
+    [drag, send, view.players, you]
   );
 
   useEffect(() => {
