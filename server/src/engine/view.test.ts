@@ -73,6 +73,25 @@ describe("personalized snapshots", () => {
     expect(self.zones.battlefield.cards[0]?.cardId).toBe(realId);
   });
 
+  it("passes the transform face flag through to every viewer", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(ada.zones.hand, 0);
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "battlefield" }));
+    mustOk(
+      act(game, ctx, ada, { type: "TRANSFORM_CARD", uid, name: "Insectile Aberration" })
+    );
+
+    const faceOf = (viewer: string) => {
+      const view = personalize(game, viewer).players.find((p) => p.id === ada.id);
+      if (view?.zones.battlefield.kind !== "cards") throw new Error("expected cards");
+      return view.zones.battlefield.cards[0]?.showBack;
+    };
+    expect(faceOf(ada.id)).toBe(true);
+    expect(faceOf(bob.id)).toBe(true); // public — opponents render the same face
+  });
+
   it("keeps shared zones public and passes chat through", () => {
     const { game, ctx, ada, bob } = setup();
     startWithDeck(game, ctx, ada);

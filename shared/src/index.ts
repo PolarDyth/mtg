@@ -59,6 +59,9 @@ type CardBase = {
   y: number;
   tapped: boolean;
   faceDown: boolean;
+  /** Double-faced cards: the back face is showing. Public — transform is
+   *  table knowledge; the def (same cardId both faces) carries the art. */
+  showBack?: boolean;
   counters: Record<string, number>;
   annotations: string[];
   /** uid of the card this one is attached to (auras, equipment). */
@@ -127,6 +130,11 @@ export type Action =
   | { type: "MOVE_CARD_INDEX"; uid: string; index: number }
   | { type: "SET_TAPPED"; uid: string; value: boolean }
   | { type: "SET_FACE_DOWN"; uid: string; value: boolean }
+  /** Toggle which face of a double-faced card is showing. The client
+   *  supplies the target face's display name (the server is card-id
+   *  agnostic) for the chat line; counters, position, and attachments
+   *  ride along untouched. */
+  | { type: "TRANSFORM_CARD"; uid: string; name: string }
   | { type: "SET_COUNTERS"; uid: string; counters: Record<string, number> }
   | { type: "SET_POSITION"; uid: string; x: number; y: number }
   | { type: "SET_NOTES"; uid: string; notes: string[] }
