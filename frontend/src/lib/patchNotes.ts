@@ -23,6 +23,23 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-2-shortcut-polish",
+    label: "Round 2 — shortcut polish",
+    date: "2026-08-21",
+    items: [
+      {
+        title: "Shortcuts work while reading the cheat sheet",
+        detail:
+          "Pressing a game shortcut with the ? cheat sheet open used to be silently ignored — it now closes the sheet and runs the shortcut, so trying combos straight off the sheet just works.",
+      },
+      {
+        title: "The lobby says who can start",
+        detail:
+          "The waiting room now reads \"N/M decks loaded · anyone can start\" — no more waiting on a host that doesn't need to press the button.",
+      },
+    ],
+  },
+  {
     id: "round-2-convenience",
     label: "Round 2 — conveniences",
     date: "2026-08-21",
