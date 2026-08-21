@@ -307,6 +307,7 @@ export default function GameTable({
             isYou={view.activePlayerId === you}
             onSelect={(phase) => send({ type: "SET_PHASE", phase })}
             onNext={() => send(nextPhaseAction(view.phase))}
+            onPassTurn={() => send({ type: "NEXT_TURN" })}
           />
           <HandFan
             cards={hand}

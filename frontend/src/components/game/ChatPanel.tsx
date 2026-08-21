@@ -8,7 +8,7 @@ import { ChatInput, ChatLog, nameColor } from "./ChatLog";
 
 const DICE: DieSides[] = [4, 6, 8, 10, 12, 20, 100];
 
-/** Right rail: players + life, dice, next turn, chat. */
+/** Right rail: players + life, dice, chat. */
 export default function ChatPanel({
   view,
   you,
@@ -57,12 +57,6 @@ export default function ChatPanel({
             d{sides}
           </button>
         ))}
-        <button
-          onClick={() => send({ type: "NEXT_TURN" })}
-          className="ml-auto rounded bg-emerald-800 px-3 py-1 text-xs font-medium text-emerald-100 hover:bg-emerald-700"
-        >
-          Next turn ⏭
-        </button>
       </section>
 
       <section className="flex min-h-0 flex-1 flex-col rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
