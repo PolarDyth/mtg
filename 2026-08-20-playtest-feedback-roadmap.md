@@ -1,5 +1,6 @@
-**Date:** 2026-08-20
-**Status:** Draft (v1 — first playtest round, translated into implementation steps)
+**Date:** 2026-08-20 (updated 2026-08-21)
+**Status:** Implemented — all items §2–§10 shipped on 2026-08-21 (per-item
+log and deviations in §13); §12 lists what is still deliberately open
 **Project:** Mythic Table
 
 # Playtest Feedback → Implementation Roadmap
@@ -18,17 +19,17 @@ colocated in `actions/<domain>.test.ts` (harness: `actions/testUtils.ts`).
 
 ## 1. Summary
 
-| # | Feedback (verbatim) | Root cause | Plan | Effort | Priority |
-|---|---|---|---|---|---|
-| 2 | "Cant see other players hands size" / "see how many cards your opponents hands" | Counts are already in every snapshot; nothing renders them | §2 | S | P1 |
-| 3 | "Deck builder does not register theme card names such as the dead marshes which is actually Urborg, Tomb of Yawgmoth" | Resolver exact-matches canonical names only; "The Dead Marshes" is a Scryfall *flavor name* | §3 | S | P1 |
-| 4 | "Not all token emblems are present" | Token search queries `t:token`, which excludes `t:emblem` cards | §4 | S | P1 |
-| 5 | "be able to right click cards that can make tokens and be able to spawn it, take into account x number" | No `all_parts` usage anywhere; tokens only spawn from the global modal | §5 | M | P2 |
-| 6 | "be able to clone cards" | No clone path exists; existing `CREATE_TOKEN` already suffices | §6 | S | P2 |
-| 7 | "don't make cards stick together" | Releasing a drag anywhere over another card silently auto-attaches | §7 | M | P1 |
-| 8 | "fix counters" | Counter editor lives inside the transient context menu with stale state; badge collapses all kinds into one number | §8 | M | P1 |
-| 9 | "Easy game start" | Everyone must remember to manually draw 7; no ready state; no mulligan | §9 | M | P1 |
-| 10 | "add proper phases in the game" | No phase model at all — a single `activePlayerId` pointer | §10 | L | P2 |
+| # | Feedback (verbatim) | Root cause | Plan | Effort | Priority | Status |
+|---|---|---|---|---|---|---|
+| 2 | "Cant see other players hands size" / "see how many cards your opponents hands" | Counts are already in every snapshot; nothing renders them | §2 | S | P1 | ✅ 2026-08-21 |
+| 3 | "Deck builder does not register theme card names such as the dead marshes which is actually Urborg, Tomb of Yawgmoth" | Resolver exact-matches canonical names only; "The Dead Marshes" is a Scryfall *flavor name* | §3 | S | P1 | ✅ 2026-08-21 |
+| 4 | "Not all token emblems are present" | Token search queries `t:token`, which excludes `t:emblem` cards | §4 | S | P1 | ✅ 2026-08-21 |
+| 5 | "be able to right click cards that can make tokens and be able to spawn it, take into account x number" | No `all_parts` usage anywhere; tokens only spawn from the global modal | §5 | M | P2 | ✅ 2026-08-21 |
+| 6 | "be able to clone cards" | No clone path exists; existing `CREATE_TOKEN` already suffices | §6 | S | P2 | ✅ 2026-08-21 |
+| 7 | "don't make cards stick together" | Releasing a drag anywhere over another card silently auto-attaches | §7 | M | P1 | ✅ 2026-08-21 |
+| 8 | "fix counters" | Counter editor lives inside the transient context menu with stale state; badge collapses all kinds into one number | §8 | M | P1 | ✅ 2026-08-21 |
+| 9 | "Easy game start" | Everyone must remember to manually draw 7; no ready state; no mulligan | §9 | M | P1 | ✅ 2026-08-21 |
+| 10 | "add proper phases in the game" | No phase model at all — a single `activePlayerId` pointer | §10 | L | P2 | ✅ 2026-08-21 |
 
 Effort: S ≤ half a day, M ≈ a day, L multi-day (all including tests).
 "Deck builder" in the feedback maps to the paste-based `DeckLoader` — an
@@ -410,23 +411,84 @@ exposed. e2e: phase strip agrees across two clients.
 
 ## 11. Suggested build order
 
-1. **Quick wins (one pass):** §2 hand chips → §3 flavor/fuzzy names → §4
+Shipped on 2026-08-21 in exactly this order, as two implementation passes
+(steps 1–3 first, then 4–5):
+
+1. ✅ **Quick wins (one pass):** §2 hand chips → §3 flavor/fuzzy names → §4
    emblem search → §7 auto-attach removal + "Attach to…" mode.
-2. **§8 counters** popover + per-kind badges.
-3. **§9 game start** (auto-draw → ready checks → mulligan; includes the
+2. ✅ **§8 counters** popover + per-kind badges.
+3. ✅ **§9 game start** (auto-draw → ready checks → mulligan; includes the
    test-sweep heads-up).
-4. **§5 card tokens + §6 clone** together — both ride `relatedTokens` /
+4. ✅ **§5 card tokens + §6 clone** together — both ride `relatedTokens` /
    `CREATE_TOKEN` and share the cache-version bump.
-5. **§10 phases** — largest item (protocol + engine + UI); last so the
+5. ✅ **§10 phases** — largest item (protocol + engine + UI); last so the
    protocol settles first.
 
-## 12. Out of scope (this round)
+## 12. Out of scope (this round) — still open
+
+None of the below shipped with §2–§10; they remain open follow-ups:
 
 - In-app deck builder (design-doc non-goal; paste loader stays).
 - Sample / quick-start decks (not selected in review).
 - Counter keyboard shortcuts; player-level counters such as poison (design
   doc Future Ideas).
 - Auto-spread for menu/keyboard-played cards landing stacked at (50,50) —
-  real (`newInstance` default, `internal.ts:125-136`) but not part of the
-  complaint; future polish alongside §7.
+  real (`newInstance` default, `internal.ts`) and still visible in play
+  (menu-played cards stack until dragged apart); future polish alongside §7.
 - Server-side card database (the server stays card-id agnostic).
+
+## 13. Implementation log (2026-08-21)
+
+All items shipped in two passes. Each pass ran the full gate: vitest (132
+tests at the end), `tsc --noEmit` + `eslint` in both workspaces,
+`npm run build`, `server/scripts/e2e-m2.js` (extended with phase checks),
+and a multi-tab browser smoke test.
+
+- **§2** Count chips in `PlayerBand` headers + hand badge in `ChatPanel` rows.
+- **§3** `cardNameMatches` (canonical / front face / flavor name, case- and
+  accent-folded — pure, unit-tested); fuzzy fallback (≤20 names, ~100 ms
+  apart) via `GET /cards/named?fuzzy`; fuzzy hits flagged in the review list.
+- **§4** Query is now `(t:token or t:emblem)`.
+- **§5** `CardDef.relatedTokens` filled by the pure, tested
+  `relatedTokensOf` from `all_parts`; card cache bumped to `mtg:cards:v3`;
+  "Create token…" submenu → count picker (≤20 per action, Ctrl+G repeats
+  for larger X); token art resolves on every client via `useCardDefs`.
+- **§6** "Clone…" on any face-up battlefield card → count picker →
+  `CREATE_TOKEN`. This required opening the context menu on opponents'
+  battlefield cards — shipped as a **reduced menu** (Create token… /
+  Clone… only; every owner-only action stays hidden, server ownership
+  checks remain the backstop).
+- **§7** Drag auto-attach branch deleted; `SET_POSITION` now clears
+  `attachedTo` (dragging a follower off its host detaches it; moving a
+  host keeps its followers); "Attach to…" targeting mode mirrors the
+  arrow flow (crosshair, highlight ring, hint bar, Esc cancels).
+- **§8** `CounterPopover` replaces the in-menu editor: stays open, live
+  card from every snapshot, optimistic draft with echo-based
+  reconciliation (rapid taps accumulate correctly), presets
+  (+1/+1 · -1/-1 · Lore · Shield · Stun), hold-to-repeat steppers, direct
+  value input, per-kind remove. Sprites show per-kind chips (≤3 + an
+  overflow chip) instead of one summed number.
+- **§9** `START_GAME` auto-draws `min(7, library)` per decked player +
+  "Opening hands drawn" chat line; lobby shows "N/M decks loaded" with a
+  start-anyway confirm (warn, never block); `MULLIGAN {draw}` shuffles the
+  hand away and deals the chosen N, from an Actions-dock tile whose picker
+  defaults to the current hand size. The e2e script's manual draw of 7 was
+  removed and the auto-draw test sweep updated.
+- **§10** Shared `Phase` union + `ALL_PHASES` + `SET_PHASE` + `GameView.phase`;
+  `NEXT_TURN` resets the phase, clears arrows, and untaps the incoming
+  player's whole board (deliberately dumb); `PhaseBar` strip above the hand
+  (click to jump, "Next ▸" to advance, "end" → pass); Ctrl+Enter repointed
+  to next-phase-or-turn and new Ctrl+Shift+Enter passes directly.
+
+Deviations from the v1 plan (all minor, behavior preserved):
+
+- §10 keeps the existing "It is now X's turn" chat line instead of adding
+  "— Ada's turn —" (same information, no duplicate line).
+- §10 names the shared const `ALL_PHASES` to match the `ALL_ZONES` pattern,
+  not `PHASES`.
+- §3 flags fuzzy-resolved entries with a "search" tag (short for "matched
+  via Scryfall fuzzy search").
+- §9's mulligan picker bottoms out at 1 via the UI (a mulligan to 0 is
+  still legal server-side, just not pickable).
+- §5/§6's opponents' menu surfaced a pre-existing §12 item in playtesting:
+  menu-played cards still stack at (50,50) until dragged apart.

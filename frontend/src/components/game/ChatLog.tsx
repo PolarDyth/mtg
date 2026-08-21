@@ -27,15 +27,38 @@ export function ChatLog({
   className?: string;
 }) {
   const listRef = useRef<HTMLUListElement>(null);
-  // stick to the bottom on new messages unless the reader scrolled up
-  const stick = useRef(true);
+  // stick to the bottom on new messages unless the reader scrolled up;
+  // state (not a ref) so the "new messages" pill can react to it
+  const [atBottom, setAtBottom] = useState(true);
+  // id of the last message that was in view at the bottom — counts what the
+  // reader missed while scrolled up
+  const [lastSeenId, setLastSeenId] = useState<string | null>(null);
   // hovered card mention — rendered as a preview left of the chat rail
   const [mention, setMention] = useState<{ def: CardDef; top: number } | null>(null);
 
+  const lastId = messages.length > 0 ? messages[messages.length - 1].id : "";
+
   useEffect(() => {
     const el = listRef.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+    if (el && atBottom) el.scrollTop = el.scrollHeight;
+    // keyed on the last message id, not the length: once the log hits
+    // CHAT_CAP it stops growing and evicts from the front, so the length
+    // never changes again and a length-keyed effect silently stops firing
+  }, [lastId, atBottom]);
+
+  const seenIndex = lastSeenId === null ? -2 : messages.findIndex((m) => m.id === lastSeenId);
+  const missed = atBottom
+    ? 0
+    : seenIndex === -2
+      ? 0
+      : messages.length - 1 - (seenIndex === -1 ? -1 : seenIndex);
+
+  function jumpToLatest() {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+    setAtBottom(true);
+    if (lastId) setLastSeenId(lastId);
+  }
 
   const nameOf = (id: string) =>
     players.find((p) => p.id === id)?.name ?? "someone";
@@ -60,7 +83,9 @@ export function ChatLog({
         onScroll={() => {
           const el = listRef.current;
           if (el) {
-            stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+            const near = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+            setAtBottom(near);
+            if (near && lastId) setLastSeenId(lastId);
           }
         }}
         className={`space-y-1 text-sm leading-snug ${className}`}
@@ -117,7 +142,17 @@ export function ChatLog({
                 </li>
               );
           }
-        })}
+          })}
+        {missed > 0 && (
+          <li className="sticky bottom-0 z-10 flex justify-center">
+            <button
+              onClick={jumpToLatest}
+              className="rounded-full border border-zinc-700 bg-zinc-800/95 px-3 py-1 text-xs font-medium text-emerald-200 shadow-lg hover:border-emerald-600"
+            >
+              ↓ {missed} new message{missed === 1 ? "" : "s"}
+            </button>
+          </li>
+        )}
       </ul>
       {mention && (
         <CardPreview

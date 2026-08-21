@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ClientMessage, ServerMessage } from "@mythic/shared";
+import PatchNotes from "@/components/PatchNotes";
 import { loadName, saveName, saveSession } from "@/lib/session";
 
 type Welcome = Extract<ServerMessage, { type: "welcome" }>;
@@ -96,9 +97,9 @@ export default function HomePage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <header className="mb-8 text-center">
+    <main className="flex min-h-dvh items-center justify-center p-6">
+      <div className="flex max-h-[calc(100dvh-3rem)] w-full max-w-md flex-col">
+        <header className="mb-8 shrink-0 text-center">
           <h1 className="text-4xl font-serif font-bold tracking-tight text-zinc-100">
             Mythic Table
           </h1>
@@ -107,7 +108,7 @@ export default function HomePage() {
           </p>
         </header>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-6 shadow-xl backdrop-blur">
+        <div className="shrink-0 rounded-xl border border-zinc-800 bg-zinc-900/70 p-6 shadow-xl backdrop-blur">
           <label className="block text-sm font-medium text-zinc-300">
             Your name
             <input
@@ -157,7 +158,9 @@ export default function HomePage() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-xs text-zinc-600">
+        <PatchNotes />
+
+        <p className="mt-6 shrink-0 text-center text-xs text-zinc-600">
           Bring your own decklist.
         </p>
       </div>

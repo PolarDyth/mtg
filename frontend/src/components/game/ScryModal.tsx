@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { Action, CardView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
+import { PREVIEW_DEFAULT } from "@/lib/settings";
+import CardPreview from "./CardPreview";
 
 /**
  * Arranges the top of the library for SCRY (top/bottom) or SURVEIL
@@ -15,16 +17,20 @@ export default function ScryModal({
   getDef,
   send,
   onClose,
+  previewWidth = PREVIEW_DEFAULT,
 }: {
   mode: "scry" | "surveil";
   cards: CardView[];
   getDef: (id: string | null) => CardDef | null;
   send: (action: Action) => void;
   onClose: () => void;
+  /** width of the hover preview bubble (user preference) */
+  previewWidth?: number;
 }) {
   // leftmost = topmost; arrows slide a card through the sequence
   const [seq, setSeq] = useState<string[]>(() => cards.map((c) => c.uid));
   const [keep, setKeep] = useState<Record<string, boolean>>({});
+  const [zoom, setZoom] = useState<CardDef | null>(null);
 
   const isScry = mode === "scry";
   const otherLabel = isScry ? "Bottom" : "Graveyard";
@@ -80,7 +86,11 @@ export default function ScryModal({
               const onTop = keep[uid] !== false;
               return (
                 <div key={uid} className="flex w-28 shrink-0 flex-col gap-1.5">
-                  <div className="relative">
+                  <div
+                    className="relative"
+                    onMouseEnter={() => def && setZoom(def)}
+                    onMouseLeave={() => setZoom(null)}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={def?.small}
@@ -158,6 +168,20 @@ export default function ScryModal({
           </div>
         </footer>
       </div>
+
+      {zoom && (
+        <CardPreview
+          def={zoom}
+          width={previewWidth}
+          className="fixed z-50"
+          style={{
+            // left of the centered max-w-3xl panel (clamped to the viewport)
+            left: `max(8px, calc(50% - ${384 + previewWidth + 12}px))`,
+            top: "50%",
+            transform: "translateY(-50%)",
+          }}
+        />
+      )}
     </div>
   );
 }

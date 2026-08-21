@@ -54,7 +54,7 @@ export default function PileModal({
   onClose: () => void;
   /** whose pile this is (opponents' public piles open read-only) */
   playerName?: string;
-  /** dim library cards beyond the top N — the "look at top N" surface */
+  /** show only the top N cards — the "look at top N" surface (closing doesn't shuffle) */
   highlightTop?: number;
   onCardContextMenu?: (card: CardView, event: ReactMouseEvent) => void;
   /** width of the hover preview bubble (user preference) */
@@ -67,13 +67,16 @@ export default function PileModal({
   const [selectActive, setSelectActive] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
 
+  // "look at top N": only the looked-at cards render — the rest of the
+  // library stays unseen instead of dimmed-but-visible
+  const scope = highlightTop !== undefined ? cards.slice(0, highlightTop) : cards;
   const needle = filter.trim().toLowerCase();
   const visible = needle
-    ? cards.filter((c) => (getDef(c.cardId)?.name ?? "").toLowerCase().includes(needle))
-    : cards;
-  const position = new Map(cards.map((c, i) => [c.uid, i]));
+    ? scope.filter((c) => (getDef(c.cardId)?.name ?? "").toLowerCase().includes(needle))
+    : scope;
+  const position = new Map(scope.map((c, i) => [c.uid, i]));
   // snapshot updates can remove cards — never act on stale uids
-  const selectedIds = [...selected].filter((uid) => cards.some((c) => c.uid === uid));
+  const selectedIds = [...selected].filter((uid) => scope.some((c) => c.uid === uid));
 
   function toggleSelectMode() {
     if (selectActive) setSelected(new Set());
@@ -126,7 +129,11 @@ export default function PileModal({
           <h2 className="font-semibold text-zinc-100">
             {playerName ? `${playerName} — ` : ""}
             {ZONE_TITLES[zone]}{" "}
-            <span className="text-sm font-normal text-zinc-500">({cards.length})</span>
+            <span className="text-sm font-normal text-zinc-500">
+              {highlightTop !== undefined
+                ? `top ${scope.length} of ${cards.length}`
+                : `(${cards.length})`}
+            </span>
           </h2>
           {zone === "library" && (
             <p className="hidden text-xs text-zinc-500 sm:block">
@@ -167,8 +174,6 @@ export default function PileModal({
             const def = getDef(card.cardId);
             const hidden = card.faceDown || !card.cardId;
             const i = position.get(card.uid) ?? 0;
-            const dimmed =
-              zone === "library" && highlightTop !== undefined && i >= highlightTop;
             const isSelected = selected.has(card.uid);
             return (
               <li
@@ -184,7 +189,7 @@ export default function PileModal({
                   isSelected
                     ? "-translate-y-1 border-emerald-500 ring-2 ring-emerald-500"
                     : "border-zinc-800"
-                } ${dimmed ? "opacity-40" : ""} ${selectActive ? "cursor-pointer" : ""}`}
+                } ${selectActive ? "cursor-pointer" : ""}`}
               >
                 {hidden ? (
                   <div className="flex aspect-[146/204] items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 text-xs text-zinc-600">
@@ -229,7 +234,7 @@ export default function PileModal({
           })}
           {visible.length === 0 && (
             <li className="col-span-full py-10 text-center text-sm text-zinc-600">
-              {cards.length === 0 ? "empty pile" : "no cards match the filter"}
+              {scope.length === 0 ? "empty pile" : "no cards match the filter"}
             </li>
           )}
         </ul>
@@ -252,7 +257,7 @@ export default function PileModal({
                 <button
                   disabled={!selectedIds.length}
                   onClick={() => {
-                    onRevealTo(cards.filter((c) => selected.has(c.uid)));
+                    onRevealTo(scope.filter((c) => selected.has(c.uid)));
                     setSelected(new Set());
                     setSelectActive(false);
                   }}
@@ -268,7 +273,9 @@ export default function PileModal({
         {zone === "library" && canAct && (
           <footer className="flex items-center gap-2 border-t border-zinc-800 px-5 py-2.5">
             <span className="text-xs text-zinc-600">
-              closing the viewer shuffles your library — the natural end of a search
+              {highlightTop !== undefined
+                ? "just looking — closing won't shuffle"
+                : "closing the viewer shuffles your library — the natural end of a search"}
             </span>
             <button
               onClick={() => send({ type: "DRAW_CARDS", count: 1 })}
