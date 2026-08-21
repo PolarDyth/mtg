@@ -6,6 +6,7 @@ import type { CardDef } from "@/lib/scryfall";
 import { PREVIEW_DEFAULT } from "@/lib/settings";
 import { Eye, Hand, Layers, Swords } from "lucide-react";
 import CardPreview from "./CardPreview";
+import { cardMatchesText } from "./table/foundation";
 
 const ZONE_TITLES: Record<Zone, string> = {
   library: "Library",
@@ -70,10 +71,7 @@ export default function PileModal({
   // "look at top N": only the looked-at cards render — the rest of the
   // library stays unseen instead of dimmed-but-visible
   const scope = highlightTop !== undefined ? cards.slice(0, highlightTop) : cards;
-  const needle = filter.trim().toLowerCase();
-  const visible = needle
-    ? scope.filter((c) => (getDef(c.cardId)?.name ?? "").toLowerCase().includes(needle))
-    : scope;
+  const visible = scope.filter((c) => cardMatchesText(getDef(c.cardId), filter));
   const position = new Map(scope.map((c, i) => [c.uid, i]));
   // snapshot updates can remove cards — never act on stale uids
   const selectedIds = [...selected].filter((uid) => scope.some((c) => c.uid === uid));
@@ -145,7 +143,7 @@ export default function PileModal({
           <input
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            placeholder="filter by name…"
+            placeholder="filter by name, type, or rules text…"
             className="ml-auto w-48 rounded-md border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-sm outline-none focus:border-emerald-600"
           />
           {canAct && (

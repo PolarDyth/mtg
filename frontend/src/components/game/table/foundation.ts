@@ -30,6 +30,19 @@ export function isCreature(
   );
 }
 
+/** Pile-viewer filter: case-insensitive substring over everything a player
+ *  might remember about a card — name, type line, and rules text. An empty
+ *  needle matches everything; a missing def (hidden card, unfetched id)
+ *  matches nothing. */
+export function cardMatchesText(def: CardDef | null, needle: string): boolean {
+  const key = needle.trim().toLowerCase();
+  if (!key) return true;
+  if (!def) return false;
+  return [def.name, def.type_line, def.oracle_text].some((text) =>
+    text.toLowerCase().includes(key)
+  );
+}
+
 /** Find a card among the viewer's own zones. */
 export function findOwnCard(
   view: GameView,

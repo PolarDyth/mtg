@@ -7,8 +7,10 @@ import type {
   Zone,
   ZoneView,
 } from "@mythic/shared";
+import type { CardDef } from "@/lib/scryfall";
 import {
   battlefieldDrop,
+  cardMatchesText,
   findOwnCard,
   nextPhaseAction,
   onAnyBattlefield,
@@ -57,6 +59,48 @@ function mkView(players: PlayerView[]): GameView {
   // only the fields the helpers read; the rest is cast-filled
   return { players } as unknown as GameView;
 }
+
+function mkDef(overrides: Partial<CardDef> = {}): CardDef {
+  return {
+    id: "id-1",
+    name: "Shivan Dragon",
+    mana_cost: "{4}{R}{R}",
+    type_line: "Creature — Dragon",
+    small: "s.png",
+    normal: "n.png",
+    produced_mana: [],
+    oracle_text:
+      "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+    commanderEligible: false,
+    relatedTokens: [],
+    ...overrides,
+  };
+}
+
+describe("cardMatchesText", () => {
+  it("matches an empty needle and rejects missing defs", () => {
+    expect(cardMatchesText(mkDef(), "")).toBe(true);
+    expect(cardMatchesText(mkDef(), "   ")).toBe(true);
+    expect(cardMatchesText(null, "dragon")).toBe(false);
+  });
+
+  it("matches the name, type line, or rules text case-insensitively", () => {
+    const def = mkDef();
+    expect(cardMatchesText(def, "shivan")).toBe(true);
+    expect(cardMatchesText(def, "CREATURE")).toBe(true);
+    expect(cardMatchesText(def, "flying")).toBe(true);
+  });
+
+  it("matches phrases inside the rules text", () => {
+    expect(cardMatchesText(mkDef(), "can't be blocked")).toBe(true);
+    expect(cardMatchesText(mkDef(), "creatures with flying or reach")).toBe(true);
+  });
+
+  it("rejects text absent from every field", () => {
+    expect(cardMatchesText(mkDef(), "trample")).toBe(false);
+    expect(cardMatchesText(mkDef(), "Shivan")).toBe(true); // sanity: name works
+  });
+});
 
 describe("findOwnCard", () => {
   it("finds a card in each of your own zones", () => {
