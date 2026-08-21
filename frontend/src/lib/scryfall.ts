@@ -8,6 +8,7 @@ const BATCH_LIMIT = 75; // POST /cards/collection accepts at most 75 identifiers
 const BATCH_GAP_MS = 120; // good-faith rate limiting between batches
 const FUZZY_LIMIT = 20; // fuzzy-search fallback attempts per resolveCards call
 const FUZZY_GAP_MS = 100; // good-faith rate limiting between fuzzy lookups
+const SEARCH_RETRY_MS = 1000; // wait before retrying a rate-limited search
 
 export type CardDef = {
   id: string; // Scryfall card id
@@ -232,31 +233,56 @@ export async function resolveCardsByIds(ids: string[]): Promise<CardDef[]> {
   return defs;
 }
 
+/** Search via GET /cards/search. A 404 genuinely means "no matches" (→ []),
+ *  but a 429/5xx or a network failure must NOT masquerade as an empty
+ *  result — retry once (honoring Retry-After), then throw so callers can
+ *  say "try again" instead of "nothing found". */
+async function searchCards(query: string, limit: number): Promise<CardDef[]> {
+  const url = `${API}/cards/search?q=${encodeURIComponent(query)}&unique=print`;
+  for (let attempt = 0; ; attempt++) {
+    let response: Response;
+    try {
+      response = await fetch(url);
+    } catch {
+      if (attempt === 0) {
+        await sleep(SEARCH_RETRY_MS);
+        continue;
+      }
+      throw new Error("couldn't reach Scryfall — check your connection");
+    }
+    if (response.ok) {
+      const payload = (await response.json()) as { data: ScryfallCard[] };
+      return payload.data
+        .slice(0, limit)
+        .map((card) => toDef(card))
+        .filter((def): def is CardDef => def !== null);
+    }
+    if (response.status === 404) return [];
+    if (attempt === 0 && (response.status === 429 || response.status >= 500)) {
+      const retryAfter = Number(response.headers.get("Retry-After"));
+      const waitMs =
+        Number.isFinite(retryAfter) && retryAfter >= 1 && retryAfter <= 5
+          ? retryAfter * 1000
+          : SEARCH_RETRY_MS;
+      await sleep(waitMs);
+      continue;
+    }
+    throw new Error(`Scryfall search failed (${response.status}) — try again`);
+  }
+}
+
 /** Search tokens and emblems by name (used by the create-token modal).
  *  Emblems are their own Scryfall type (t:emblem) — planeswalker emblems
  *  would never show under a plain t:token query. */
 export async function searchTokenCards(name: string): Promise<CardDef[]> {
-  const query = encodeURIComponent(`(t:token or t:emblem) ${name.trim()}`);
-  const response = await fetch(`${API}/cards/search?q=${query}&unique=print`);
-  if (!response.ok) return [];
-  const payload = (await response.json()) as { data: ScryfallCard[] };
-  return payload.data
-    .slice(0, 8)
-    .map((card) => toDef(card))
-    .filter((def): def is CardDef => def !== null);
+  return searchCards(`(t:token or t:emblem) ${name.trim()}`, 8);
 }
 
 /** Commander-eligible cards matching a name: legendary creatures plus the
  *  planeswalkers that say they can be your commander. */
 export async function searchCommanderCandidates(name: string): Promise<CardDef[]> {
-  const query = encodeURIComponent(
-    `${name.trim()} ((t:legendary t:creature) or (t:planeswalker o:"can be your commander"))`
+  return searchCards(
+    `${name.trim()} ((t:legendary t:creature) or (t:planeswalker o:"can be your commander"))`,
+    12
   );
-  const response = await fetch(`${API}/cards/search?q=${query}&unique=print`);
-  if (!response.ok) return [];
-  const payload = (await response.json()) as { data: ScryfallCard[] };
-  return payload.data
-    .slice(0, 12)
-    .map((card) => toDef(card))
-    .filter((def): def is CardDef => def !== null);
 }
