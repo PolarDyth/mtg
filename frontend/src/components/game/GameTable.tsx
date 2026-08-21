@@ -10,7 +10,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
-  ALL_PHASES,
   type Action,
   type CardView,
   type GameView,
@@ -58,6 +57,14 @@ import ScryModal from "./ScryModal";
 import ShortcutsModal from "./ShortcutsModal";
 import TokenModal from "./TokenModal";
 import { cardWidthFor, focusPlayerId, imageFor, type FocusMode } from "./tableLayout";
+import {
+  battlefieldDrop,
+  findOwnCard,
+  nextPhaseAction,
+  onAnyBattlefield,
+  pickerMax,
+} from "./table/foundation";
+import { arrowTargetAt } from "./table/hitTest";
 import ZoneRail from "./ZoneRail";
 
 type DragState = {
@@ -76,49 +83,6 @@ type PendingDrag = {
 };
 
 const DRAG_THRESHOLD_PX = 5;
-
-/** Find a card among the viewer's own zones. */
-function findOwnCard(
-  view: GameView,
-  you: PlayerId | null,
-  uid: string
-): { card: CardView; zone: Zone } | null {
-  const self = view.players.find((p) => p.id === you);
-  if (!self) return null;
-  for (const [zone, zoneView] of Object.entries(self.zones) as [Zone, typeof self.zones[Zone]][]) {
-    if (zoneView.kind !== "cards") continue;
-    const card = zoneView.cards.find((c) => c.uid === uid);
-    if (card) return { card, zone };
-  }
-  return null;
-}
-
-/** Is this uid a battlefield card right now (any player's)? Arrow
- *  endpoints may be anyone's permanents. */
-function onAnyBattlefield(view: GameView, uid: string): boolean {
-  return view.players.some(
-    (p) =>
-      p.zones.battlefield.kind === "cards" &&
-      p.zones.battlefield.cards.some((c) => c.uid === uid)
-  );
-}
-
-/** What arrow target sits under this viewport point: a battlefield card or
- *  a player's band header. Hand/pile cards never qualify. */
-function arrowTargetAt(
-  x: number,
-  y: number
-): { uid: string } | { playerId: PlayerId } | null {
-  const element = document.elementFromPoint(x, y);
-  if (!element) return null;
-  const card = element.closest<HTMLElement>("[data-card-uid]");
-  if (card?.dataset.cardUid && card.closest("[data-drop='battlefield']")) {
-    return { uid: card.dataset.cardUid };
-  }
-  const head = element.closest<HTMLElement>("[data-player-head]");
-  if (head?.dataset.playerHead) return { playerId: head.dataset.playerHead };
-  return null;
-}
 
 /** The full game table: battlefield, hand, zone rail, chat, drag & drop. */
 export default function GameTable({
@@ -294,18 +258,15 @@ export default function GameTable({
         // battlefieldRef anchors to YOUR board's container in every view
         // mode (grid cell, focus board, or duel bottom half); positions are
         // % of your board in your own frame, un-mirrored.
-        const rect = battlefieldRef.current.getBoundingClientRect();
-        const px = ((x - rect.left) / rect.width) * 100;
-        const py = ((y - rect.top) / rect.height) * 100;
+        const pos = battlefieldDrop(
+          battlefieldRef.current.getBoundingClientRect(),
+          x,
+          y
+        );
         if (current.from !== "battlefield") {
           send({ type: "MOVE_CARD", uid: current.uid, to: "battlefield" });
         }
-        send({
-          type: "SET_POSITION",
-          uid: current.uid,
-          x: Math.round(Math.min(96, Math.max(4, px)) * 10) / 10,
-          y: Math.round(Math.min(92, Math.max(8, py)) * 10) / 10,
-        });
+        send({ type: "SET_POSITION", uid: current.uid, x: pos.x, y: pos.y });
         return;
       }
       if (drop === "hand") {
@@ -541,35 +502,6 @@ export default function GameTable({
 
   // --- N-action flows (dock, library menu) -------------------------------------
 
-  /** Ctrl+Enter / the strip's "Next ▸": advance one phase, or from "end"
-   *  pass the turn entirely. */
-  const nextPhaseAction = useCallback((): Action => {
-    const i = ALL_PHASES.indexOf(view.phase);
-    return i >= 0 && i < ALL_PHASES.length - 1
-      ? { type: "SET_PHASE", phase: ALL_PHASES[i + 1] }
-      : { type: "NEXT_TURN" };
-  }, [view.phase]);
-
-  function pickerMax(mode: PickerMode): number {
-    switch (mode) {
-      case "draw":
-      case "mill":
-        return 100;
-      case "mulligan":
-        return 99; // server clamps to the library size
-      case "token":
-      case "clone":
-        return 20; // MAX_TOKENS_AT_ONCE; more via Ctrl+G repeat
-      case "scry":
-      case "surveil":
-        return Math.min(10, libraryCount);
-      case "lookTop":
-        return libraryCount;
-      case "revealTop":
-        return Math.min(30, libraryCount);
-    }
-  }
-
   function confirmPicker(n: number) {
     const mode = picker;
     setPicker(null);
@@ -789,7 +721,7 @@ export default function GameTable({
           setPicker("draw");
           break;
         case "nextTurn":
-          send(nextPhaseAction());
+          send(nextPhaseAction(view.phase));
           break;
         case "passTurn":
           send({ type: "NEXT_TURN" });
@@ -890,7 +822,7 @@ export default function GameTable({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [send, view, you, self, hoverCard, lastToken, addNote, nextPhaseAction, shortcutsOpen]);
+  }, [send, view, you, self, hoverCard, lastToken, addNote, shortcutsOpen]);
 
   if (!self) {
     return (
@@ -1226,7 +1158,7 @@ export default function GameTable({
             }
             isYou={view.activePlayerId === you}
             onSelect={(phase) => send({ type: "SET_PHASE", phase })}
-            onNext={() => send(nextPhaseAction())}
+            onNext={() => send(nextPhaseAction(view.phase))}
           />
           <HandFan
             cards={hand}
@@ -1396,7 +1328,7 @@ export default function GameTable({
       {picker && (
         <CountPickerModal
           mode={picker}
-          max={pickerMax(picker)}
+          max={pickerMax(picker, libraryCount)}
           initial={picker === "mulligan" ? hand.length : 1}
           subject={pickerCreate?.name}
           onConfirm={confirmPicker}
