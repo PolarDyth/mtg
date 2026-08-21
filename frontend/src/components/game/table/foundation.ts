@@ -42,6 +42,16 @@ export function onAnyBattlefield(view: GameView, uid: string): boolean {
   );
 }
 
+/** The hovered card resolved against the viewer's own zones — shortcut
+ *  binds only ever act on your own cards. */
+export function findOwnHovered(
+  view: GameView,
+  you: PlayerId | null,
+  hoverCard: CardView | null
+): { card: CardView; zone: Zone } | null {
+  return hoverCard ? findOwnCard(view, you, hoverCard.uid) : null;
+}
+
 /** Ctrl+Enter / the strip's "Next ▸": advance one phase, or from the last
  *  phase pass the turn entirely. */
 export function nextPhaseAction(phase: Phase): Action {
