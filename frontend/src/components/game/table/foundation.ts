@@ -115,6 +115,8 @@ export function pickerMax(
       return Math.min(30, libraryCount);
     case "discardRandom":
       return Math.min(30, handCount); // MAX_DISCARD_AT_ONCE, capped by the hand
+    case "putFromTop":
+      return libraryCount + 1; // may sit below every current card
   }
 }
 

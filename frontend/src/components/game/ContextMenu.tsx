@@ -113,7 +113,7 @@ export default function ContextMenu({
   onCounters,
   onCreateToken,
   onClone,
-  onTap,
+  onPutFromTop,
 }: {
   menu: MenuState;
   send: (action: Action) => void;
@@ -135,8 +135,8 @@ export default function ContextMenu({
   onCreateToken: (token: { name: string; cardId: string }) => void;
   /** opens the count picker to clone this card */
   onClone: (card: CardView) => void;
-  /** tap-toggle override (useManaPool's tapForMana — adds mana on tap-on) */
-  onTap?: (card: CardView) => void;
+  /** opens the count picker to put this card N cards from the library top */
+  onPutFromTop: (card: CardView) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -319,6 +319,19 @@ export default function ContextMenu({
           }}
         />
       ))}
+
+      {(zone === "hand" ||
+        zone === "battlefield" ||
+        zone === "graveyard" ||
+        zone === "library") && (
+        <MenuItem
+          label="Put N from top…"
+          onClick={() => {
+            onPutFromTop(card);
+            onClose();
+          }}
+        />
+      )}
 
       {onBattlefield && (
         <>

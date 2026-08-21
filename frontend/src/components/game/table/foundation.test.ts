@@ -190,6 +190,11 @@ describe("pickerMax", () => {
     expect(pickerMax("discardRandom", 60, 40)).toBe(30);
     expect(pickerMax("discardRandom", 60, 0)).toBe(0);
   });
+
+  it("lets put-from-top sit below every current library card", () => {
+    expect(pickerMax("putFromTop", 40)).toBe(41);
+    expect(pickerMax("putFromTop", 0)).toBe(1);
+  });
 });
 
 describe("faceDef", () => {

@@ -6,7 +6,7 @@ import { createGame } from "./engine/state";
 import type { Rng } from "./engine/rng";
 
 const ROOM_IDLE_MS = 60 * 60 * 1000; // delete 1h after the last connection closes
-const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 60 * 1000;
 
 const WORDS = [
   "PLAINS", "ISLAND", "SWAMP", "MOUNTAIN", "FOREST", "WASTE",
@@ -26,6 +26,8 @@ export class RoomManager {
   private rooms = new Map<string, Game>();
   private lastActivity = new Map<string, number>();
   private sweeper: ReturnType<typeof setInterval> | null = null;
+  /** Per-room sweep pass (set by ws.ts): player-level GC + re-broadcast. */
+  onSweep: ((game: Game) => void) | null = null;
 
   constructor(private rng: Rng, private now: () => number = Date.now) {}
 
@@ -52,7 +54,9 @@ export class RoomManager {
     this.lastActivity.set(normalizeCode(code), this.now());
   }
 
-  /** Remove rooms whose last connection closed more than ROOM_IDLE_MS ago. */
+  /** Remove rooms whose last connection closed more than ROOM_IDLE_MS ago,
+   *  then run the per-room sweep hook (player-level GC). A room the hook
+   *  empties is torn down immediately, like the last LEAVE_GAME. */
   sweep(): number {
     const now = this.now();
     let removed = 0;
@@ -62,6 +66,13 @@ export class RoomManager {
         game.players.every((p) => !p.connected);
       const last = this.lastActivity.get(code) ?? 0;
       if (idle && now - last > ROOM_IDLE_MS) {
+        this.rooms.delete(code);
+        this.lastActivity.delete(code);
+        removed += 1;
+        continue;
+      }
+      this.onSweep?.(game);
+      if (game.players.length === 0) {
         this.rooms.delete(code);
         this.lastActivity.delete(code);
         removed += 1;
