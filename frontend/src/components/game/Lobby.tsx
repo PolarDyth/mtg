@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Action, Format, GameView, PlayerId } from "@mythic/shared";
 import { Crown } from "lucide-react";
 import { getCardById } from "@/lib/cardCache";
+import { useCardDefs } from "@/lib/useCardDefs";
 import { ChatInput, ChatLog, nameColor } from "./ChatLog";
 import CommanderPicker, { type DeckCandidate } from "./CommanderPicker";
 import DeckLoader from "./DeckLoader";
@@ -49,7 +50,21 @@ export default function Lobby({
   const commandCards =
     self?.zones.command.kind === "cards" ? self.zones.command.cards : [];
   const commander = commandCards[0] ?? null;
-  const commanderDef = commander?.cardId ? getCardById(commander.cardId) : null;
+  // Commanders may be cards this client never loaded — resolve their defs
+  // reactively (batch Scryfall fetch on miss) instead of a sync cache read
+  // that blanks other players' rows. The annotation is the server-side name
+  // fallback until the def arrives.
+  const commanderIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const player of view.players) {
+      const zone = player.zones.command;
+      const card = zone.kind === "cards" ? zone.cards[0] : undefined;
+      if (card?.cardId) ids.add(card.cardId);
+    }
+    return ids;
+  }, [view.players]);
+  const { get } = useCardDefs(commanderIds);
+  const commanderDef = commander?.cardId ? get(commander.cardId) : null;
   const commanderName = commanderDef?.name ?? commander?.annotations[0] ?? null;
 
   // commander-eligible cards currently sitting in your library/sideboard
@@ -109,9 +124,9 @@ export default function Lobby({
               const command =
                 player.zones.command.kind === "cards" ? player.zones.command.cards : [];
               const theirCommander = command[0];
-              const theirDef = theirCommander?.cardId
-                ? getCardById(theirCommander.cardId)
-                : null;
+              const theirName =
+                get(theirCommander?.cardId ?? null)?.name ??
+                theirCommander?.annotations[0];
               return (
                 <li
                   key={player.id}
@@ -131,13 +146,13 @@ export default function Lobby({
                       you
                     </span>
                   )}
-                  {theirDef && (
+                  {theirCommander && (
                     <span
                       className="flex items-center gap-1 text-xs text-zinc-500"
-                      title={`${theirDef.name} — commander`}
+                      title={`${theirName ?? "Commander"} — commander`}
                     >
                       <Crown className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      {theirDef.name}
+                      {theirName ?? "Commander"}
                     </span>
                   )}
                   <span className="ml-auto text-xs text-zinc-500">
