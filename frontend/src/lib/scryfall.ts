@@ -16,11 +16,28 @@ export type CardDef = {
   type_line: string;
   small: string; // image URL (146×204)
   normal: string; // image URL (488×680)
+  /** Mana symbols the card can produce (Scryfall's produced_mana) — drives
+   *  the tap-adds-mana convenience. Distinct symbols, no amounts. */
+  produced_mana: string[];
+  /** Rules text (faces joined " // " for multi-face single cards) — drives
+   *  the pile viewer's full-text filter. */
+  oracle_text: string;
+  /** The other face of a double-faced card (transform / MDFC / reversible).
+   *  Splits and adventures keep their combined single identity — no back. */
+  back?: CardBack;
   /** Legendary creature, or a planeswalker that says it can be your commander. */
   commanderEligible: boolean;
   /** Tokens/emblems this card creates (from Scryfall's all_parts) — drives
    *  the card menu's "Create token…" list. */
   relatedTokens: { id: string; name: string }[];
+};
+
+export type CardBack = {
+  name: string;
+  mana_cost: string;
+  type_line: string;
+  small: string;
+  normal: string;
 };
 
 type ScryfallCard = {
@@ -33,8 +50,12 @@ type ScryfallCard = {
   mana_cost?: string;
   type_line?: string;
   oracle_text?: string;
+  /** Card layout — separates double-faced cards from splits/adventures. */
+  layout?: string;
+  produced_mana?: string[];
   image_uris?: { small?: string; normal?: string };
   card_faces?: Array<{
+    name?: string;
     mana_cost?: string;
     type_line?: string;
     oracle_text?: string;
@@ -87,7 +108,28 @@ export function relatedTokensOf(card: {
   return tokens;
 }
 
-function toDef(card: ScryfallCard): CardDef | null {
+/** Layouts where the card has a second, swappable face. Splits, adventures,
+ *  and fused cards are one combined identity — they never get a `back`. */
+const DFC_LAYOUTS = new Set(["transform", "modal_dfc", "reversible_card"]);
+
+/** The other face of a double-faced card, or undefined. A back face without
+ *  both image sizes is dropped — the front def still works, it just can't
+ *  transform visually. */
+function backOf(card: ScryfallCard): CardBack | undefined {
+  if (!DFC_LAYOUTS.has(card.layout ?? "")) return undefined;
+  const face = card.card_faces?.[1];
+  const images = face?.image_uris;
+  if (!face || !face.name || !images?.small || !images.normal) return undefined;
+  return {
+    name: face.name,
+    mana_cost: face.mana_cost ?? "",
+    type_line: face.type_line ?? "",
+    small: images.small,
+    normal: images.normal,
+  };
+}
+
+export function toDef(card: ScryfallCard): CardDef | null {
   const front = card.card_faces?.[0];
   const images = card.image_uris ?? front?.image_uris;
   const mana = card.mana_cost || front?.mana_cost || "";
@@ -99,6 +141,12 @@ function toDef(card: ScryfallCard): CardDef | null {
     type_line: card.type_line ?? front?.type_line ?? "",
     small: images.small,
     normal: images.normal,
+    produced_mana: card.produced_mana ?? [],
+    oracle_text:
+      card.oracle_text ??
+      card.card_faces?.map((f) => f.oracle_text ?? "").join(" // ") ??
+      "",
+    back: backOf(card),
     commanderEligible: isCommanderEligible(card),
     relatedTokens: relatedTokensOf(card),
   };
