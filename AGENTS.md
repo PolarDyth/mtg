@@ -48,6 +48,23 @@ per-tab sessionStorage).
   aggregating subdomain maps with zero changes elsewhere) → tests colocated
   in `actions/<domain>.test.ts` (harness in `actions/testUtils.ts`; view
   tests in `engine/view.test.ts`).
+- The game table UI mirrors that registry pattern: `GameTable.tsx` is a thin
+  composition root (~500 lines); feature state/logic live in per-feature
+  hooks under `frontend/src/components/game/table/hooks/` (drag, arrow/attach
+  picking, piles, picker/scry flow, hand selection, reveals, focus views,
+  preview, menus, header menus), pure lookup/policy math in
+  `table/foundation.ts` (colocated test; DOM hit-testing in
+  `table/hitTest.ts`), extracted chrome in `table/components/` (TableHeader,
+  DragGhost, SelectionBar, PickingBar). Each hook returns a `keybinds` slice
+  — built with `satisfies KeybindSlice`, never an annotation, which would
+  erase the required keys — that GameTable spreads into one exhaustive
+  `Record<KeybindId, Handler>` (a KeybindId added to `lib/keybinds.ts`
+  without a slice fails `tsc`), plus an `escape(): boolean` chained in
+  `table/escape.ts` (priority tier first-true-wins: maximize → reveal popup
+  → audience → arrow → attach; then a catch-all tier that all runs). To add
+  a feature: new hook in `table/hooks/` (+ component in `table/components/`
+  if it has chrome) → mount it in GameTable → add its slice to the keybind
+  literal and its escape to the chain.
 - Hidden info is filtered per-viewer in `view.ts`: opponents' hand/library/
   sideboard collapse to counts; face-down cards carry `cardId: null` for
   non-owners; reveal chat messages with `to` are delivered only to the
@@ -64,8 +81,10 @@ per-tab sessionStorage).
   owning player's board** (owner's frame) and refer to the card's **center**
   — keep drop math in the owner's frame or views desync between players.
   Focus views (board expand / duel vs one opponent / maximize overlay) live
-  in `GameTable` + `Battlefield` and never touch the wire protocol; drops
-  always resolve against your own board's rect in `battlefieldRef`. Mode
+  in `table/hooks/useFocusView` + `Battlefield` and never touch the wire
+  protocol; drops always resolve against your own board's rect in
+  `battlefieldRef` (owned by `table/hooks/useCardDrag`, pure drop math in
+  `table/foundation.ts`'s `battlefieldDrop`). Mode
   switches animate via entrance keyframes in `globals.css` (`.board-in`,
   `.bar-in`, `.overlay-in` — the band grid is keyed per mode to replay
   them).
@@ -90,9 +109,11 @@ per-tab sessionStorage).
   Browser-reserved combos are remapped: token = Ctrl+Alt+T, look at top N
   = Ctrl+Alt+W, life ±1 = Ctrl+Alt+= / Ctrl+Alt+-. Card-level binds
   (Alt+A arrow, Alt+F flip, Ctrl+Del graveyard, Ctrl+B bottom, Alt+N
-  note) act on the **hovered card** — `hoverCard` in GameTable, fed by
-  `onCardHover(def, card)` from CardSprite. The dispatcher ignores keys
-  typed into INPUT/TEXTAREA and preventDefaults every matched combo. The
+  note) act on the **hovered card** — `hoverCard` in
+  `table/hooks/useCardPreview`, fed by `onCardHover(def, card)` from
+  CardSprite. Handlers are slices composed per the table/ registry bullet
+  above; the `useTableKeybinds` dispatcher ignores keys typed into
+  INPUT/TEXTAREA and preventDefaults every matched combo. The
   header's Shortcuts button or `?` opens a cheat sheet (`ShortcutsModal`)
   rendered from `SHORTCUT_GROUPS`/`KEYBIND_LABELS` in the same file — a
   test keeps those groups covering every keybind.
