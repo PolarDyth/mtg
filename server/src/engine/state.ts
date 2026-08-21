@@ -2,7 +2,7 @@
 // server: they contain secrets (rejoin tokens) and true card identities that
 // view.ts filters before anything reaches a client.
 
-import { ALL_ZONES, CHAT_CAP, type Arrow, type CardInstance, type ChatMessage, type Format, type PlayerId, type Zone } from "@mythic/shared";
+import { ALL_ZONES, CHAT_CAP, type Arrow, type CardInstance, type ChatMessage, type Format, type Phase, type PlayerId, type Zone } from "@mythic/shared";
 import type { Rng } from "./rng";
 
 export type Player = {
@@ -30,6 +30,8 @@ export type Game = {
   code: string;
   started: boolean;
   format: Format;
+  /** Current turn phase — a synced label, never enforced. */
+  phase: Phase;
   activePlayerId: PlayerId | null;
   /** First player seated; runs host actions. Transfers when they leave. */
   hostId: PlayerId | null;
@@ -57,6 +59,7 @@ export function createGame(code: string): Game {
     code,
     started: false,
     format: "freeform",
+    phase: "untap",
     activePlayerId: null,
     hostId: null,
     banned: { names: [], ips: [] },

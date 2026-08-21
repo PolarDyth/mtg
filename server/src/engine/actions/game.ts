@@ -1,6 +1,6 @@
 // Game flow: starting the game, turn order, life totals, leaving.
 
-import type { Action, Format } from "@mythic/shared";
+import { ALL_PHASES, type Action, type Format } from "@mythic/shared";
 import {
   removePlayer,
   systemMessage,
@@ -43,6 +43,7 @@ function startGame(
     for (const player of game.players) player.life = 40;
   }
   game.started = true;
+  game.phase = "untap";
   game.activePlayerId = game.players[0].id;
   systemMessage(
     game,
@@ -87,9 +88,28 @@ function nextTurn(
   const i = game.players.findIndex((p) => p.id === game.activePlayerId);
   const next = game.players[(i + 1 + game.players.length) % game.players.length];
   game.activePlayerId = next.id;
+  game.phase = "untap";
   // Passing the turn ends combat talk — attack/block arrows go with it.
   game.arrows = [];
+  // Convenience, deliberately dumb: the incoming player's whole board
+  // untaps. Cards that "shouldn't" untap just get re-tapped by hand —
+  // the server syncs state, it never judges.
+  for (const card of next.zones.battlefield) card.tapped = false;
   systemMessage(game, `It is now ${next.name}'s turn`, ctx.rng, ctx.now());
+  return ok(game);
+}
+
+function setPhase(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "SET_PHASE" }>
+): ActionResult {
+  const started = requireStarted(game);
+  if (started) return err(started);
+  // Purely structural: any seated player may move the label anywhere —
+  // like NEXT_TURN, there is no active-player gating.
+  if (!ALL_PHASES.includes(action.phase)) return err("unknown phase");
+  game.phase = action.phase;
   return ok(game);
 }
 
@@ -134,6 +154,7 @@ function leaveGame(
 export const gameHandlers = {
   START_GAME: startGame,
   NEXT_TURN: nextTurn,
+  SET_PHASE: setPhase,
   SET_LIFE: setLife,
   MULLIGAN: mulligan,
   LEAVE_GAME: leaveGame,

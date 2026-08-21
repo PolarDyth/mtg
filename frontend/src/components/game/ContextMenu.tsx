@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Action, CardView, Zone } from "@mythic/shared";
+import type { CardDef } from "@/lib/scryfall";
 import type { PickerMode } from "./CountPickerModal";
 
 export type MenuState =
@@ -10,6 +11,9 @@ export type MenuState =
       card: CardView;
       /** the zone the card currently lives in (drives the game actions) */
       zone: Zone;
+      /** your own card gets the full menu; an opponent's battlefield card
+       *  gets the reduced one (clone / its tokens) */
+      own: boolean;
       /** display name for reveals, resolved from card defs at open time */
       name: string;
       x: number;
@@ -96,6 +100,7 @@ function moveTargets(zone: Zone): QuickAction[] {
 export default function ContextMenu({
   menu,
   send,
+  getDef,
   onClose,
   onNote,
   onPicker,
@@ -104,9 +109,13 @@ export default function ContextMenu({
   onDrawArrowFrom,
   onAttachFrom,
   onCounters,
+  onCreateToken,
+  onClone,
 }: {
   menu: MenuState;
   send: (action: Action) => void;
+  /** card-def lookup (for the "Create token…" list) */
+  getDef: (id: string | null) => CardDef | null;
   onClose: () => void;
   onNote: (card: CardView) => void;
   onPicker: (mode: PickerMode) => void;
@@ -119,15 +128,21 @@ export default function ContextMenu({
   onAttachFrom: (card: CardView) => void;
   /** opens the persistent counter popover at the menu position */
   onCounters: (card: CardView, x: number, y: number) => void;
+  /** opens the count picker to mint copies of one of the card's tokens */
+  onCreateToken: (token: { name: string; cardId: string }) => void;
+  /** opens the count picker to clone this card */
+  onClone: (card: CardView) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [tokenOpen, setTokenOpen] = useState(false);
 
   // reset the submenus whenever a new menu opens (render-time reset pattern)
   const [prevMenu, setPrevMenu] = useState(menu);
   if (menu !== prevMenu) {
     setPrevMenu(menu);
     setMoveOpen(false);
+    setTokenOpen(false);
   }
 
   useEffect(() => {
@@ -146,7 +161,7 @@ export default function ContextMenu({
   const baseTop = menu ? Math.min(menu.y, window.innerHeight - 120) : 0;
 
   // Keep the menu fully on screen, re-measuring whenever a submenu expands
-  // it (Move to… can grow the menu past the viewport bottom).
+  // it (Move to… / Create token… can grow the menu past the viewport bottom).
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -157,7 +172,7 @@ export default function ContextMenu({
     if (overflowY > 0) el.style.top = `${Math.max(8, baseTop - overflowY)}px`;
     const overflowX = rect.right - (window.innerWidth - 8);
     if (overflowX > 0) el.style.left = `${Math.max(8, baseLeft - overflowX)}px`;
-  }, [menu, moveOpen, baseLeft, baseTop]);
+  }, [menu, moveOpen, tokenOpen, baseLeft, baseTop]);
 
   if (!menu) return null;
 
@@ -204,8 +219,74 @@ export default function ContextMenu({
     );
   }
 
-  const { card, zone, name } = menu;
+  const { card, zone, name, own } = menu;
   const onBattlefield = zone === "battlefield";
+  const relatedTokens =
+    onBattlefield && card.cardId ? getDef(card.cardId)?.relatedTokens ?? [] : [];
+
+  // Mint-new-instances actions, shared by the full menu (own battlefield
+  // cards) and the reduced one (opponents' battlefield cards): spawn copies
+  // of the card's tokens, or clone the card itself. Face-down cards seen as
+  // an opponent have cardId === null, so both hide naturally.
+  const mintActions = (
+    <>
+      {relatedTokens.length > 0 && (
+        <>
+          <button
+            className="flex w-full items-center justify-between px-3 py-1.5 text-left text-zinc-200 hover:bg-zinc-800"
+            onClick={() => setTokenOpen((v) => !v)}
+          >
+            Create token…{" "}
+            <span className="text-zinc-500">{tokenOpen ? "▾" : "▸"}</span>
+          </button>
+          {tokenOpen && (
+            <div className="mx-2 mb-1 rounded border border-zinc-700 bg-zinc-950 py-1">
+              {relatedTokens.map((token) => (
+                <MenuItem
+                  key={token.id}
+                  label={token.name}
+                  onClick={() => {
+                    onCreateToken({ name: token.name, cardId: token.id });
+                    onClose();
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {card.cardId && (
+        <MenuItem
+          label="Clone…"
+          onClick={() => {
+            onClone(card);
+            onClose();
+          }}
+        />
+      )}
+    </>
+  );
+
+  if (!own) {
+    // An opponent's battlefield card: everything except minting new
+    // instances would bounce off the server's ownership checks, so the
+    // reduced menu only offers those.
+    return (
+      <div
+        ref={ref}
+        style={style}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="fixed z-50 w-52 rounded-md border border-zinc-700 bg-zinc-900 py-1 text-sm shadow-2xl"
+      >
+        {mintActions}
+        {relatedTokens.length === 0 && !card.cardId && (
+          <p className="px-3 py-1.5 text-xs text-zinc-600">
+            {name} — nothing to do (not your card)
+          </p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -256,6 +337,7 @@ export default function ContextMenu({
               onClose();
             }}
           />
+          {mintActions}
         </>
       )}
 

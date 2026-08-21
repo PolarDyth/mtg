@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_KEYBINDS, eventToCombo, isTypingTarget, matchKeybind } from "./keybinds";
+import {
+  DEFAULT_KEYBINDS,
+  eventToCombo,
+  isTypingTarget,
+  matchKeybind,
+  SHORTCUT_GROUPS,
+  type KeybindId,
+} from "./keybinds";
 
 type FakeEvent = {
   key: string;
@@ -96,6 +103,11 @@ describe("default keybind matching", () => {
     expect(id({ key: "Enter", shiftKey: true })).toBe("focusChat");
     expect(id({ key: "Enter", ctrlKey: true })).toBe("nextTurn");
   });
+
+  it("shift also distinguishes pass turn from next phase", () => {
+    expect(id({ key: "Enter", ctrlKey: true, shiftKey: true })).toBe("passTurn");
+    expect(id({ key: "Enter", metaKey: true, shiftKey: true })).toBe("passTurn");
+  });
 });
 
 describe("isTypingTarget", () => {
@@ -114,5 +126,11 @@ describe("DEFAULT_KEYBINDS sanity", () => {
   it("has no duplicate combos", () => {
     const combos = Object.values(DEFAULT_KEYBINDS);
     expect(new Set(combos).size).toBe(combos.length);
+  });
+
+  it("cheat-sheet groups cover every keybind exactly once", () => {
+    const listed = SHORTCUT_GROUPS.flatMap((g) => g.items).sort();
+    const all = (Object.keys(DEFAULT_KEYBINDS) as KeybindId[]).sort();
+    expect(listed).toEqual(all);
   });
 });

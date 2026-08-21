@@ -18,6 +18,9 @@ export type CardDef = {
   normal: string; // image URL (488×680)
   /** Legendary creature, or a planeswalker that says it can be your commander. */
   commanderEligible: boolean;
+  /** Tokens/emblems this card creates (from Scryfall's all_parts) — drives
+   *  the card menu's "Create token…" list. */
+  relatedTokens: { id: string; name: string }[];
 };
 
 type ScryfallCard = {
@@ -36,6 +39,13 @@ type ScryfallCard = {
     type_line?: string;
     oracle_text?: string;
     image_uris?: { small?: string; normal?: string };
+  }>;
+  /** Related printings: the card itself, its tokens/emblems, meld/combo parts. */
+  all_parts?: Array<{
+    id: string;
+    name: string;
+    component: string;
+    type_line?: string;
   }>;
 };
 
@@ -57,6 +67,26 @@ function isCommanderEligible(card: ScryfallCard): boolean {
   return legendaryCreature || commanderWalker;
 }
 
+/** Tokens/emblems a card creates, from Scryfall's all_parts. A part counts
+ *  when its component is "token" or its type_line starts with Token/Emblem
+ *  (belt and braces across Scryfall's part typing). Deduped by id, ≤8. */
+export function relatedTokensOf(card: {
+  all_parts?: Array<{ id: string; name: string; component: string; type_line?: string }>;
+}): { id: string; name: string }[] {
+  const seen = new Set<string>();
+  const tokens: { id: string; name: string }[] = [];
+  for (const part of card.all_parts ?? []) {
+    if (seen.has(part.id)) continue;
+    const isToken =
+      part.component === "token" || /^(token|emblem)/i.test(part.type_line ?? "");
+    if (!isToken) continue;
+    seen.add(part.id);
+    tokens.push({ id: part.id, name: part.name });
+    if (tokens.length >= 8) break;
+  }
+  return tokens;
+}
+
 function toDef(card: ScryfallCard): CardDef | null {
   const front = card.card_faces?.[0];
   const images = card.image_uris ?? front?.image_uris;
@@ -70,6 +100,7 @@ function toDef(card: ScryfallCard): CardDef | null {
     small: images.small,
     normal: images.normal,
     commanderEligible: isCommanderEligible(card),
+    relatedTokens: relatedTokensOf(card),
   };
 }
 

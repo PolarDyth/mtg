@@ -149,6 +149,18 @@ async function main() {
   await host.until((s) => s.activePlayerId === host.welcome.you ? false : s.players.find((p) => p.id === s.activePlayerId)?.name === "Bob");
   check("turn passed to Bob", true);
 
+  console.log("phases:");
+  host.send({ kind: "action", action: { type: "SET_PHASE", phase: "main1" } });
+  await host.until((s) => s.phase === "main1");
+  await guest.until((s) => s.phase === "main1");
+  check("phase strip agrees across clients", true);
+  guest.send({ kind: "action", action: { type: "NEXT_TURN" } });
+  await host.until(
+    (s) => s.phase === "untap" && s.players.find((p) => p.id === s.activePlayerId)?.name === "Ada"
+  );
+  await guest.until((s) => s.phase === "untap");
+  check("passing the turn resets the phase", true);
+
   console.log("ownership:");
   const stolenUid = hostHand.cards[0].uid;
   guest.send({ kind: "action", action: { type: "MOVE_CARD", uid: stolenUid, to: "battlefield" } });

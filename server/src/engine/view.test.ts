@@ -26,6 +26,15 @@ describe("personalized snapshots", () => {
     }
   });
 
+  it("exposes the current phase to every viewer", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    expect(personalize(game, bob.id).phase).toBe("untap");
+    mustOk(act(game, ctx, ada, { type: "SET_PHASE", phase: "main2" }));
+    expect(personalize(game, bob.id).phase).toBe("main2");
+    expect(personalize(game, ada.id).phase).toBe("main2");
+  });
+
   it("hides face-down battlefield identities from opponents, not the owner", () => {
     const { game, ctx, ada, bob } = setup();
     startWithDeck(game, ctx, ada);

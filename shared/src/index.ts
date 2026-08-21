@@ -23,6 +23,35 @@ export const ALL_ZONES: Zone[] = [
   "sideboard",
 ];
 
+/** Turn phases — shared LABELS for the phase strip. The server only syncs
+ *  which one is current; it never enforces order or timing. */
+export type Phase =
+  | "untap"
+  | "upkeep"
+  | "draw"
+  | "main1"
+  | "startCombat"
+  | "attackers"
+  | "blockers"
+  | "damage"
+  | "endCombat"
+  | "main2"
+  | "end";
+
+export const ALL_PHASES: Phase[] = [
+  "untap",
+  "upkeep",
+  "draw",
+  "main1",
+  "startCombat",
+  "attackers",
+  "blockers",
+  "damage",
+  "endCombat",
+  "main2",
+  "end",
+];
+
 type CardBase = {
   uid: string;
   /** Battlefield position, percentages of the battlefield area (0–100). */
@@ -114,6 +143,7 @@ export type Action =
   | { type: "SURVEIL"; look: number; top: string[]; graveyard: string[] }
   | { type: "SET_LIFE"; life: number }
   | { type: "ROLL_DIE"; sides: number }
+  | { type: "SET_PHASE"; phase: Phase }
   | { type: "NEXT_TURN" }
   | { type: "SEND_CHAT"; text: string }
   | { type: "LEAVE_GAME" }
@@ -167,6 +197,8 @@ export type GameView = {
   code: string;
   started: boolean;
   format: Format;
+  /** Current turn phase — a shared label, identical for every viewer. */
+  phase: Phase;
   activePlayerId: PlayerId;
   /** Who runs host actions (end game, remove players). */
   hostId: PlayerId;

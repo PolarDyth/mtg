@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardNameMatches } from "./scryfall";
+import { cardNameMatches, relatedTokensOf } from "./scryfall";
 
 describe("cardNameMatches", () => {
   it("matches the canonical name", () => {
@@ -44,5 +44,53 @@ describe("cardNameMatches", () => {
     expect(
       cardNameMatches("The Dead Marshes", { name: "Urborg, Tomb of Yawgmoth" })
     ).toBe(false);
+  });
+});
+
+describe("relatedTokensOf", () => {
+  it("collects parts with component token and Token/Emblem type lines", () => {
+    expect(
+      relatedTokensOf({
+        all_parts: [
+          { id: "self", name: "Raise the Alarm", component: "combo_piece" },
+          { id: "tok-1", name: "Soldier", component: "token", type_line: "Token Creature — Soldier" },
+          { id: "em-1", name: "Jace", component: "emblem_result", type_line: "Emblem — Jace" },
+        ],
+      })
+    ).toEqual([
+      { id: "tok-1", name: "Soldier" },
+      { id: "em-1", name: "Jace" },
+    ]);
+  });
+
+  it("keeps parts typed as tokens even without a type_line", () => {
+    expect(
+      relatedTokensOf({ all_parts: [{ id: "tok-2", name: "Clue", component: "token" }] })
+    ).toEqual([{ id: "tok-2", name: "Clue" }]);
+  });
+
+  it("ignores meld/combo parts and dedupes by id", () => {
+    expect(
+      relatedTokensOf({
+        all_parts: [
+          { id: "meld", name: "Urza", component: "meld_part", type_line: "Legendary Artifact Creature" },
+          { id: "tok-1", name: "Soldier", component: "token" },
+          { id: "tok-1", name: "Soldier", component: "token" },
+        ],
+      })
+    ).toEqual([{ id: "tok-1", name: "Soldier" }]);
+  });
+
+  it("caps at 8 tokens", () => {
+    const parts = Array.from({ length: 12 }, (_, i) => ({
+      id: `tok-${i}`,
+      name: `T${i}`,
+      component: "token",
+    }));
+    expect(relatedTokensOf({ all_parts: parts })).toHaveLength(8);
+  });
+
+  it("returns empty with no all_parts", () => {
+    expect(relatedTokensOf({})).toEqual([]);
   });
 });

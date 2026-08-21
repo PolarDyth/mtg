@@ -11,6 +11,7 @@ export type KeybindId =
   | "drawOne"
   | "drawMany"
   | "nextTurn"
+  | "passTurn"
   | "untapAll"
   | "shuffleLibrary"
   | "rollDie"
@@ -39,6 +40,7 @@ export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   drawOne: "Ctrl+D",
   drawMany: "Ctrl+E",
   nextTurn: "Ctrl+Enter",
+  passTurn: "Ctrl+Shift+Enter",
   untapAll: "Ctrl+U",
   shuffleLibrary: "Ctrl+S",
   rollDie: "Ctrl+I",
@@ -70,6 +72,78 @@ const COMBO_TO_ID: ReadonlyMap<string, KeybindId> = new Map(
     id,
   ])
 );
+
+/** Cheat-sheet labels for every bind (Record forces one label per id). */
+export const KEYBIND_LABELS: Record<KeybindId, string> = {
+  drawOne: "Draw a card",
+  drawMany: "Draw cards…",
+  nextTurn: "Next phase / turn",
+  passTurn: "Pass turn",
+  untapAll: "Untap all permanents",
+  shuffleLibrary: "Shuffle library",
+  rollDie: "Roll a d20",
+  millOne: "Mill 1 card",
+  millMany: "Mill cards…",
+  playTopCard: "Play top card to battlefield",
+  viewLibrary: "View library",
+  viewGraveyard: "View graveyard",
+  viewSideboard: "View sideboard",
+  viewTopCards: "Look at top N cards…",
+  createToken: "Create a token…",
+  createAnotherToken: "Create another token",
+  removeMyArrows: "Remove my arrows",
+  lifeSet: "Set life",
+  lifeInc: "Life +1",
+  lifeDec: "Life −1",
+  focusChat: "Focus chat",
+  selectAll: "Select all cards in hand",
+  arrowFromHover: "Draw arrow from it",
+  flipHover: "Turn it face down / up",
+  graveyardHover: "Put it in the graveyard",
+  bottomHover: "Put it on the bottom of the library",
+  noteHover: "Add a note to it",
+};
+
+/** Cheat-sheet section layout (presentation order); tests assert the
+ *  groups cover every KeybindId exactly once. */
+export const SHORTCUT_GROUPS: { title: string; items: KeybindId[] }[] = [
+  {
+    title: "Draw & library",
+    items: [
+      "drawOne",
+      "drawMany",
+      "playTopCard",
+      "millOne",
+      "millMany",
+      "shuffleLibrary",
+      "viewLibrary",
+      "viewTopCards",
+      "viewGraveyard",
+      "viewSideboard",
+    ],
+  },
+  {
+    title: "Board & turn",
+    items: [
+      "nextTurn",
+      "passTurn",
+      "untapAll",
+      "createToken",
+      "createAnotherToken",
+      "removeMyArrows",
+      "rollDie",
+      "selectAll",
+    ],
+  },
+  {
+    title: "Life & chat",
+    items: ["lifeInc", "lifeDec", "lifeSet", "focusChat"],
+  },
+  {
+    title: "Hovered card",
+    items: ["arrowFromHover", "flipHover", "graveyardHover", "bottomHover", "noteHover"],
+  },
+];
 
 /**
  * Normalize a key event to a combo string, or null for bare modifier

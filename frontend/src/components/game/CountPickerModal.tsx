@@ -7,6 +7,8 @@ export type PickerMode =
   | "draw"
   | "mill"
   | "mulligan"
+  | "token"
+  | "clone"
   | "scry"
   | "surveil"
   | "lookTop"
@@ -15,7 +17,7 @@ export type PickerMode =
 type PickerConfig = {
   title: string;
   blurb: string;
-  confirm: (n: number) => string;
+  confirm: (n: number, subject?: string) => string;
 };
 
 const CONFIG: Record<PickerMode, PickerConfig> = {
@@ -33,6 +35,16 @@ const CONFIG: Record<PickerMode, PickerConfig> = {
     title: "Mulligan",
     blurb: "Shuffle your hand into your library, then draw a fresh hand of this size.",
     confirm: (n) => `Mulligan to ${n}`,
+  },
+  token: {
+    title: "Create tokens",
+    blurb: "Mint this many copies of the token onto your battlefield.",
+    confirm: (n, subject) => `Create ${n} × ${subject ?? "token"}`,
+  },
+  clone: {
+    title: "Clone card",
+    blurb: "Spawn that many copies of this card onto the battlefield.",
+    confirm: (n) => `Clone × ${n}`,
   },
   scry: {
     title: "Scry",
@@ -61,6 +73,7 @@ export default function CountPickerModal({
   mode,
   max,
   initial = 1,
+  subject,
   onConfirm,
   onClose,
 }: {
@@ -68,6 +81,8 @@ export default function CountPickerModal({
   max: number;
   /** starting value (e.g. the current hand size for a mulligan) */
   initial?: number;
+  /** what the count applies to (e.g. the token's name for token creation) */
+  subject?: string;
   onConfirm: (n: number) => void;
   onClose: () => void;
 }) {
@@ -84,7 +99,10 @@ export default function CountPickerModal({
         className="overlay-in w-full max-w-sm rounded-xl border border-zinc-700 bg-zinc-900 p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-semibold text-zinc-100">{config.title}</h2>
+        <h2 className="font-semibold text-zinc-100">
+          {config.title}
+          {subject && <span className="ml-2 font-normal text-zinc-400">{subject}</span>}
+        </h2>
         <p className="mt-1 text-sm text-zinc-500">{config.blurb}</p>
 
         {max < 1 ? (
@@ -133,7 +151,7 @@ export default function CountPickerModal({
             disabled={max < 1}
             className="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
           >
-            {config.confirm(clamped)}
+            {config.confirm(clamped, subject)}
           </button>
         </div>
       </div>

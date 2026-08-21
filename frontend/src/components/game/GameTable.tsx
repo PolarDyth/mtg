@@ -9,8 +9,25 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import type { Action, CardView, GameView, PlayerId, Zone } from "@mythic/shared";
-import { Ban, Check, Copy, Crown, Shield, Sparkles, UserX, ZoomIn } from "lucide-react";
+import {
+  ALL_PHASES,
+  type Action,
+  type CardView,
+  type GameView,
+  type PlayerId,
+  type Zone,
+} from "@mythic/shared";
+import {
+  Ban,
+  Check,
+  Copy,
+  Crown,
+  Keyboard,
+  Shield,
+  Sparkles,
+  UserX,
+  ZoomIn,
+} from "lucide-react";
 import { useCardDefs } from "@/lib/useCardDefs";
 import type { CardDef } from "@/lib/scryfall";
 import { nameColor } from "@/lib/playerColor";
@@ -34,9 +51,11 @@ import ChatPanel from "./ChatPanel";
 import CounterPopover from "./CounterPopover";
 import CountPickerModal, { type PickerMode } from "./CountPickerModal";
 import HandFan from "./HandFan";
+import PhaseBar from "./PhaseBar";
 import PileModal from "./PileModal";
 import RevealPopup, { type RevealChatMessage } from "./RevealPopup";
 import ScryModal from "./ScryModal";
+import ShortcutsModal from "./ShortcutsModal";
 import TokenModal from "./TokenModal";
 import { cardWidthFor, focusPlayerId, imageFor, type FocusMode } from "./tableLayout";
 import ZoneRail from "./ZoneRail";
@@ -161,7 +180,13 @@ export default function GameTable({
   } | null>(null);
   const [tokenOpen, setTokenOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [picker, setPicker] = useState<PickerMode | null>(null);
+  // what a token/clone picker mint runs against (name + cardId)
+  const [pickerCreate, setPickerCreate] = useState<{
+    name: string;
+    cardId?: string;
+  } | null>(null);
   const [scry, setScry] = useState<{ mode: "scry" | "surveil"; n: number } | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -353,13 +378,17 @@ export default function GameTable({
 
   const openCardMenu = useCallback(
     (card: CardView, x: number, y: number) => {
-      const own = findOwnCard(view, you, card.uid);
-      if (!own) return;
+      const found = findOwnCard(view, you, card.uid);
+      const own = !!found;
+      // own cards get the full menu; an opponent's battlefield card gets the
+      // reduced one (clone it / spawn its tokens)
+      if (!own && !onAnyBattlefield(view, card.uid)) return;
       setMenu({
         kind: "card",
         card,
-        zone: own.zone,
-        name: get(own.card.cardId)?.name ?? own.card.annotations[0] ?? "Card",
+        own,
+        zone: found?.zone ?? "battlefield",
+        name: get(card.cardId)?.name ?? card.annotations[0] ?? "Card",
         x,
         y,
       });
@@ -512,6 +541,15 @@ export default function GameTable({
 
   // --- N-action flows (dock, library menu) -------------------------------------
 
+  /** Ctrl+Enter / the strip's "Next ▸": advance one phase, or from "end"
+   *  pass the turn entirely. */
+  const nextPhaseAction = useCallback((): Action => {
+    const i = ALL_PHASES.indexOf(view.phase);
+    return i >= 0 && i < ALL_PHASES.length - 1
+      ? { type: "SET_PHASE", phase: ALL_PHASES[i + 1] }
+      : { type: "NEXT_TURN" };
+  }, [view.phase]);
+
   function pickerMax(mode: PickerMode): number {
     switch (mode) {
       case "draw":
@@ -519,6 +557,9 @@ export default function GameTable({
         return 100;
       case "mulligan":
         return 99; // server clamps to the library size
+      case "token":
+      case "clone":
+        return 20; // MAX_TOKENS_AT_ONCE; more via Ctrl+G repeat
       case "scry":
       case "surveil":
         return Math.min(10, libraryCount);
@@ -539,6 +580,13 @@ export default function GameTable({
       send({ type: "MILL_CARDS", count: n });
     } else if (mode === "mulligan") {
       send({ type: "MULLIGAN", draw: n });
+    } else if (mode === "token" || mode === "clone") {
+      if (pickerCreate) {
+        const token = { ...pickerCreate, count: n };
+        send({ type: "CREATE_TOKEN", ...token });
+        setLastToken(token); // Ctrl+G repeats it
+      }
+      setPickerCreate(null);
     } else if (mode === "scry" || mode === "surveil") {
       setScry({ mode, n });
     } else if (mode === "lookTop") {
@@ -664,6 +712,7 @@ export default function GameTable({
         setSelectMode(false);
       }
       setTokenOpen(false);
+      setShortcutsOpen(false);
       setZoom(null);
       setHostMenuOpen(false);
       setPreviewMenuOpen(false);
@@ -723,6 +772,12 @@ export default function GameTable({
     }
     function onKey(event: KeyboardEvent) {
       if (event.repeat || isTypingTarget(event.target)) return;
+      if (event.key === "?") {
+        event.preventDefault();
+        setShortcutsOpen((v) => !v);
+        return;
+      }
+      if (shortcutsOpen) return; // reading the sheet — game binds wait
       const id = matchKeybind(event);
       if (!id) return;
       event.preventDefault();
@@ -734,6 +789,9 @@ export default function GameTable({
           setPicker("draw");
           break;
         case "nextTurn":
+          send(nextPhaseAction());
+          break;
+        case "passTurn":
           send({ type: "NEXT_TURN" });
           break;
         case "untapAll": {
@@ -832,7 +890,7 @@ export default function GameTable({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [send, view, you, self, hoverCard, lastToken, addNote]);
+  }, [send, view, you, self, hoverCard, lastToken, addNote, nextPhaseAction, shortcutsOpen]);
 
   if (!self) {
     return (
@@ -932,6 +990,14 @@ export default function GameTable({
         >
           <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
           Actions
+        </button>
+        <button
+          onClick={() => setShortcutsOpen(true)}
+          title="Keyboard shortcuts (?)"
+          className="flex items-center gap-1.5 rounded border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 hover:border-emerald-600"
+        >
+          <Keyboard className="h-3.5 w-3.5" strokeWidth={1.75} />
+          Shortcuts
         </button>
         {view.arrows.length > 0 && (
           <button
@@ -1153,6 +1219,15 @@ export default function GameTable({
               </button>
             </div>
           )}
+          <PhaseBar
+            phase={view.phase}
+            activeName={
+              view.players.find((p) => p.id === view.activePlayerId)?.name ?? "—"
+            }
+            isYou={view.activePlayerId === you}
+            onSelect={(phase) => send({ type: "SET_PHASE", phase })}
+            onNext={() => send(nextPhaseAction())}
+          />
           <HandFan
             cards={hand}
             getDef={get}
@@ -1258,6 +1333,7 @@ export default function GameTable({
       <ContextMenu
         menu={menu}
         send={send}
+        getDef={get}
         onClose={() => setMenu(null)}
         onNote={addNote}
         onPicker={(mode) => setPicker(mode)}
@@ -1266,6 +1342,17 @@ export default function GameTable({
         onDrawArrowFrom={(card) => setArrowPicking(card)}
         onAttachFrom={(card) => setAttachSource(card)}
         onCounters={(card, x, y) => setCountersFor({ uid: card.uid, x, y })}
+        onCreateToken={(token) => {
+          setPickerCreate(token);
+          setPicker("token");
+        }}
+        onClone={(card) => {
+          setPickerCreate({
+            name: get(card.cardId)?.name ?? "Card",
+            cardId: card.cardId ?? undefined,
+          });
+          setPicker("clone");
+        }}
       />
 
       {countersCard && countersFor && (
@@ -1311,8 +1398,12 @@ export default function GameTable({
           mode={picker}
           max={pickerMax(picker)}
           initial={picker === "mulligan" ? hand.length : 1}
+          subject={pickerCreate?.name}
           onConfirm={confirmPicker}
-          onClose={() => setPicker(null)}
+          onClose={() => {
+            setPicker(null);
+            setPickerCreate(null);
+          }}
         />
       )}
 
@@ -1353,6 +1444,8 @@ export default function GameTable({
           onClose={() => setTokenOpen(false)}
         />
       )}
+
+      {shortcutsOpen && <ShortcutsModal onClose={() => setShortcutsOpen(false)} />}
 
       {audience && (
         <AudiencePickerModal

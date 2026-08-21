@@ -21,6 +21,8 @@ export function personalize(game: Game, viewerId: PlayerId): GameView {
     code: game.code,
     started: game.started,
     format: game.format,
+    // Phase is a shared label — identical for every viewer.
+    phase: game.phase,
     activePlayerId: game.activePlayerId ?? "",
     hostId: game.hostId ?? "",
     players: game.players.map((player) => playerView(player, viewerId)),

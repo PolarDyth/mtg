@@ -92,7 +92,10 @@ per-tab sessionStorage).
   (Alt+A arrow, Alt+F flip, Ctrl+Del graveyard, Ctrl+B bottom, Alt+N
   note) act on the **hovered card** — `hoverCard` in GameTable, fed by
   `onCardHover(def, card)` from CardSprite. The dispatcher ignores keys
-  typed into INPUT/TEXTAREA and preventDefaults every matched combo.
+  typed into INPUT/TEXTAREA and preventDefaults every matched combo. The
+  header's Shortcuts button or `?` opens a cheat sheet (`ShortcutsModal`)
+  rendered from `SHORTCUT_GROUPS`/`KEYBIND_LABELS` in the same file — a
+  test keeps those groups covering every keybind.
 - No database: games live in server RAM; card definitions are cached in
   localStorage (versioned key `mtg:cards:vN` in `frontend/src/lib/cardCache.ts`;
   bump the version when CardDef's shape changes). UI preferences use

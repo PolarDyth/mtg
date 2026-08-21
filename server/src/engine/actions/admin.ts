@@ -31,6 +31,7 @@ function endGame(
   if (!game.started) return err("game has not started");
   game.started = false;
   game.format = "freeform";
+  game.phase = "untap";
   game.activePlayerId = null;
   game.arrows = [];
   for (const player of game.players) {
