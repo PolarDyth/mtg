@@ -113,6 +113,7 @@ export default function ContextMenu({
   onCounters,
   onCreateToken,
   onClone,
+  onTap,
 }: {
   menu: MenuState;
   send: (action: Action) => void;
@@ -134,6 +135,8 @@ export default function ContextMenu({
   onCreateToken: (token: { name: string; cardId: string }) => void;
   /** opens the count picker to clone this card */
   onClone: (card: CardView) => void;
+  /** tap-toggle override (useManaPool's tapForMana — adds mana on tap-on) */
+  onTap?: (card: CardView) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -314,7 +317,8 @@ export default function ContextMenu({
           <MenuItem
             label={card.tapped ? "Untap" : "Tap"}
             onClick={() => {
-              send({ type: "SET_TAPPED", uid: card.uid, value: !card.tapped });
+              if (onTap) onTap(card);
+              else send({ type: "SET_TAPPED", uid: card.uid, value: !card.tapped });
               onClose();
             }}
           />

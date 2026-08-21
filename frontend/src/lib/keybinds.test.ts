@@ -90,6 +90,8 @@ describe("default keybind matching", () => {
     expect(id({ key: "a", altKey: true })).toBe("arrowFromHover");
     expect(id({ key: "f", altKey: true })).toBe("flipHover");
     expect(id({ key: "b", ctrlKey: true })).toBe("bottomHover");
+    expect(id({ key: "c", altKey: true })).toBe("clearManaPool");
+    expect(id({ key: "c" })).toBeNull(); // plain C is not Alt+C
   });
 
   it("keeps remapped browser-reserved combos distinct", () => {

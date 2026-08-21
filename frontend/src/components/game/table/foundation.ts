@@ -7,9 +7,12 @@
 
 import {
   ALL_PHASES,
+  MANA_COLORS,
   type Action,
   type CardView,
   type GameView,
+  type ManaColor,
+  type ManaPool,
   type Phase,
   type PlayerId,
   type Zone,
@@ -113,6 +116,31 @@ export function pickerMax(
     case "discardRandom":
       return Math.min(30, handCount); // MAX_DISCARD_AT_ONCE, capped by the hand
   }
+}
+
+/** The tap convenience, deliberately dumb: tapping a card with non-empty
+ *  produced_mana adds 1 of each DISTINCT color it lists (a Forest's ["G"]
+ *  adds one G; Birds of Paradise adds one of each of WUBRG; Sol Ring's
+ *  ["C","C"] dedupes to one C — correct what you meant by hand). Only ever
+ *  called on a tap-ON; untapping never touches the pool. */
+export function manaAfterTap(pool: ManaPool, produced: string[]): ManaPool {
+  const next = { ...pool };
+  for (const symbol of new Set(produced)) {
+    if ((MANA_COLORS as readonly string[]).includes(symbol)) {
+      const color = symbol as ManaColor;
+      next[color] = Math.min(99, next[color] + 1);
+    }
+  }
+  return next;
+}
+
+/** Pip-control math: remove `amount` of one color, floored at zero. */
+export function manaAfterSpend(
+  pool: ManaPool,
+  color: ManaColor,
+  amount: number
+): ManaPool {
+  return { ...pool, [color]: Math.max(0, pool[color] - amount) };
 }
 
 /** Structural stand-in for the rects getBoundingClientRect returns — plain

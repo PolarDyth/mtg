@@ -15,6 +15,7 @@ export type KeybindId =
   | "passTurn"
   | "untapAll"
   | "buffCreatures"
+  | "clearManaPool"
   | "shuffleLibrary"
   | "rollDie"
   | "millOne"
@@ -52,6 +53,7 @@ export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   passTurn: "Ctrl+Shift+Enter",
   untapAll: "Ctrl+U",
   buffCreatures: "Alt+P",
+  clearManaPool: "Alt+C",
   shuffleLibrary: "Ctrl+S",
   rollDie: "Ctrl+I",
   millOne: "Alt+Y",
@@ -98,6 +100,7 @@ export const KEYBIND_LABELS: Record<KeybindId, string> = {
   passTurn: "Pass turn",
   untapAll: "Untap all permanents",
   buffCreatures: "+1/+1 on all my creatures",
+  clearManaPool: "Clear my mana pool",
   shuffleLibrary: "Shuffle library",
   rollDie: "Roll a d20",
   millOne: "Mill 1 card",
@@ -157,6 +160,7 @@ export const SHORTCUT_GROUPS: { title: string; items: KeybindId[] }[] = [
       "passTurn",
       "untapAll",
       "buffCreatures",
+      "clearManaPool",
       "createToken",
       "createAnotherToken",
       "removeMyArrows",

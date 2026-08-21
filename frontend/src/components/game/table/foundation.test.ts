@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   CardView,
   GameView,
+  ManaPool,
   PlayerView,
   Zone,
   ZoneView,
@@ -12,6 +13,8 @@ import {
   battlefieldDrop,
   cardMatchesText,
   findOwnCard,
+  manaAfterSpend,
+  manaAfterTap,
   nextPhaseAction,
   onAnyBattlefield,
   pickerMax,
@@ -52,8 +55,18 @@ function mkPlayer(
     const list = cards[zone];
     zones[zone] = list ? { kind: "cards", cards: list } : { kind: "count", count: 0 };
   }
-  return { id, name: id, life: 20, connected: true, hasDeck: false, zones };
+  return {
+    id,
+    name: id,
+    life: 20,
+    mana: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
+    connected: true,
+    hasDeck: false,
+    zones,
+  };
 }
+
+const ZERO: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 function mkView(players: PlayerView[]): GameView {
   // only the fields the helpers read; the rest is cast-filled
@@ -175,6 +188,41 @@ describe("pickerMax", () => {
     expect(pickerMax("discardRandom", 60, 7)).toBe(7);
     expect(pickerMax("discardRandom", 60, 40)).toBe(30);
     expect(pickerMax("discardRandom", 60, 0)).toBe(0);
+  });
+});
+
+describe("manaAfterTap", () => {
+  it("adds 1 of each distinct listed color", () => {
+    expect(manaAfterTap(ZERO, ["G"])).toEqual({ ...ZERO, G: 1 });
+    // Sol Ring lists ["C","C"] — one distinct color, one added
+    expect(manaAfterTap(ZERO, ["C", "C"])).toEqual({ ...ZERO, C: 1 });
+    // Birds of Paradise lists all five
+    expect(manaAfterTap(ZERO, ["W", "U", "B", "R", "G"])).toEqual({
+      ...ZERO,
+      W: 1,
+      U: 1,
+      B: 1,
+      R: 1,
+      G: 1,
+    });
+  });
+
+  it("stacks onto an existing pool and caps at 99", () => {
+    expect(manaAfterTap({ ...ZERO, G: 2 }, ["G"])).toEqual({ ...ZERO, G: 3 });
+    expect(manaAfterTap({ ...ZERO, G: 99 }, ["G"])).toEqual({ ...ZERO, G: 99 });
+  });
+
+  it("ignores symbols that are not pool colors", () => {
+    expect(manaAfterTap(ZERO, ["X", "GP"])).toEqual(ZERO);
+    expect(manaAfterTap(ZERO, [])).toEqual(ZERO);
+  });
+});
+
+describe("manaAfterSpend", () => {
+  it("removes mana, floored at zero", () => {
+    expect(manaAfterSpend({ ...ZERO, G: 3 }, "G", 1)).toEqual({ ...ZERO, G: 2 });
+    expect(manaAfterSpend({ ...ZERO, G: 1 }, "G", 1)).toEqual(ZERO);
+    expect(manaAfterSpend(ZERO, "R", 1)).toEqual(ZERO);
   });
 });
 

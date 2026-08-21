@@ -17,6 +17,7 @@ export function useHoverActions({
   hoverCard,
   addNote,
   startAttach,
+  onTap,
 }: {
   view: GameView;
   you: PlayerId | null;
@@ -25,6 +26,8 @@ export function useHoverActions({
   addNote: (card: CardView) => void;
   /** begins "Attach to…" targeting from the hovered card (useAttachPicking) */
   startAttach: (card: CardView) => void;
+  /** tap-toggle override (useManaPool's tapForMana — adds mana on tap-on) */
+  onTap?: (card: CardView) => void;
 }) {
   // satisfies (not an annotation) keeps the keys required, so the
   // exhaustive composition in GameTable fails tsc on any gap
@@ -32,7 +35,8 @@ export function useHoverActions({
     tapHover: () => {
       const own = findOwnHovered(view, you, hoverCard);
       if (own?.zone === "battlefield") {
-        send({ type: "SET_TAPPED", uid: own.card.uid, value: !own.card.tapped });
+        if (onTap) onTap(own.card);
+        else send({ type: "SET_TAPPED", uid: own.card.uid, value: !own.card.tapped });
       }
     },
     attachHover: () => {

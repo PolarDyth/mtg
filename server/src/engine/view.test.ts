@@ -44,6 +44,15 @@ describe("personalized snapshots", () => {
     expect(personalize(game, bob.id).startedAt).toBe(1_000);
   });
 
+  it("exposes every player's mana pool to every viewer", () => {
+    const { game, ctx, ada, bob } = setup();
+    mustOk(act(game, ctx, ada, { type: "SET_MANA", mana: { W: 2, C: 1 } }));
+    const poolOf = (viewer: string, who: string) =>
+      personalize(game, viewer).players.find((p) => p.id === who)?.mana;
+    expect(poolOf(bob.id, ada.id)).toEqual({ W: 2, U: 0, B: 0, R: 0, G: 0, C: 1 });
+    expect(poolOf(ada.id, ada.id)).toEqual({ W: 2, U: 0, B: 0, R: 0, G: 0, C: 1 });
+  });
+
   it("hides face-down battlefield identities from opponents, not the owner", () => {
     const { game, ctx, ada, bob } = setup();
     startWithDeck(game, ctx, ada);
