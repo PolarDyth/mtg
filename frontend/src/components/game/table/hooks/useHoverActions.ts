@@ -22,8 +22,10 @@ export function useHoverActions({
   send: (action: Action) => void;
   hoverCard: CardView | null;
   addNote: (card: CardView) => void;
-}): { keybinds: KeybindSlice } {
-  const keybinds: KeybindSlice = {
+}) {
+  // satisfies (not an annotation) keeps the keys required, so the
+  // exhaustive composition in GameTable fails tsc on any gap
+  const keybinds = {
     flipHover: () => {
       const own = findOwnHovered(view, you, hoverCard);
       if (own?.zone === "battlefield") {
@@ -43,6 +45,6 @@ export function useHoverActions({
     noteHover: () => {
       if (hoverCard && findOwnHovered(view, you, hoverCard)) addNote(hoverCard);
     },
-  };
+  } satisfies KeybindSlice;
   return { keybinds };
 }

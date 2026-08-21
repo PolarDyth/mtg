@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useState } from "react";
-import type { Action, CardView, PlayerView } from "@mythic/shared";
+import type { Action, PlayerView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
 import type { PickerMode } from "../../CountPickerModal";
 import type { KeybindSlice } from "../keybinds";
@@ -22,14 +22,12 @@ export function usePickerFlow({
   send,
   get,
   self,
-  hand,
   openPile,
   openAudience,
 }: {
   send: (action: Action) => void;
   get: (id: string | null) => CardDef | null;
   self: PlayerView | null;
-  hand: CardView[];
   openPile: OpenPile;
   openAudience: (cards: AudienceCards) => void;
 }) {
@@ -101,7 +99,7 @@ export function usePickerFlow({
     return false;
   }, []);
 
-  const keybinds: KeybindSlice = {
+  const keybinds = {
     drawMany: () => setPicker("draw"),
     millMany: () => setPicker("mill"),
     viewTopCards: () => setPicker("lookTop"),
@@ -109,7 +107,7 @@ export function usePickerFlow({
     createAnotherToken: () => {
       if (lastToken) send({ type: "CREATE_TOKEN", ...lastToken });
     },
-  };
+  } satisfies KeybindSlice;
 
   return {
     picker,

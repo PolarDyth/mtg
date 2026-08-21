@@ -113,7 +113,9 @@ export function useArrowPicking({
     return true;
   }, [arrowPicking, arrowDraft, cancel]);
 
-  const keybinds: KeybindSlice = {
+  // satisfies (not an annotation) keeps the keys required, so the
+  // exhaustive composition in GameTable fails tsc on any gap
+  const keybinds = {
     arrowFromHover: () => {
       const own = findOwnHovered(view, you, hoverCard);
       if (own?.zone === "battlefield") setArrowPicking(own.card);
@@ -121,7 +123,7 @@ export function useArrowPicking({
     removeMyArrows: () => {
       if (you) send({ type: "CLEAR_ARROWS", playerId: you });
     },
-  };
+  } satisfies KeybindSlice;
 
   return {
     arrowPicking,

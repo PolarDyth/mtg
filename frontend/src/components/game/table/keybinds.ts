@@ -22,6 +22,7 @@ export function useTableKeybinds(
   handlers: Record<KeybindId, KeybindHandler>
 ): {
   shortcutsOpen: boolean;
+  openShortcuts: () => void;
   closeShortcuts: () => void;
 } {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -44,5 +45,9 @@ export function useTableKeybinds(
     return () => window.removeEventListener("keydown", onKey);
   }, [handlers, shortcutsOpen]);
 
-  return { shortcutsOpen, closeShortcuts: () => setShortcutsOpen(false) };
+  return {
+    shortcutsOpen,
+    openShortcuts: () => setShortcutsOpen(true),
+    closeShortcuts: () => setShortcutsOpen(false),
+  };
 }

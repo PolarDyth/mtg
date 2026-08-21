@@ -36,15 +36,12 @@ export function useFocusView(view: GameView) {
     focus && view.players.some((p) => p.id === focusPlayerId(focus)) ? focus : null;
   const showOverlay = maximized && focusLive !== null;
 
-  // Escape on a maximized board just un-maximizes (keeps the focus); the
-  // next Escape falls through to the catch-all tier and clears the focus
+  // Priority-tier Escape: a maximized board just un-maximizes (keeps the
+  // focus); the catch-all tier in GameTable clears the focus via exitFocus
   const escape = useCallback((): boolean => {
-    if (maximized) {
-      setMaximized(false);
-      return true;
-    }
-    setFocus(null);
-    return false;
+    if (!maximized) return false;
+    setMaximized(false);
+    return true;
   }, [maximized]);
 
   return {

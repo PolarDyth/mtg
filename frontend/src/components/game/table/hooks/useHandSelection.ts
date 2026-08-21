@@ -29,6 +29,9 @@ export function useHandSelection({
     hand.some((c) => c.uid === uid)
   );
 
+  /** Enter selection mode without touching the checked set (actions dock). */
+  const enter = useCallback(() => setSelectMode(true), []);
+
   const toggleSelectMode = useCallback(() => {
     if (selectMode) setSelected(new Set());
     setSelectMode(!selectMode);
@@ -99,17 +102,18 @@ export function useHandSelection({
     return false;
   }, [exitSelect]);
 
-  const keybinds: KeybindSlice = {
+  const keybinds = {
     selectAll: () => {
       setSelected(new Set(hand.map((c) => c.uid)));
       setSelectMode(true);
     },
-  };
+  } satisfies KeybindSlice;
 
   return {
     selectMode,
     selected,
     selectedInHand,
+    enter,
     toggleSelectMode,
     toggleSelected,
     exitSelect,

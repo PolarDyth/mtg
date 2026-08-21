@@ -94,11 +94,11 @@ export function usePileViewer({
     return false;
   }, [close]);
 
-  const keybinds: KeybindSlice = {
+  const keybinds = {
     viewLibrary: () => setPile({ zone: "library" }),
     viewGraveyard: () => setPile({ zone: "graveyard" }),
     viewSideboard: () => setPile({ zone: "sideboard" }),
-  };
+  } satisfies KeybindSlice;
 
   return {
     pile,

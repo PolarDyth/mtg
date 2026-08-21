@@ -18,8 +18,10 @@ export function useGameActions({
   view: GameView;
   self: PlayerView | null;
   send: (action: Action) => void;
-}): { keybinds: KeybindSlice } {
-  const keybinds: KeybindSlice = {
+}) {
+  // satisfies (not an annotation) keeps the keys required, so the
+  // exhaustive composition in GameTable fails tsc on any gap
+  const keybinds = {
     drawOne: () => send({ type: "DRAW_CARDS", count: 1 }),
     nextTurn: () => send(nextPhaseAction(view.phase)),
     passTurn: () => send({ type: "NEXT_TURN" }),
@@ -38,6 +40,6 @@ export function useGameActions({
         self?.zones.library.kind === "cards" ? self.zones.library.cards[0] : undefined;
       if (top) send({ type: "MOVE_CARD", uid: top.uid, to: "battlefield" });
     },
-  };
+  } satisfies KeybindSlice;
   return { keybinds };
 }
