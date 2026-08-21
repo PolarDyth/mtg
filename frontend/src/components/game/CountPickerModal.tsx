@@ -13,7 +13,8 @@ export type PickerMode =
   | "surveil"
   | "lookTop"
   | "revealTop"
-  | "discardRandom";
+  | "discardRandom"
+  | "putFromTop";
 
 type PickerConfig = {
   title: string;
@@ -74,6 +75,11 @@ const CONFIG: Record<PickerMode, PickerConfig> = {
     blurb: "The server rolls the dice and puts this many random cards from your hand into your graveyard.",
     confirm: (n) => `Discard ${n} at random`,
     empty: "your hand is empty",
+  },
+  putFromTop: {
+    title: "Put into library",
+    blurb: "Put the card this many cards from the top of your library (1 = on top).",
+    confirm: (n) => `Put ${n} from top`,
   },
 };
 

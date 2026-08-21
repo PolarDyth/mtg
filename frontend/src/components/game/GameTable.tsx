@@ -390,6 +390,12 @@ export default function GameTable({
             cardId: card.cardId ?? undefined,
           })
         }
+        onPutFromTop={(card) =>
+          pickerFlow.open("putFromTop", {
+            uid: card.uid,
+            name: get(card.cardId)?.name ?? "Card",
+          })
+        }
       />
 
       {menu.countersCard && menu.countersFor && (

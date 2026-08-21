@@ -55,6 +55,20 @@ describe("MOVE_CARD and MOVE_CARD_INDEX", () => {
     expect(uidAt(ada.zones.library, ada.zones.library.length - 2)).toBe(bottom);
   });
 
+  it("puts a card N cards from the top (the 'Put N from top' picker)", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada, 20); // 13 in the library after the opening hand
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(ada.zones.hand, 0);
+    // n = 3 → 0-based index 2; the card that was 3rd shifts down one
+    const wasThird = uidAt(ada.zones.library, 2);
+    mustOk(
+      act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "library", index: 2 })
+    );
+    expect(uidAt(ada.zones.library, 2)).toBe(uid);
+    expect(uidAt(ada.zones.library, 3)).toBe(wasThird);
+  });
+
   it("reorders within the library (put drawn card back on top)", () => {
     const { game, ctx, ada } = setup();
     startWithDeck(game, ctx, ada, 20); // 13 left after the opening hand

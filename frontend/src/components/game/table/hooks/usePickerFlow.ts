@@ -2,9 +2,10 @@
 
 /**
  * Count-driven flows ("how many?"): the CountPickerModal for draw / mill /
- * mulligan / token / clone / scry / surveil / lookTop / revealTop, the
- * ScryModal handoff afterwards, and the session's last token for Ctrl+G
- * repeats. Token creation's UI (TokenModal) lives here too.
+ * mulligan / token / clone / scry / surveil / lookTop / revealTop /
+ * putFromTop ("put N from top"), the ScryModal handoff afterwards, and the
+ * session's last token for Ctrl+G repeats. Token creation's UI (TokenModal)
+ * lives here too.
  */
 
 import { useCallback, useState } from "react";
@@ -15,8 +16,9 @@ import type { KeybindSlice } from "../keybinds";
 import type { OpenPile } from "./usePileViewer";
 import type { AudienceCards } from "./useRevealFlow";
 
-/** What a token/clone picker mint runs against (name + cardId). */
-export type PickerCreate = { name: string; cardId?: string };
+/** What a count-driven mint or move runs against: name + cardId for
+ *  token/clone, uid for "put N from top". */
+export type PickerCreate = { name: string; cardId?: string; uid?: string };
 
 export function usePickerFlow({
   send,
@@ -77,6 +79,11 @@ export function usePickerFlow({
         setScry({ mode, n });
       } else if (mode === "lookTop") {
         openPile("library", { highlightTop: n });
+      } else if (mode === "putFromTop") {
+        if (pickerCreate?.uid) {
+          send({ type: "MOVE_CARD", uid: pickerCreate.uid, to: "library", index: n - 1 });
+        }
+        setPickerCreate(null);
       } else if (mode === "revealTop") {
         const top =
           self?.zones.library.kind === "cards" ? self.zones.library.cards.slice(0, n) : [];
