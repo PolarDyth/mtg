@@ -20,14 +20,18 @@ export default function TokenModal({
   const [selected, setSelected] = useState<CardDef | null>(null);
   const [count, setCount] = useState(1);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function search() {
     const trimmed = name.trim();
     if (!trimmed) return;
     setBusy(true);
+    setError(null);
     try {
       setResults(await searchTokenCards(trimmed));
       setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "search failed — try again");
     } finally {
       setBusy(false);
     }
@@ -83,6 +87,8 @@ export default function TokenModal({
               {busy ? "…" : "Search"}
             </button>
           </form>
+
+          {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
           {results !== null && (
             <ul className="mt-4 grid grid-cols-4 gap-2">

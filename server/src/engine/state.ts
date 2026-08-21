@@ -13,6 +13,8 @@ export type Player = {
   connected: boolean;
   /** True once a disconnect has been announced in chat (rejoin stays quiet otherwise). */
   disconnectedAnnounced?: boolean;
+  /** Epoch-ms disconnect stamp (set by ws.ts; the lobby GC reads it). */
+  disconnectedAt?: number;
   /** Connection IP at seat time (server-private; used by the ban list). */
   ip?: string;
   life: number;

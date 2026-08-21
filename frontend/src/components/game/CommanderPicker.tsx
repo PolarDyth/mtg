@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { Action } from "@mythic/shared";
+import { putCards } from "@/lib/cardCache";
 import { searchCommanderCandidates, type CardDef } from "@/lib/scryfall";
 
 export type DeckCandidate = { def: CardDef; count: number };
@@ -27,14 +28,18 @@ export default function CommanderPicker({
   const [results, setResults] = useState<CardDef[] | null>(null);
   const [selected, setSelected] = useState<CardDef | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function search() {
     const trimmed = name.trim();
     if (!trimmed) return;
     setBusy(true);
+    setError(null);
     try {
       setResults(await searchCommanderCandidates(trimmed));
       setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "search failed — try again");
     } finally {
       setBusy(false);
     }
@@ -42,6 +47,9 @@ export default function CommanderPicker({
 
   function confirm(def: CardDef | null) {
     if (!def) return;
+    // search-tab picks were never cached — warm the local cache so the
+    // lobby renders the commander's name immediately
+    putCards([def]);
     send({ type: "SET_COMMANDER", cardId: def.id, name: def.name });
     onClose();
   }
@@ -155,6 +163,8 @@ export default function CommanderPicker({
               <p className="mt-2 text-xs text-zinc-600">
                 Legendary creatures and planeswalkers that can be your commander.
               </p>
+
+              {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
 
               {results !== null && (
                 <ul className="mt-4 grid grid-cols-4 gap-2">

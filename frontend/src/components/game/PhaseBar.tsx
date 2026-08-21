@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SkipForward } from "lucide-react";
 import { ALL_PHASES, type Phase } from "@mythic/shared";
 
 /** Compact strip labels; tooltips spell out the less obvious ones. */
@@ -32,10 +33,10 @@ function formatElapsed(ms: number): string {
 /**
  * Turn-phase strip, docked above your hand. The phase is a shared label
  * everyone can move: clicking jumps there for the whole table, "Next ▸"
- * advances one phase (GameTable decides what "after end" means — passing
- * the turn). Nothing is enforced anywhere; this is a shared bookmark.
- * The turn counter and elapsed clock tick client-side against the shared
- * start stamp — the server never ticks.
+ * advances one phase, and "Turn" passes the turn outright (NEXT_TURN, same
+ * as Ctrl+Shift+Enter). Nothing is enforced anywhere; this is a shared
+ * bookmark. The turn counter and elapsed clock tick client-side against the
+ * shared start stamp — the server never ticks.
  */
 export default function PhaseBar({
   phase,
@@ -45,6 +46,7 @@ export default function PhaseBar({
   isYou,
   onSelect,
   onNext,
+  onPassTurn,
 }: {
   phase: Phase;
   turn: number;
@@ -54,6 +56,7 @@ export default function PhaseBar({
   isYou: boolean;
   onSelect: (phase: Phase) => void;
   onNext: () => void;
+  onPassTurn: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -99,6 +102,14 @@ export default function PhaseBar({
         className="ml-auto shrink-0 rounded bg-emerald-700 px-2 py-0.5 font-medium text-white hover:bg-emerald-600"
       >
         Next ▸
+      </button>
+      <button
+        onClick={onPassTurn}
+        title="Pass the turn (Ctrl+Shift+Enter)"
+        className="flex shrink-0 items-center gap-1 rounded bg-emerald-700 px-2 py-0.5 font-medium text-white hover:bg-emerald-600"
+      >
+        <SkipForward className="h-3 w-3" strokeWidth={1.75} />
+        Turn
       </button>
     </div>
   );

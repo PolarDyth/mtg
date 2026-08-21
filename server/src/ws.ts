@@ -13,6 +13,7 @@ import {
   type ServerMessage,
 } from "@mythic/shared";
 import { applyAction, isBanned, type Ctx } from "./engine/actions";
+import { sweepDisconnectedPlayers } from "./engine/gc";
 import { systemRng, type Rng } from "./engine/rng";
 import {
   addPlayer,
@@ -41,6 +42,10 @@ const MAX_PAYLOAD = 64 * 1024;
 const rng: Rng = systemRng();
 const ctx: Ctx = { rng, now: () => Date.now() };
 const rooms = new RoomManager(rng);
+// lobby disconnect GC: drop stale unstarted-game seats, tell whoever's left
+rooms.onSweep = (game) => {
+  if (sweepDisconnectedPlayers(game, Date.now(), rng)) broadcast(game);
+};
 rooms.startSweeping();
 
 const conns = new Set<Conn>();
@@ -123,6 +128,7 @@ wss.on("connection", (ws, req) => {
     if (!player) return;
 
     player.connected = false;
+    player.disconnectedAt = Date.now();
     // A refresh-and-rejoin within a few seconds shouldn't spam the chat:
     // announce the disconnect only if the seat stays gone.
     conn.announceTimer = setTimeout(() => {
@@ -177,6 +183,7 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
     conn.game = game;
     conn.playerId = player.id;
     player.connected = true;
+    player.disconnectedAt = undefined;
     rooms.touch(code);
     if (player.disconnectedAnnounced) {
       player.disconnectedAnnounced = false;
