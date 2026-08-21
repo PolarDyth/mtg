@@ -1,5 +1,6 @@
 **Date:** 2026-08-21
-**Status:** In progress (v1 — second playtest round; §6 §7 §10 already shipped)
+**Status:** In progress (v1 — second playtest round; §6–§11 §12–§15 except
+§2–§5 shipped: bug-fix, small-features, and convenience passes done)
 **Project:** Mythic Table
 
 # Playtest Feedback Round 2 → Implementation Roadmap
@@ -31,14 +32,14 @@ the matching domain file under `server/src/engine/actions/` → tests in
 | 5 | "add mana counter, when you tap a land it gives you a visible coloured mana chart…" | No mana state; `produced_mana` never fetched from Scryfall | §5 | M | P2 | — |
 | 6 | "Look at top N cards of deck reveals your entire library, make it work similar to scry" | Look-at-top-N opened PileModal over the whole library, cards beyond N merely dimmed | §6 | S | P1 | **done** |
 | 7 | "no preview for cards when you hover on scry" | ScryModal had zero hover-preview wiring | §7 | S | P1 | **done** |
-| 8 | "add a way to discard a card at random" | `DISCARD_CARDS` is explicit-uids only | §8 | S | P1 | — |
-| 9 | "add a turn counter" / "a time elapsed in a game" | `Game` has neither field | §9 | S | P1 | — |
+| 8 | "add a way to discard a card at random" | `DISCARD_CARDS` is explicit-uids only | §8 | S | P1 | **done** |
+| 9 | "add a turn counter" / "a time elapsed in a game" | `Game` has neither field | §9 | S | P1 | **done** |
 | 10 | "auto scroll down the chat" | Scroll effect keyed on `messages.length`, which freezes at `CHAT_CAP = 200` | §10 | S | P1 | **done** |
-| 11 | "easy leave lobby button" | `LEAVE_GAME` exists server-side but the frontend has zero senders and no leave UI | §11 | S | P1 | — |
-| 12 | "be able to add plus one plus one counters to all creatures" | `SET_COUNTERS` is per-card only | §12 | S | P2 | — |
-| 13 | "add the ability to toggle grid snapping for more clean card layout" | Drops are free-form percentages; no snap setting | §13 | S | P2 | — |
-| 14 | "change counter so that plus 1 plus 1 shows at the bottom right of the card or a normal number counter in the top left" | All counter kinds stack top-left; bottom-right is occupied by the note badge | §14 | S | P1 | — |
-| 15 | "anyone can start the game and select the format" | Already implemented — nothing to do | §15 | — | — | works today |
+| 11 | "easy leave lobby button" | `LEAVE_GAME` exists server-side but the frontend has zero senders and no leave UI | §11 | S | P1 | **done** |
+| 12 | "be able to add plus one plus one counters to all creatures" | `SET_COUNTERS` is per-card only | §12 | S | P2 | **done** |
+| 13 | "add the ability to toggle grid snapping for more clean card layout" | Drops are free-form percentages; no snap setting | §13 | S | P2 | **done** |
+| 14 | "change counter so that plus 1 plus 1 shows at the bottom right of the card or a normal number counter in the top left" | All counter kinds stack top-left; bottom-right is occupied by the note badge | §14 | S | P1 | **done** |
+| 15 | "anyone can start the game and select the format" | Already implemented — hint added | §15 | — | — | **done** |
 
 Effort: S ≤ half a day, M ≈ a day, L multi-day (all including tests).
 
@@ -320,10 +321,20 @@ the server's `Ctx.rng`.
 **Plan.** Shared: `DISCARD_RANDOM { count: number }` (checklist). Handler in
 `zones.ts`: `requireStarted`; clamp count to 1–30 and to hand size; pick
 `count` distinct random indices via `ctx.rng`; move those cards to the
-graveyard; system chat "Ada discards at random: Island, Dark Ritual" (the
-graveyard is public, so naming them is honest bookkeeping). Frontend: hand
+graveyard; system chat "Ada discards 1 card at random". Frontend: hand
 ContextMenu quick action "Discard 1 at random" + ActionsModal Hand tile
 "Discard at random…" → `CountPickerModal` (default 1, max 30).
+
+**Status: implemented 2026-08-21.** Handler picks via a partial
+Fisher–Yates swap (`zones.ts`), validated 1–30, clamped to hand size, quiet
+no-op on an empty hand. UI: ContextMenu "Discard 1 at random" (labeled so
+it's clear it ignores the clicked card), ActionsModal tile with the
+`discardRandom` picker mode (`pickerMax` gained a `handCount` param;
+per-mode empty text). **Deviation from the plan:** the chat line does not
+name the discarded cards — the server is card-id agnostic and the pick is
+server-side, so names are unknowable at log time; the graveyard is public,
+so the table sees exactly what was lost one snapshot later. Tests cover
+seed determinism, clamping, and validation.
 
 **Tests.** `actions/zones.test.ts` via the harness: seeded rng gives a
 deterministic pick (assert exact uids), count clamped to hand size, empty
@@ -351,6 +362,12 @@ inline. Frontend: `PhaseBar` gains a "Turn N" chip next to the active
 player's name and a live elapsed clock (mm:ss under an hour, h:mm:ss above)
 ticked client-side from `startedAt` vs the browser clock — the server
 snapshot stays change-driven; no protocol traffic while the clock runs.
+
+**Status: implemented 2026-08-21.** As planned, no deviations. The clock
+ticks inside `PhaseBar` (1s interval, only while `startedAt !== null`); the
+chip reads "Turn N · mm:ss" at the left end of the strip. Tests: rotation
+counting in `game.test.ts`, reset in `admin.test.ts`'s END_GAME case,
+exposure in `view.test.ts`.
 
 **Tests.** `actions/game.test.ts`: turn counts across rotations and reset on
 `END_GAME`; `view.test.ts`: both fields exposed. e2e optional.
@@ -403,6 +420,12 @@ the server does not close the socket on `LEAVE_GAME` (further actions from
 the conn just fail the seated check, `index.ts:45-46`) — routing away
 immediately makes that moot.
 
+**Status: implemented 2026-08-21.** `GameClient` owns one `leaveTable`
+(confirm → `LEAVE_GAME` → `clearSession` → home via full page replace,
+matching the file's existing cold-redirect pattern) and passes `onLeave` to
+both surfaces: a "Leave table" button in the lobby's action row and a
+red-tinted "Leave" button at the right end of the game header.
+
 **Tests.** Server behavior already covered. Manual two-tab check: leave
 mid-game in one tab, other tab sees "X left the game", host reassigns, seat
 disappears.
@@ -426,6 +449,13 @@ as token menus), send `SET_COUNTERS` with `counters["+1/+1"] = current + 1`.
 `SET_COUNTERS`' owner check scopes this to your own creatures (ownCard) —
 buffing opponents' boards stays out of scope (do it per-card, as today).
 Confirm toast/summary optional ("+1/+1 added to 7 creatures").
+
+**Status: implemented 2026-08-21.** ActionsModal gained a "Battlefield"
+group with the tile (disabled at 0 creatures; the modal header now shows
+"N in your library · M creatures"). GameTable keeps one `isCreature` helper
+(`type_line` via the card-def cache) and the loop sends merge-commits —
+existing counter kinds ride along, only `+1/+1` increments. No toast; the
+counters appear on the board immediately.
 
 **Tests.** None mandatory (composition of existing actions); manual check
 with a mixed board (creatures, lands, tokens with counters preserved).
@@ -453,6 +483,14 @@ alignment clean at every board size without needing card dimensions.
 Applies to your own board drops in every mode (drops always resolve against
 your board rect, so one choke point).
 
+**Status: implemented 2026-08-21.** As planned: `loadGridSnap`/`saveGridSnap`
+in `settings.ts`; a tiny `useGridSnap` hook (table/hooks/) holds the state;
+`useCardDrag` takes `snap` and `battlefieldDrop(rect, x, y, snap?)` rounds
+to the 5% lattice after clamping (snap never escapes the clamp: 4/96 → 5/95
+on x, 8/92 → 10/90 on y — unit-tested in foundation.test.ts). The header's
+display popover (renamed from "Card preview size" to Display) hosts the
+switch. The preference persists per browser.
+
 **Tests.** None (presentation math); manual drag check with the toggle both
 ways.
 
@@ -479,6 +517,11 @@ top-right beside the attach link so the corner stays single-purpose.
 Set(["+1/+1", "-1/-1"])`), same overflow-chip rule (≤3 visible + "+N"),
 same tooltips. Keep `counterChipLabel` as is.
 
+**Status: implemented 2026-08-21.** `CardSprite` renders a top-left cluster
+(other kinds) and a bottom-right cluster (power kinds, slightly brighter
+pill); the attach 🔗 and note 📝 icons now share one top-right flex
+container instead of the note squatting on the bottom-right corner.
+
 **Tests.** None (pure presentation); manual check per the acceptance list.
 
 **Acceptance.** A card with `+1/+1 ×3` shows it bottom-right; `Lore ×2`
@@ -495,17 +538,22 @@ unconditionally for every seated player (`Lobby.tsx:203-210`, no
 freeform/commander sits right above it (`Lobby.tsx:11-14, 164-178`), and
 `START_GAME` is deliberately not host-gated (`game.ts:31-66`; only
 `END_GAME`, `KICK_PLAYER`, `BAN_PLAYER` are host-only per AGENTS.md). The
-playtesters likely assumed host-gating from other apps. **No work item** —
-recorded here so it isn't re-reported. Optional one-line polish: a lobby
-subtitle "anyone at the table can start".
+playtesters likely assumed host-gating from other apps. **No behavior
+change** — recorded here so it isn't re-reported.
+
+**Status: hint added 2026-08-21.** The lobby's readiness line now reads
+"N/M decks loaded · anyone can start" (with a tooltip explaining the button
+isn't host-only), so the discovery problem is solved without touching
+permissions.
 
 ## 16. Suggested build order
 
 1. **Bug-fix pass (shipped 2026-08-21):** §10 autoscroll → §7 scry preview →
    §6 top-N-only.
-2. **Small features:** §11 leave button → §9 turn counter + clock → §8
-   random discard → §14 badge placement.
-3. **Convenience:** §12 bulk +1/+1 → §13 grid snap (+ optional §15 hint).
+2. **Small features (shipped 2026-08-21):** §11 leave button → §9 turn
+   counter + clock → §8 random discard → §14 badge placement.
+3. **Convenience (shipped 2026-08-21):** §12 bulk +1/+1 → §13 grid snap →
+   §15 lobby hint.
 4. **§5 mana pool + §3 transform together** — one shared cache bump
    (v3 → v4) covers both CardDef additions.
 5. **§4 give control.**

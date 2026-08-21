@@ -126,6 +126,12 @@ describe("pickerMax", () => {
     expect(pickerMax("revealTop", 60)).toBe(30);
     expect(pickerMax("revealTop", 7)).toBe(7);
   });
+
+  it("caps random discard by the hand size", () => {
+    expect(pickerMax("discardRandom", 60, 7)).toBe(7);
+    expect(pickerMax("discardRandom", 60, 40)).toBe(30);
+    expect(pickerMax("discardRandom", 60, 0)).toBe(0);
+  });
 });
 
 describe("battlefieldDrop", () => {
@@ -146,5 +152,13 @@ describe("battlefieldDrop", () => {
     // 50.2499… in float land rounds down — same as the original inline math
     expect(drop.x).toBe(50.2);
     expect(drop.y).toBe(51.5);
+  });
+
+  it("snaps to the 5% lattice when asked", () => {
+    expect(battlefieldDrop(rect, 312, 305, true)).toEqual({ x: 55, y: 55 }); // 53, 52.5
+    expect(battlefieldDrop(rect, 200, 250, true)).toEqual({ x: 25, y: 25 }); // already on-grid
+    // clamped edges snap inward, never past the clamp
+    expect(battlefieldDrop(rect, 0, 0, true)).toEqual({ x: 5, y: 10 });
+    expect(battlefieldDrop(rect, 9999, 9999, true)).toEqual({ x: 95, y: 90 });
   });
 });

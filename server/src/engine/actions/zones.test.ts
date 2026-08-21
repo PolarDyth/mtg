@@ -1,7 +1,8 @@
 // Zone-flow tests: DRAW_CARDS, MOVE_CARD, MOVE_CARD_INDEX, SHUFFLE_LIBRARY,
-// DISCARD_CARDS, MILL_CARDS, SCRY, SURVEIL.
+// DISCARD_CARDS, DISCARD_RANDOM, MILL_CARDS, SCRY, SURVEIL.
 
 import { describe, expect, it } from "vitest";
+import { systemRng } from "../rng";
 import { act, mustFail, mustOk, setup, startWithDeck, uidAt } from "./testUtils";
 
 describe("DRAW_CARDS", () => {
@@ -205,6 +206,77 @@ describe("DISCARD_CARDS", () => {
     const all = ada.zones.hand.map((c) => c.uid);
     mustFail(act(game, ctx, ada, { type: "DISCARD_CARDS", uids: all }), "bad discard");
     mustFail(act(game, ctx, ada, { type: "DISCARD_CARDS", uids: [] }), "bad discard");
+  });
+});
+
+describe("DISCARD_RANDOM", () => {
+  it("moves N random hand cards to the graveyard, deterministically for a seed", () => {
+    // two identical runs with the same seed must pick the same cards
+    const run = () => {
+      const s = setup();
+      startWithDeck(s.game, s.ctx, s.ada); // opening hand of 7
+      const handBefore = s.ada.zones.hand.map((c) => c.uid);
+      mustOk(act(s.game, s.ctx, s.ada, { type: "DISCARD_RANDOM", count: 2 }));
+      return {
+        discarded: s.ada.zones.graveyard.map((c) => c.uid),
+        hand: s.ada.zones.hand.map((c) => c.uid),
+        handBefore,
+        last: s.game.chat.at(-1),
+      };
+    };
+    const a = run();
+    const b = run();
+    expect(a.discarded).toEqual(b.discarded);
+    expect(a.discarded).toHaveLength(2);
+    expect(new Set(a.discarded).size).toBe(2); // distinct picks
+    expect(a.handBefore).toEqual(expect.arrayContaining(a.discarded)); // came from the hand
+    expect(a.hand).toHaveLength(5);
+    expect(a.hand).not.toEqual(expect.arrayContaining(a.discarded));
+    expect(a.last?.kind).toBe("system");
+    if (a.last?.kind === "system") {
+      expect(a.last.text).toContain("discards 2 cards at random");
+    }
+  });
+
+  it("clamps the count to the hand size; an empty hand discards nothing quietly", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada, 3); // hand 3 / library 0
+    mustOk(act(game, ctx, ada, { type: "DISCARD_RANDOM", count: 30 }));
+    expect(ada.zones.hand).toHaveLength(0);
+    expect(ada.zones.graveyard).toHaveLength(3);
+    const chatLen = game.chat.length;
+    mustOk(act(game, ctx, ada, { type: "DISCARD_RANDOM", count: 1 }));
+    expect(ada.zones.graveyard).toHaveLength(3);
+    expect(game.chat).toHaveLength(chatLen);
+  });
+
+  it("rejects junk counts and pre-game use", () => {
+    const { game, ctx, ada } = setup();
+    mustFail(act(game, ctx, ada, { type: "DISCARD_RANDOM", count: 1 }), "not started");
+    startWithDeck(game, ctx, ada);
+    mustFail(act(game, ctx, ada, { type: "DISCARD_RANDOM", count: 0 }), "bad discard count");
+    mustFail(act(game, ctx, ada, { type: "DISCARD_RANDOM", count: 1.5 }), "bad discard count");
+    mustFail(act(game, ctx, ada, { type: "DISCARD_RANDOM", count: 31 }), "bad discard count");
+  });
+
+  it("picks vary under the production rng (uniformity guard)", () => {
+    // guards the rng wiring, not the seed: with the crypto-backed system
+    // rng, 60 single-card discards from a 7-card hand must hit more than
+    // one original index (all-same has probability ~7^-59)
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada); // hand 7
+    const sysCtx = { rng: systemRng(), now: () => 1_000 };
+    const hits = new Set<number>();
+    for (let trial = 0; trial < 60; trial++) {
+      const before = ada.zones.hand.map((c) => c.uid);
+      mustOk(act(game, sysCtx, ada, { type: "DISCARD_RANDOM", count: 1 }));
+      const discarded = ada.zones.graveyard.at(-1);
+      if (!discarded) throw new Error("expected a discarded card");
+      hits.add(before.indexOf(discarded.uid));
+      // return the card so every trial starts from a 7-card hand
+      ada.zones.hand.push(ada.zones.graveyard.pop()!);
+    }
+    expect(hits.size).toBeGreaterThan(1);
   });
 });
 

@@ -23,6 +23,55 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-2-convenience",
+    label: "Round 2 — conveniences",
+    date: "2026-08-21",
+    items: [
+      {
+        title: "Buff your whole team at once",
+        detail:
+          "The Actions menu has a new Battlefield section: one click puts a +1/+1 counter on every creature you control — click again for another. Alt+P does it straight from the keyboard.",
+      },
+      {
+        title: "Grid snapping",
+        detail:
+          "The header's display panel (zoom icon) has a new switch: turn it on and dropped cards land on a tidy grid instead of free-form. Ctrl+Alt+G toggles it while you lay out your board.",
+      },
+      {
+        title: "More keyboard shortcuts",
+        detail:
+          "Hover a card and tap Alt+T to tap/untap it or Alt+H to start attaching it — plus Ctrl+Alt+S scry, Ctrl+Alt+V surveil, and Ctrl+Alt+M mulligan open their pickers straight from the keyboard. The ? cheat sheet lists everything.",
+      },
+    ],
+  },
+  {
+    id: "round-2-small-features",
+    label: "Round 2 — small features",
+    date: "2026-08-21",
+    items: [
+      {
+        title: "Leave button",
+        detail:
+          "\"Leave table\" in the waiting room and \"Leave\" in the game header give you a clean way out — your seat and cards go with you and the host role transfers.",
+      },
+      {
+        title: "Turn counter & game clock",
+        detail:
+          "The phase bar now shows the turn number and how long the game has been running, so \"how long have we been at this?\" has an answer.",
+      },
+      {
+        title: "Discard at random",
+        detail:
+          "Right-click a hand card or open the Actions menu to discard 1–30 cards from your hand at random — the server rolls the pick, so the whole table can trust it. Ctrl+Shift+D discards one instantly.",
+      },
+      {
+        title: "Counter badges repositioned",
+        detail:
+          "+1/+1 and −1/−1 counters sit at the bottom-right of a card where they're easy to scan across a board; other counters stay top-left.",
+      },
+    ],
+  },
+  {
     id: "round-2-fixes",
     label: "Round 2 — first fixes",
     date: "2026-08-21",

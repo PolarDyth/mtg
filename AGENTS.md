@@ -105,18 +105,33 @@ per-tab sessionStorage).
 - Game shortcuts mirror Cockatrice's defaults, centralized in
   `frontend/src/lib/keybinds.ts` (Ctrl+D draw, Ctrl+E draw N, Ctrl+Enter
   next turn, Ctrl+U untap all, Ctrl+S shuffle, F3/F4/Ctrl+F3 view piles,
-  Alt+Y/Alt+M mill, Ctrl+R remove my arrows, Shift+Enter focus chat…).
-  Browser-reserved combos are remapped: token = Ctrl+Alt+T, look at top N
-  = Ctrl+Alt+W, life ±1 = Ctrl+Alt+= / Ctrl+Alt+-. Card-level binds
-  (Alt+A arrow, Alt+F flip, Ctrl+Del graveyard, Ctrl+B bottom, Alt+N
-  note) act on the **hovered card** — `hoverCard` in
+  Alt+Y/Alt+M mill, Ctrl+Shift+D discard 1 at random, Alt+P +1/+1 on all
+  your creatures, Ctrl+Alt+G toggle grid snapping, Ctrl+Alt+S scry,
+  Ctrl+Alt+V surveil, Ctrl+Alt+M mulligan, Ctrl+R remove my arrows,
+  Shift+Enter focus chat…). Browser-reserved combos are remapped: token =
+  Ctrl+Alt+T, look at top N = Ctrl+Alt+W, life ±1 = Ctrl+Alt+= / Ctrl+Alt+-.
+  Card-level binds (Alt+A arrow, Alt+T tap/untap, Alt+H attach, Alt+F flip,
+  Ctrl+Del graveyard, Ctrl+B bottom, Alt+N note) act on the **hovered
+  card** — `hoverCard` in
   `table/hooks/useCardPreview`, fed by `onCardHover(def, card)` from
   CardSprite. Handlers are slices composed per the table/ registry bullet
   above; the `useTableKeybinds` dispatcher ignores keys typed into
   INPUT/TEXTAREA and preventDefaults every matched combo. The
   header's Shortcuts button or `?` opens a cheat sheet (`ShortcutsModal`)
   rendered from `SHORTCUT_GROUPS`/`KEYBIND_LABELS` in the same file — a
-  test keeps those groups covering every keybind.
+  test keeps those groups covering every keybind. **Every new game
+  mechanic ships with a keybind** — the recipe: 1) add the id to
+  `KeybindId` + `DEFAULT_KEYBINDS` + `KEYBIND_LABELS` + one
+  `SHORTCUT_GROUPS` entry in `lib/keybinds.ts` (the coverage test in
+  `keybinds.test.ts` fails until all three Records agree — add the combo
+  round-trip there too); 2) implement the handler in the owning feature
+  hook's `satisfies KeybindSlice` (direct sends → `useGameActions`; new
+  state → new hook in `table/hooks/`); 3) spread any new slice into the
+  exhaustive `Record<KeybindId, KeybindHandler>` in GameTable — a new id
+  without a slice fails `tsc`. Pick free `Alt+<key>` or `Ctrl+Alt+<key>`
+  combos (browsers reserve bare Ctrl+T/W/N/P…); don't repurpose an
+  existing combo — Shift variants only when the base is mnemonic
+  (Ctrl+D draw vs Ctrl+Shift+D discard).
 - No database: games live in server RAM; card definitions are cached in
   localStorage (versioned key `mtg:cards:vN` in `frontend/src/lib/cardCache.ts`;
   bump the version when CardDef's shape changes). UI preferences use

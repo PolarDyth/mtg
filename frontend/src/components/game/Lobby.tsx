@@ -17,10 +17,13 @@ export default function Lobby({
   view,
   you,
   send,
+  onLeave,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
+  /** confirm + LEAVE_GAME + navigate home (owned by GameClient) */
+  onLeave: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [deckOpen, setDeckOpen] = useState(false);
@@ -159,6 +162,13 @@ export default function Lobby({
               <Crown className="h-4 w-4" strokeWidth={1.75} />
               {commanderName ? `Commander: ${commanderName}` : "Choose commander…"}
             </button>
+            <button
+              onClick={onLeave}
+              title="Leave this table — your seat and loaded deck go with you"
+              className="rounded-md border border-red-900/60 bg-zinc-900 px-4 py-2 text-sm text-red-300/80 hover:border-red-500 hover:text-red-200"
+            >
+              Leave table
+            </button>
           </div>
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -180,8 +190,9 @@ export default function Lobby({
               className={`text-xs ${
                 deckless.length > 0 ? "text-amber-300/80" : "text-emerald-300/80"
               }`}
+              title="Any seated player can start — the button isn't host-only"
             >
-              {decked.length}/{view.players.length} decks loaded
+              {decked.length}/{view.players.length} decks loaded · anyone can start
             </span>
             {confirmStart && deckless.length > 0 ? (
               <span className="ml-auto flex items-center gap-2 text-xs text-amber-300">

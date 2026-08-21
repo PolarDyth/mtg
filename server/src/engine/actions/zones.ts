@@ -163,6 +163,47 @@ function discardCards(
   return ok(game);
 }
 
+/** Randomness must be server-side (ctx.rng) for the table to trust it: a
+ *  partial Fisher–Yates swap picks `count` distinct cards, which then leave
+ *  the front of the hand. The graveyard is public, so what was lost is
+ *  visible to everyone right after. */
+function discardRandom(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "DISCARD_RANDOM" }>,
+  ctx: Ctx
+): ActionResult {
+  const started = requireStarted(game);
+  if (started) return err(started);
+  if (
+    !Number.isInteger(action.count) ||
+    action.count < 1 ||
+    action.count > MAX_DISCARD_AT_ONCE
+  ) {
+    return err("bad discard count");
+  }
+  const hand = actor.zones.hand;
+  const count = Math.min(action.count, hand.length);
+  for (let i = 0; i < count; i++) {
+    const j = i + ctx.rng.int(hand.length - i);
+    [hand[i], hand[j]] = [hand[j], hand[i]];
+  }
+  const picked = hand.splice(0, count);
+  for (const card of picked) {
+    card.attachedTo = undefined;
+    actor.zones.graveyard.push(card);
+  }
+  if (picked.length > 0) {
+    systemMessage(
+      game,
+      `${actor.name} discards ${picked.length} ${picked.length === 1 ? "card" : "cards"} at random`,
+      ctx.rng,
+      ctx.now()
+    );
+  }
+  return ok(game);
+}
+
 function millCards(
   game: Game,
   actor: Player,
@@ -259,6 +300,7 @@ export const zonesHandlers = {
   MOVE_CARD_INDEX: moveCardIndex,
   SHUFFLE_LIBRARY: shuffleLibrary,
   DISCARD_CARDS: discardCards,
+  DISCARD_RANDOM: discardRandom,
   MILL_CARDS: millCards,
   SCRY: scry,
   SURVEIL: surveil,

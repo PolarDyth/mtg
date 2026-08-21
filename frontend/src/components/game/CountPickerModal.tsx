@@ -12,12 +12,15 @@ export type PickerMode =
   | "scry"
   | "surveil"
   | "lookTop"
-  | "revealTop";
+  | "revealTop"
+  | "discardRandom";
 
 type PickerConfig = {
   title: string;
   blurb: string;
   confirm: (n: number, subject?: string) => string;
+  /** Shown instead of the stepper when there's nothing to act on. */
+  empty?: string;
 };
 
 const CONFIG: Record<PickerMode, PickerConfig> = {
@@ -66,6 +69,12 @@ const CONFIG: Record<PickerMode, PickerConfig> = {
     blurb: "Show the top cards of your library to the whole table.",
     confirm: (n) => `Reveal top ${n}`,
   },
+  discardRandom: {
+    title: "Discard at random",
+    blurb: "The server rolls the dice and puts this many random cards from your hand into your graveyard.",
+    confirm: (n) => `Discard ${n} at random`,
+    empty: "your hand is empty",
+  },
 };
 
 /** Small "how many?" modal with a stepper, shared by the N-actions. */
@@ -106,7 +115,9 @@ export default function CountPickerModal({
         <p className="mt-1 text-sm text-zinc-500">{config.blurb}</p>
 
         {max < 1 ? (
-          <p className="mt-6 mb-2 text-center text-sm text-zinc-500">your library is empty</p>
+          <p className="mt-6 mb-2 text-center text-sm text-zinc-500">
+            {config.empty ?? "your library is empty"}
+          </p>
         ) : (
           <div className="mt-5 flex items-center justify-center gap-3">
             <button

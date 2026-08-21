@@ -17,7 +17,8 @@ export type KeybindSlice = Partial<Record<KeybindId, KeybindHandler>>;
 
 /** The table's keybind listener. Owns the shortcuts cheat sheet ("?"
  *  toggles it); inert while typing and on key repeats; every match claims
- *  the browser default too (no bookmark/save/find/refresh mid-game). */
+ *  the browser default too (no bookmark/save/find/refresh mid-game). A game
+ *  bind pressed while the sheet is open closes the sheet and still fires. */
 export function useTableKeybinds(
   handlers: Record<KeybindId, KeybindHandler>
 ): {
@@ -35,8 +36,18 @@ export function useTableKeybinds(
         setShortcutsOpen((v) => !v);
         return;
       }
-      if (shortcutsOpen) return; // reading the sheet — game binds wait
       const id = matchKeybind(event);
+      if (shortcutsOpen) {
+        // reading the sheet and pressed a game bind: close the sheet and
+        // run it — silently swallowing the key made working binds look
+        // broken to anyone trying them straight off the cheat sheet
+        if (id) {
+          event.preventDefault();
+          setShortcutsOpen(false);
+          handlers[id]();
+        }
+        return;
+      }
       if (!id) return;
       event.preventDefault();
       handlers[id]();

@@ -34,22 +34,39 @@ function counterChipLabel(kind: string): string {
   return kind.length > 4 ? `${kind.slice(0, 3)}…` : kind;
 }
 
+/** Power counters scan differently across a board, so they get their own
+ *  corner: +1/+1 and −1/−1 sit bottom-right, everything else top-left. */
+const POWER_KINDS = new Set(["+1/+1", "-1/-1"]);
+
 /** One chip per counter kind (up to 3 + an overflow chip), so a card with
  *  +1/+1 ×3 and Lore ×2 shows both kinds instead of one summed number. */
-function CounterChips({ counters }: { counters: Record<string, number> }) {
-  const kinds = Object.keys(counters);
+function ChipCluster({
+  counters,
+  kinds,
+  allKinds,
+  className,
+}: {
+  counters: Record<string, number>;
+  kinds: string[];
+  allKinds: string[];
+  className: string;
+}) {
   if (kinds.length === 0) return null;
   const visible = kinds.slice(0, 3);
   const overflow = kinds.length - visible.length;
   return (
     <span
-      title={kinds.map((k) => `${k}: ${counters[k]}`).join("\n")}
-      className="absolute -top-1.5 -left-1.5 flex flex-col items-start gap-0.5"
+      title={allKinds.map((k) => `${k}: ${counters[k]}`).join("\n")}
+      className={`absolute flex flex-col gap-0.5 ${className}`}
     >
       {visible.map((kind) => (
         <span
           key={kind}
-          className="flex h-4 items-center rounded-full border border-emerald-400/60 bg-emerald-900 px-1.5 text-[9px] font-bold leading-none text-emerald-200 shadow"
+          className={`flex h-4 items-center rounded-full border px-1.5 text-[9px] font-bold leading-none shadow ${
+            POWER_KINDS.has(kind)
+              ? "border-emerald-300/70 bg-emerald-800 text-emerald-100"
+              : "border-emerald-400/60 bg-emerald-900 text-emerald-200"
+          }`}
         >
           {counterChipLabel(kind)} ×{counters[kind]}
         </span>
@@ -60,6 +77,19 @@ function CounterChips({ counters }: { counters: Record<string, number> }) {
         </span>
       )}
     </span>
+  );
+}
+
+function CounterChips({ counters }: { counters: Record<string, number> }) {
+  const kinds = Object.keys(counters);
+  if (kinds.length === 0) return null;
+  const power = kinds.filter((k) => POWER_KINDS.has(k));
+  const other = kinds.filter((k) => !POWER_KINDS.has(k));
+  return (
+    <>
+      <ChipCluster counters={counters} kinds={other} allKinds={kinds} className="-top-1.5 -left-1.5 items-start" />
+      <ChipCluster counters={counters} kinds={power} allKinds={kinds} className="-bottom-1.5 -right-1.5 items-end" />
+    </>
   );
 }
 
@@ -138,17 +168,16 @@ const CardSprite = memo(function CardSprite({
         </div>
       )}
       <CounterChips counters={card.counters} />
-      {card.attachedTo && (
-        <span className="absolute -top-1.5 -right-1.5 text-xs" title="attached">
-          🔗
-        </span>
-      )}
-      {card.annotations.length > 0 && !hidden && (
-        <span
-          className="absolute -bottom-1.5 -right-1.5 text-xs"
-          title={card.annotations.join(" · ")}
-        >
-          📝
+      {/* attach + note share the top-right so the bottom-right stays the
+          power-counter corner */}
+      {(card.attachedTo || (card.annotations.length > 0 && !hidden)) && (
+        <span className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5 text-xs">
+          {card.attachedTo && (
+            <span title="attached">🔗</span>
+          )}
+          {card.annotations.length > 0 && !hidden && (
+            <span title={card.annotations.join(" · ")}>📝</span>
+          )}
         </span>
       )}
     </div>

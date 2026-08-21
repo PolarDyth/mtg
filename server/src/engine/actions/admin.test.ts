@@ -14,6 +14,8 @@ describe("END_GAME and KICK_PLAYER", () => {
     expect(game.started).toBe(false);
     expect(game.format).toBe("freeform");
     expect(game.activePlayerId).toBeNull();
+    expect(game.turnNumber).toBe(0);
+    expect(game.startedAt).toBeNull();
     for (const player of [ada, bob]) {
       expect(player.life).toBe(20);
       expect(player.hasDeck).toBe(false);

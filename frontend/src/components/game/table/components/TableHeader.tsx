@@ -14,6 +14,7 @@ import {
   Copy,
   Crown,
   Keyboard,
+  LogOut,
   Shield,
   Sparkles,
   UserX,
@@ -32,11 +33,14 @@ export function TableHeader({
   you,
   send,
   onOpenDeck,
+  onLeave,
   onOpenToken,
   onOpenActions,
   onOpenShortcuts,
   previewWidth,
   onPreviewWidth,
+  gridSnap,
+  onGridSnap,
   copied,
   copyCode,
   hostMenuOpen,
@@ -48,11 +52,16 @@ export function TableHeader({
   you: PlayerId | null;
   send: (action: Action) => void;
   onOpenDeck: () => void;
+  /** confirm + LEAVE_GAME + navigate home (owned by GameClient) */
+  onLeave: () => void;
   onOpenToken: () => void;
   onOpenActions: () => void;
   onOpenShortcuts: () => void;
   previewWidth: number;
   onPreviewWidth: (width: number) => void;
+  /** grid-snapping preference — drops land on a 5% lattice when on */
+  gridSnap: boolean;
+  onGridSnap: (value: boolean) => void;
   copied: boolean;
   copyCode: () => void;
   hostMenuOpen: boolean;
@@ -123,8 +132,8 @@ export function TableHeader({
       <div className="relative">
         <button
           onClick={() => setPreviewMenuOpen((v) => !v)}
-          title="Card preview size (ctrl/⌘ + scroll over a card also resizes)"
-          aria-label="Card preview size"
+          title="Display — card preview size & grid snapping"
+          aria-label="Display settings"
           className="flex items-center rounded border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 hover:border-emerald-600"
         >
           <ZoomIn className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -164,6 +173,30 @@ export function TableHeader({
                 <br />
                 also resizes
               </span>
+            </div>
+            <div className="my-2.5 h-px bg-zinc-800" />
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs text-zinc-300">Grid snapping</p>
+                <p className="text-[10px] text-zinc-600">
+                  drops land on a 5% grid — tidy rows
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={gridSnap}
+                aria-label="Grid snapping"
+                onClick={() => onGridSnap(!gridSnap)}
+                className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                  gridSnap ? "bg-emerald-600" : "bg-zinc-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                    gridSnap ? "left-[18px]" : "left-0.5"
+                  }`}
+                />
+              </button>
             </div>
           </div>
         )}
@@ -245,6 +278,14 @@ export function TableHeader({
           )}
         </div>
       )}
+      <button
+        onClick={onLeave}
+        title="Leave this game — your cards go with you, the host role transfers"
+        className="flex items-center gap-1.5 rounded border border-red-900/60 px-2.5 py-1 text-xs text-red-300/80 transition-colors hover:border-red-500 hover:text-red-200"
+      >
+        <LogOut className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Leave
+      </button>
       <span className="ml-auto text-xs text-zinc-600">
         drag to move · click to tap · right-click for actions ·
         ctrl+right-click to draw an arrow
