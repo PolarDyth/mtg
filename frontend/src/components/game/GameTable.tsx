@@ -1414,6 +1414,7 @@ export default function GameTable({
           getDef={get}
           send={send}
           onClose={() => setScry(null)}
+          previewWidth={previewWidth}
         />
       )}
 
