@@ -36,7 +36,7 @@ import ScryModal from "./ScryModal";
 import ShortcutsModal from "./ShortcutsModal";
 import TokenModal from "./TokenModal";
 import ZoneRail from "./ZoneRail";
-import { nextPhaseAction, pickerMax } from "./table/foundation";
+import { isCreature, nextPhaseAction, pickerMax } from "./table/foundation";
 import { useEscapeChain } from "./table/escape";
 import { useTableKeybinds, type KeybindHandler } from "./table/keybinds";
 import { useArrowPicking } from "./table/hooks/useArrowPicking";
@@ -47,6 +47,7 @@ import { useCardPreview } from "./table/hooks/useCardPreview";
 import { useChatSignals } from "./table/hooks/useChatSignals";
 import { useFocusView } from "./table/hooks/useFocusView";
 import { useGameActions } from "./table/hooks/useGameActions";
+import { useGridSnap } from "./table/hooks/useGridSnap";
 import { useHandSelection } from "./table/hooks/useHandSelection";
 import { useHeaderMenus } from "./table/hooks/useHeaderMenus";
 import { useHoverActions } from "./table/hooks/useHoverActions";
@@ -64,11 +65,13 @@ export default function GameTable({
   you,
   send,
   onOpenDeck,
+  onLeave,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
   onOpenDeck: () => void;
+  onLeave: () => void;
 }) {
   const self = view.players.find((p) => p.id === you) ?? null;
 
@@ -76,10 +79,11 @@ export default function GameTable({
 
   const { get } = useTableCards(view, you);
   const preview = useCardPreview();
+  const gridSnap = useGridSnap();
   const headerMenus = useHeaderMenus(view);
   const focusView = useFocusView(view);
   const chatSignals = useChatSignals({ self, send });
-  const drag = useCardDrag({ view, you, send });
+  const drag = useCardDrag({ view, you, send, snap: gridSnap.gridSnap });
   const arrows = useArrowPicking({ view, you, send, hoverCard: preview.hoverCard });
   const attach = useAttachPicking({ view, you, send });
   const reveal = useRevealFlow({ view, send });
@@ -89,6 +93,9 @@ export default function GameTable({
   const hand = self?.zones.hand.kind === "cards" ? self.zones.hand.cards : [];
   const libraryCount =
     self?.zones.library.kind === "cards" ? self.zones.library.cards.length : 0;
+  const battlefield =
+    self?.zones.battlefield.kind === "cards" ? self.zones.battlefield.cards : [];
+  const creatureCount = battlefield.filter((card) => isCreature(card, get)).length;
 
   const selection = useHandSelection({
     send,
@@ -103,13 +110,14 @@ export default function GameTable({
     openPile: pile.open,
     openAudience: reveal.openAudience,
   });
-  const game = useGameActions({ view, self, send });
+  const game = useGameActions({ view, self, send, get });
   const hoverActions = useHoverActions({
     view,
     you,
     send,
     hoverCard: preview.hoverCard,
     addNote: menu.addNote,
+    startAttach: attach.start,
   });
 
   // the actions dock fans out across features, so its open flag lives here
@@ -119,6 +127,7 @@ export default function GameTable({
   // lib/keybinds.ts without a slice below fails tsc.
   const keybinds: Record<KeybindId, KeybindHandler> = {
     ...game.keybinds,
+    ...gridSnap.keybinds,
     ...pile.keybinds,
     ...pickerFlow.keybinds,
     ...arrows.keybinds,
@@ -235,11 +244,14 @@ export default function GameTable({
         you={you}
         send={send}
         onOpenDeck={onOpenDeck}
+        onLeave={onLeave}
         onOpenToken={pickerFlow.openToken}
         onOpenActions={() => setActionsOpen(true)}
         onOpenShortcuts={openShortcuts}
         previewWidth={preview.previewWidth}
         onPreviewWidth={preview.setPreviewWidth}
+        gridSnap={gridSnap.gridSnap}
+        onGridSnap={gridSnap.setGridSnap}
         copied={headerMenus.copied}
         copyCode={headerMenus.copyCode}
         hostMenuOpen={headerMenus.hostMenuOpen}
@@ -287,6 +299,8 @@ export default function GameTable({
           )}
           <PhaseBar
             phase={view.phase}
+            turn={view.turnNumber}
+            startedAt={view.startedAt}
             activeName={
               view.players.find((p) => p.id === view.activePlayerId)?.name ?? "—"
             }
@@ -396,6 +410,7 @@ export default function GameTable({
       {actionsOpen && (
         <ActionsModal
           libraryCount={libraryCount}
+          creatureCount={creatureCount}
           onPicker={(mode) => {
             setActionsOpen(false);
             pickerFlow.open(mode);
@@ -412,6 +427,10 @@ export default function GameTable({
             setActionsOpen(false);
             selection.enter();
           }}
+          onBulkCounters={() => {
+            setActionsOpen(false);
+            game.buffCreatures();
+          }}
           onClose={() => setActionsOpen(false)}
         />
       )}
@@ -419,7 +438,7 @@ export default function GameTable({
       {pickerFlow.picker && (
         <CountPickerModal
           mode={pickerFlow.picker}
-          max={pickerMax(pickerFlow.picker, libraryCount)}
+          max={pickerMax(pickerFlow.picker, libraryCount, hand.length)}
           initial={pickerFlow.picker === "mulligan" ? hand.length : 1}
           subject={pickerFlow.pickerCreate?.name}
           onConfirm={pickerFlow.confirm}

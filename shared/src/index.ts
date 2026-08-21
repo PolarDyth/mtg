@@ -133,6 +133,9 @@ export type Action =
     }
   | { type: "SHUFFLE_LIBRARY" }
   | { type: "DISCARD_CARDS"; uids: string[] }
+  /** The SERVER picks `count` random cards from the actor's hand — randomness
+   *  is server-side (Ctx.rng) so the whole table can trust the roll. */
+  | { type: "DISCARD_RANDOM"; count: number }
   | { type: "MILL_CARDS"; count: number }
   /** `top` + `bottom` must exactly partition the top `min(look, library)`
    *  cards. The `top` group lands on top in array order; `bottom` goes to
@@ -199,6 +202,11 @@ export type GameView = {
   format: Format;
   /** Current turn phase — a shared label, identical for every viewer. */
   phase: Phase;
+  /** Turn counter — 1 from game start, +1 per NEXT_TURN. Shared label. */
+  turnNumber: number;
+  /** Game-start timestamp (epoch ms) for elapsed clocks; null in the lobby.
+   *  Clients tick their own clock against it; the server never ticks. */
+  startedAt: number | null;
   activePlayerId: PlayerId;
   /** Who runs host actions (end game, remove players). */
   hostId: PlayerId;

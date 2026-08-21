@@ -14,7 +14,21 @@ import {
   type PlayerId,
   type Zone,
 } from "@mythic/shared";
+import type { CardDef } from "@/lib/scryfall";
 import type { PickerMode } from "../CountPickerModal";
+
+/** Creature detection is client-side on purpose — the server is card-id
+ *  agnostic, so "which cards are creatures" is a display concern settled
+ *  by type_line from the card-def cache. */
+export function isCreature(
+  card: CardView,
+  get: (id: string | null) => CardDef | null
+): boolean {
+  return (
+    card.cardId !== null &&
+    (get(card.cardId)?.type_line ?? "").includes("Creature")
+  );
+}
 
 /** Find a card among the viewer's own zones. */
 export function findOwnCard(
@@ -62,7 +76,11 @@ export function nextPhaseAction(phase: Phase): Action {
 }
 
 /** Upper bound for each count-picking mode. */
-export function pickerMax(mode: PickerMode, libraryCount: number): number {
+export function pickerMax(
+  mode: PickerMode,
+  libraryCount: number,
+  handCount = 0
+): number {
   switch (mode) {
     case "draw":
     case "mill":
@@ -79,6 +97,8 @@ export function pickerMax(mode: PickerMode, libraryCount: number): number {
       return libraryCount;
     case "revealTop":
       return Math.min(30, libraryCount);
+    case "discardRandom":
+      return Math.min(30, handCount); // MAX_DISCARD_AT_ONCE, capped by the hand
   }
 }
 
@@ -89,13 +109,25 @@ export type Rect = { left: number; top: number; width: number; height: number };
 /** Drop position for a card dropped at viewport point (x, y) over the
  *  player's own board rect: percentages of that board (the owner's frame,
  *  un-mirrored), clamped so the card's center can't leave the board, and
- *  rounded to a tenth of a percent. */
-export function battlefieldDrop(rect: Rect, x: number, y: number): {
+ *  rounded to a tenth of a percent — or, with `snap`, to the 5% lattice
+ *  (still inside the clamp: 4/96 → 5/95 on x, 8/92 → 10/90 on y). */
+export function battlefieldDrop(
+  rect: Rect,
+  x: number,
+  y: number,
+  snap = false
+): {
   x: number;
   y: number;
 } {
   const px = ((x - rect.left) / rect.width) * 100;
   const py = ((y - rect.top) / rect.height) * 100;
+  if (snap) {
+    return {
+      x: Math.round(Math.min(96, Math.max(4, px)) / 5) * 5,
+      y: Math.round(Math.min(92, Math.max(8, py)) / 5) * 5,
+    };
+  }
   return {
     x: Math.round(Math.min(96, Math.max(4, px)) * 10) / 10,
     y: Math.round(Math.min(92, Math.max(8, py)) * 10) / 10,

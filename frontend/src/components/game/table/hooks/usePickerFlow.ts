@@ -64,6 +64,8 @@ export function usePickerFlow({
         send({ type: "MILL_CARDS", count: n });
       } else if (mode === "mulligan") {
         send({ type: "MULLIGAN", draw: n });
+      } else if (mode === "discardRandom") {
+        send({ type: "DISCARD_RANDOM", count: n });
       } else if (mode === "token" || mode === "clone") {
         if (pickerCreate) {
           const token = { ...pickerCreate, count: n };
@@ -101,7 +103,10 @@ export function usePickerFlow({
 
   const keybinds = {
     drawMany: () => setPicker("draw"),
+    mulligan: () => setPicker("mulligan"),
     millMany: () => setPicker("mill"),
+    scry: () => setPicker("scry"),
+    surveil: () => setPicker("surveil"),
     viewTopCards: () => setPicker("lookTop"),
     createToken: () => setTokenOpen(true),
     createAnotherToken: () => {

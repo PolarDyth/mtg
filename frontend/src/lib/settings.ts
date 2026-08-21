@@ -33,3 +33,22 @@ export function savePreviewWidth(width: number): void {
     // private mode / quota — the choice just won't persist
   }
 }
+
+const GRID_SNAP_KEY = "mtg:grid-snap";
+
+/** Drops land on a 5% lattice of your board when snapping is on. */
+export function loadGridSnap(): boolean {
+  try {
+    return localStorage.getItem(GRID_SNAP_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+export function saveGridSnap(on: boolean): void {
+  try {
+    localStorage.setItem(GRID_SNAP_KEY, on ? "on" : "off");
+  } catch {
+    // same tolerance as the other preferences
+  }
+}

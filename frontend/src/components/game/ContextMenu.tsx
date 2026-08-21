@@ -36,6 +36,8 @@ const move = (uid: string, to: Zone, index?: "top" | "bottom"): Action => ({
 const QUICK: Record<Zone, QuickAction[]> = {
   hand: [
     { label: "Discard", build: (uid) => ({ type: "DISCARD_CARDS", uids: [uid] }) },
+    // ignores the clicked card on purpose — the server rolls the pick
+    { label: "Discard 1 at random", build: () => ({ type: "DISCARD_RANDOM", count: 1 }) },
     { label: "Put onto battlefield", build: (uid) => move(uid, "battlefield") },
   ],
   battlefield: [

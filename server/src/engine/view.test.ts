@@ -35,6 +35,15 @@ describe("personalized snapshots", () => {
     expect(personalize(game, ada.id).phase).toBe("main2");
   });
 
+  it("exposes the turn counter and start stamp to every viewer", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
+    expect(personalize(game, bob.id).turnNumber).toBe(2);
+    expect(personalize(game, ada.id).turnNumber).toBe(2);
+    expect(personalize(game, bob.id).startedAt).toBe(1_000);
+  });
+
   it("hides face-down battlefield identities from opponents, not the owner", () => {
     const { game, ctx, ada, bob } = setup();
     startWithDeck(game, ctx, ada);

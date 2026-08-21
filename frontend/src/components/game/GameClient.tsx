@@ -25,6 +25,19 @@ export default function GameClient({ code }: { code: string }) {
     return () => clearTimeout(timer);
   }, [toast, clearToast]);
 
+  /** The one true way out besides closing the tab: LEAVE_GAME removes the
+   *  seat (cards go with you, host transfers), then we drop the session and
+   *  go home — unmounting closes the socket. */
+  function leaveTable(started: boolean) {
+    const message = started
+      ? "Leave this game? Your cards leave with you and the host role transfers if you're the host."
+      : "Leave this table? Your seat and loaded deck leave with you.";
+    if (!window.confirm(message)) return;
+    send({ type: "LEAVE_GAME" });
+    clearSession(code);
+    window.location.replace("/");
+  }
+
   if (fatal) {
     clearSession(code);
     return (
@@ -64,9 +77,15 @@ export default function GameClient({ code }: { code: string }) {
       )}
 
       {view.started ? (
-        <GameTable view={view} you={you} send={send} onOpenDeck={() => setDeckOpen(true)} />
+        <GameTable
+          view={view}
+          you={you}
+          send={send}
+          onOpenDeck={() => setDeckOpen(true)}
+          onLeave={() => leaveTable(true)}
+        />
       ) : (
-        <Lobby view={view} you={you} send={send} />
+        <Lobby view={view} you={you} send={send} onLeave={() => leaveTable(false)} />
       )}
 
       {deckOpen && (

@@ -37,10 +37,13 @@ export function useCardDrag({
   view,
   you,
   send,
+  snap = false,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
+  /** grid snapping preference — drops land on the 5% lattice */
+  snap?: boolean;
 }) {
   const [drag, setDrag] = useState<DragState | null>(null);
   /** anchors to YOUR board's container in whatever view mode is active */
@@ -84,7 +87,8 @@ export function useCardDrag({
         const pos = battlefieldDrop(
           battlefieldRef.current.getBoundingClientRect(),
           x,
-          y
+          y,
+          snap
         );
         if (current.from !== "battlefield") {
           send({ type: "MOVE_CARD", uid: current.uid, to: "battlefield" });
@@ -100,7 +104,7 @@ export function useCardDrag({
         send({ type: "MOVE_CARD", uid: current.uid, to: drop.slice(5) as Zone });
       }
     },
-    [drag, send]
+    [drag, send, snap]
   );
 
   useEffect(() => {

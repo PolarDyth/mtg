@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Hovered-card keybinds (Alt+F flip, Ctrl+Delete graveyard, Ctrl+B bottom,
- * Alt+N note): they act on the card under the cursor, but only where that
- * card is one of your own.
+ * Hovered-card keybinds (Alt+A arrow, Alt+T tap, Alt+H attach, Alt+F flip,
+ * Ctrl+Delete graveyard, Ctrl+B bottom, Alt+N note): they act on the card
+ * under the cursor, but only where that card is one of your own.
  */
 
 import type { Action, CardView, GameView, PlayerId } from "@mythic/shared";
@@ -16,16 +16,29 @@ export function useHoverActions({
   send,
   hoverCard,
   addNote,
+  startAttach,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
   hoverCard: CardView | null;
   addNote: (card: CardView) => void;
+  /** begins "Attach to…" targeting from the hovered card (useAttachPicking) */
+  startAttach: (card: CardView) => void;
 }) {
   // satisfies (not an annotation) keeps the keys required, so the
   // exhaustive composition in GameTable fails tsc on any gap
   const keybinds = {
+    tapHover: () => {
+      const own = findOwnHovered(view, you, hoverCard);
+      if (own?.zone === "battlefield") {
+        send({ type: "SET_TAPPED", uid: own.card.uid, value: !own.card.tapped });
+      }
+    },
+    attachHover: () => {
+      const own = findOwnHovered(view, you, hoverCard);
+      if (own?.zone === "battlefield") startAttach(own.card);
+    },
     flipHover: () => {
       const own = findOwnHovered(view, you, hoverCard);
       if (own?.zone === "battlefield") {

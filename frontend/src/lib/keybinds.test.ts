@@ -108,6 +108,31 @@ describe("default keybind matching", () => {
     expect(id({ key: "Enter", ctrlKey: true, shiftKey: true })).toBe("passTurn");
     expect(id({ key: "Enter", metaKey: true, shiftKey: true })).toBe("passTurn");
   });
+
+  it("binds the round-2 mechanics without disturbing older combos", () => {
+    expect(id({ key: "d", ctrlKey: true, shiftKey: true })).toBe("randomDiscard");
+    expect(id({ key: "p", altKey: true })).toBe("buffCreatures");
+    expect(id({ key: "g", ctrlKey: true, altKey: true })).toBe("toggleGridSnap");
+    // plain / sibling variants stay unbound or keep their old meaning
+    expect(id({ key: "d", ctrlKey: true })).toBe("drawOne");
+    expect(id({ key: "p" })).toBeNull();
+    expect(id({ key: "g", ctrlKey: true })).toBe("createAnotherToken");
+    expect(id({ key: "g" })).toBeNull();
+  });
+
+  it("binds the audited gaps: tap/attach hover, scry, surveil, mulligan", () => {
+    expect(id({ key: "t", altKey: true })).toBe("tapHover");
+    expect(id({ key: "h", altKey: true })).toBe("attachHover");
+    expect(id({ key: "s", ctrlKey: true, altKey: true })).toBe("scry");
+    expect(id({ key: "v", ctrlKey: true, altKey: true })).toBe("surveil");
+    expect(id({ key: "m", ctrlKey: true, altKey: true })).toBe("mulligan");
+    // sibling combos keep their meanings, plain variants stay unbound
+    expect(id({ key: "s", ctrlKey: true })).toBe("shuffleLibrary");
+    expect(id({ key: "m", altKey: true })).toBe("millMany");
+    expect(id({ key: "t", ctrlKey: true, altKey: true })).toBe("createToken");
+    expect(id({ key: "h" })).toBeNull();
+    expect(id({ key: "v" })).toBeNull();
+  });
 });
 
 describe("isTypingTarget", () => {

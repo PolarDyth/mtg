@@ -44,6 +44,8 @@ function startGame(
   }
   game.started = true;
   game.phase = "untap";
+  game.turnNumber = 1;
+  game.startedAt = ctx.now();
   game.activePlayerId = game.players[0].id;
   systemMessage(
     game,
@@ -89,6 +91,7 @@ function nextTurn(
   const next = game.players[(i + 1 + game.players.length) % game.players.length];
   game.activePlayerId = next.id;
   game.phase = "untap";
+  game.turnNumber += 1;
   // Passing the turn ends combat talk — attack/block arrows go with it.
   game.arrows = [];
   // Convenience, deliberately dumb: the incoming player's whole board

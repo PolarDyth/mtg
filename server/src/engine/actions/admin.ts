@@ -32,6 +32,8 @@ function endGame(
   game.started = false;
   game.format = "freeform";
   game.phase = "untap";
+  game.turnNumber = 0;
+  game.startedAt = null;
   game.activePlayerId = null;
   game.arrows = [];
   for (const player of game.players) {

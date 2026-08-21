@@ -16,6 +16,18 @@ describe("START_GAME and NEXT_TURN", () => {
     expect(game.activePlayerId).toBe(ada.id);
   });
 
+  it("counts turns from 1 and stamps the game clock at start", () => {
+    const { game, ctx, ada, bob } = setup();
+    expect(game.turnNumber).toBe(0);
+    expect(game.startedAt).toBeNull();
+    startWithDeck(game, ctx, ada);
+    expect(game.turnNumber).toBe(1);
+    expect(game.startedAt).toBe(1_000); // ctx.now() from the harness
+    mustOk(act(game, ctx, bob, { type: "NEXT_TURN" }));
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
+    expect(game.turnNumber).toBe(3);
+  });
+
   it("rejects actions before the game starts", () => {
     const { game, ctx, ada } = setup();
     mustFail(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }), "not started");

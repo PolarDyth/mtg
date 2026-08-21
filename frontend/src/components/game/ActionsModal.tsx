@@ -5,9 +5,11 @@ import {
   ArrowDownToLine,
   ArrowDownUp,
   BookOpen,
+  Dices,
   Eye,
   Hand,
   ListChecks,
+  PlusCircle,
   RotateCcw,
   Search,
   Shuffle,
@@ -28,17 +30,23 @@ type Tile = {
  */
 export default function ActionsModal({
   libraryCount,
+  creatureCount,
   onPicker,
   onShuffle,
   onSearchLibrary,
   onSelectCards,
+  onBulkCounters,
   onClose,
 }: {
   libraryCount: number;
+  /** creatures you control right now (drives the bulk-counter tile) */
+  creatureCount: number;
   onPicker: (mode: PickerMode) => void;
   onShuffle: () => void;
   onSearchLibrary: () => void;
   onSelectCards: () => void;
+  /** +1/+1 on every creature you control (client-side loop of SET_COUNTERS) */
+  onBulkCounters: () => void;
   onClose: () => void;
 }) {
   const library: Tile[] = [
@@ -64,6 +72,20 @@ export default function ActionsModal({
       Icon: ListChecks,
       onClick: onSelectCards,
     },
+    {
+      name: "Discard at random…",
+      desc: "the server picks N cards from your hand at random",
+      Icon: Dices,
+      onClick: () => onPicker("discardRandom"),
+    },
+  ];
+  const battlefield: Tile[] = [
+    {
+      name: "Add +1/+1 to all creatures…",
+      desc: `one +1/+1 counter on each creature you control (${creatureCount})`,
+      Icon: PlusCircle,
+      onClick: onBulkCounters,
+    },
   ];
 
   return (
@@ -78,7 +100,8 @@ export default function ActionsModal({
         <header className="flex items-center gap-3 border-b border-zinc-800 px-5 py-3">
           <h2 className="font-semibold text-zinc-100">Game actions</h2>
           <span className="text-xs text-zinc-500">
-            {libraryCount} cards in your library
+            {libraryCount} in your library · {creatureCount} creature
+            {creatureCount === 1 ? "" : "s"}
           </span>
           <button
             onClick={onClose}
@@ -105,6 +128,15 @@ export default function ActionsModal({
           <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-2">
             {hand.map((tile) => (
               <ActionTile key={tile.name} tile={tile} />
+            ))}
+          </div>
+
+          <p className="mb-2 mt-5 text-[10px] font-medium uppercase tracking-wider text-zinc-600">
+            Battlefield
+          </p>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-2">
+            {battlefield.map((tile) => (
+              <ActionTile key={tile.name} tile={tile} disabled={creatureCount === 0} />
             ))}
           </div>
         </div>
