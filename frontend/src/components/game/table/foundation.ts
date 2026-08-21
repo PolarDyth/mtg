@@ -143,6 +143,17 @@ export function manaAfterSpend(
   return { ...pool, [color]: Math.max(0, pool[color] - amount) };
 }
 
+/** The def as it should render: a double-faced card showing its back uses
+ *  the back face's identity (name, type, cost, art) over the shared def.
+ *  One helper so every surface — table, zoom, pile viewer, drag ghost —
+ *  agrees on which face is "the card" right now. */
+export function faceDef(
+  def: CardDef | null,
+  showBack?: boolean
+): CardDef | null {
+  return showBack && def?.back ? { ...def, ...def.back } : def;
+}
+
 /** Structural stand-in for the rects getBoundingClientRect returns — plain
  *  numbers so tests can pass literal objects. */
 export type Rect = { left: number; top: number; width: number; height: number };

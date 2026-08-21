@@ -41,6 +41,7 @@ export type KeybindId =
   | "tapHover"
   | "attachHover"
   | "flipHover"
+  | "transformHover"
   | "graveyardHover"
   | "bottomHover"
   | "noteHover";
@@ -79,6 +80,7 @@ export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   tapHover: "Alt+T",
   attachHover: "Alt+H",
   flipHover: "Alt+F",
+  transformHover: "Alt+B",
   graveyardHover: "Ctrl+Delete",
   bottomHover: "Ctrl+B",
   noteHover: "Alt+N",
@@ -126,6 +128,7 @@ export const KEYBIND_LABELS: Record<KeybindId, string> = {
   tapHover: "Tap / untap it",
   attachHover: "Attach it to another card…",
   flipHover: "Turn it face down / up",
+  transformHover: "Transform — show its other face",
   graveyardHover: "Put it in the graveyard",
   bottomHover: "Put it on the bottom of the library",
   noteHover: "Add a note to it",
@@ -180,6 +183,7 @@ export const SHORTCUT_GROUPS: { title: string; items: KeybindId[] }[] = [
       "tapHover",
       "attachHover",
       "flipHover",
+      "transformHover",
       "graveyardHover",
       "bottomHover",
       "noteHover",

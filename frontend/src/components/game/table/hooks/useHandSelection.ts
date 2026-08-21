@@ -8,6 +8,7 @@
 import { useCallback, useState } from "react";
 import type { Action, CardView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
+import { faceDef } from "../foundation";
 import type { KeybindSlice } from "../keybinds";
 import type { AudienceCards } from "./useRevealFlow";
 
@@ -79,7 +80,10 @@ export function useHandSelection({
       type: "REVEAL_CARDS",
       cards: selectedInHand.map((uid) => {
         const card = hand.find((c) => c.uid === uid);
-        return { uid, name: get(card?.cardId ?? null)?.name ?? "Card" };
+        return {
+          uid,
+          name: faceDef(get(card?.cardId ?? null), card?.showBack)?.name ?? "Card",
+        };
       }),
     });
     exitSelect();
@@ -90,7 +94,10 @@ export function useHandSelection({
     openAudience(
       selectedInHand.map((uid) => {
         const card = hand.find((c) => c.uid === uid);
-        return { uid, name: get(card?.cardId ?? null)?.name ?? "Card" };
+        return {
+          uid,
+          name: faceDef(get(card?.cardId ?? null), card?.showBack)?.name ?? "Card",
+        };
       })
     );
     exitSelect();

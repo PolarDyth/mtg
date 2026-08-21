@@ -6,7 +6,7 @@ import type { CardDef } from "@/lib/scryfall";
 import { PREVIEW_DEFAULT } from "@/lib/settings";
 import { Eye, Hand, Layers, Swords } from "lucide-react";
 import CardPreview from "./CardPreview";
-import { cardMatchesText } from "./table/foundation";
+import { cardMatchesText, faceDef } from "./table/foundation";
 
 const ZONE_TITLES: Record<Zone, string> = {
   library: "Library",
@@ -169,7 +169,7 @@ export default function PileModal({
 
         <ul className="grid flex-1 grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2 overflow-y-auto p-4">
           {visible.map((card) => {
-            const def = getDef(card.cardId);
+            const def = faceDef(getDef(card.cardId), card.showBack);
             const hidden = card.faceDown || !card.cardId;
             const i = position.get(card.uid) ?? 0;
             const isSelected = selected.has(card.uid);

@@ -11,7 +11,7 @@ import { useCallback, useState } from "react";
 import type { Action, CardView, GameView, PlayerId } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
 import type { MenuState } from "../../ContextMenu";
-import { findOwnCard, onAnyBattlefield } from "../foundation";
+import { faceDef, findOwnCard, onAnyBattlefield } from "../foundation";
 
 export function useCardMenu({
   view,
@@ -44,7 +44,8 @@ export function useCardMenu({
         card,
         own,
         zone: found?.zone ?? "battlefield",
-        name: get(card.cardId)?.name ?? card.annotations[0] ?? "Card",
+        // reveal labels name whichever face is showing
+        name: faceDef(get(card.cardId), card.showBack)?.name ?? card.annotations[0] ?? "Card",
         x,
         y,
       });

@@ -120,6 +120,7 @@ export default function GameTable({
     view,
     you,
     send,
+    get,
     hoverCard: preview.hoverCard,
     addNote: menu.addNote,
     startAttach: attach.start,

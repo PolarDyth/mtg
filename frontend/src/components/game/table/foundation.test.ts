@@ -12,6 +12,7 @@ import type { CardDef } from "@/lib/scryfall";
 import {
   battlefieldDrop,
   cardMatchesText,
+  faceDef,
   findOwnCard,
   manaAfterSpend,
   manaAfterTap,
@@ -188,6 +189,41 @@ describe("pickerMax", () => {
     expect(pickerMax("discardRandom", 60, 7)).toBe(7);
     expect(pickerMax("discardRandom", 60, 40)).toBe(30);
     expect(pickerMax("discardRandom", 60, 0)).toBe(0);
+  });
+});
+
+describe("faceDef", () => {
+  const dfc = mkDef({
+    name: "Delver of Secrets",
+    back: {
+      name: "Insectile Aberration",
+      mana_cost: "",
+      type_line: "Creature — Insect Human",
+      small: "back-s.png",
+      normal: "back-n.png",
+    },
+  });
+
+  it("returns the front def by default", () => {
+    expect(faceDef(dfc, false)?.name).toBe("Delver of Secrets");
+    expect(faceDef(dfc, undefined)?.small).toBe("s.png");
+  });
+
+  it("overlays the back face when showing it", () => {
+    const back = faceDef(dfc, true);
+    expect(back?.name).toBe("Insectile Aberration");
+    expect(back?.small).toBe("back-s.png");
+    expect(back?.normal).toBe("back-n.png");
+    expect(back?.type_line).toBe("Creature — Insect Human");
+    // shared fields ride along untouched
+    expect(back?.id).toBe("id-1");
+    expect(back?.relatedTokens).toEqual([]);
+  });
+
+  it("ignores showBack on single-faced cards and null defs", () => {
+    expect(faceDef(mkDef(), true)?.name).toBe("Shivan Dragon");
+    expect(faceDef(null, true)).toBeNull();
+    expect(faceDef(null)).toBeNull();
   });
 });
 

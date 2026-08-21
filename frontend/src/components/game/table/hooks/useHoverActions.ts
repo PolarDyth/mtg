@@ -2,11 +2,13 @@
 
 /**
  * Hovered-card keybinds (Alt+A arrow, Alt+T tap, Alt+H attach, Alt+F flip,
- * Ctrl+Delete graveyard, Ctrl+B bottom, Alt+N note): they act on the card
- * under the cursor, but only where that card is one of your own.
+ * Alt+B transform, Ctrl+Delete graveyard, Ctrl+B bottom, Alt+N note): they
+ * act on the card under the cursor, but only where that card is one of
+ * your own.
  */
 
 import type { Action, CardView, GameView, PlayerId } from "@mythic/shared";
+import type { CardDef } from "@/lib/scryfall";
 import { findOwnHovered } from "../foundation";
 import type { KeybindSlice } from "../keybinds";
 
@@ -14,6 +16,7 @@ export function useHoverActions({
   view,
   you,
   send,
+  get,
   hoverCard,
   addNote,
   startAttach,
@@ -22,6 +25,8 @@ export function useHoverActions({
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
+  /** card-def lookup (transform needs the def's back face) */
+  get: (id: string | null) => CardDef | null;
   hoverCard: CardView | null;
   addNote: (card: CardView) => void;
   /** begins "Attach to…" targeting from the hovered card (useAttachPicking) */
@@ -48,6 +53,17 @@ export function useHoverActions({
       if (own?.zone === "battlefield") {
         send({ type: "SET_FACE_DOWN", uid: own.card.uid, value: !own.card.faceDown });
       }
+    },
+    transformHover: () => {
+      const own = findOwnHovered(view, you, hoverCard);
+      if (own?.zone !== "battlefield" || !own.card.cardId || own.card.faceDown) return;
+      const def = get(own.card.cardId);
+      if (!def?.back) return;
+      send({
+        type: "TRANSFORM_CARD",
+        uid: own.card.uid,
+        name: own.card.showBack ? def.name : def.back.name,
+      });
     },
     graveyardHover: () => {
       const own = findOwnHovered(view, you, hoverCard);
