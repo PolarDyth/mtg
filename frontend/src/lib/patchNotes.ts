@@ -23,6 +23,28 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-3-mana-transform-search",
+    label: "Round 3 — mana, transform, search",
+    date: "2026-08-21",
+    items: [
+      {
+        title: "Mana pool",
+        detail:
+          "Every player's header shows a W/U/B/R/G/C mana bar everyone can see. Tap a land, mana dork, or mana rock and its colors bank automatically — click your pips to add, right-click to spend, ✕ or Alt+C to clear.",
+      },
+      {
+        title: "Transform double-faced cards",
+        detail:
+          "Right-click a transforming card or MDFC on the battlefield and pick \"Transform to…\", or hover it and press Alt+B — the whole table sees the other face, with counters and attachments kept.",
+      },
+      {
+        title: "Search cards by their rules text",
+        detail:
+          "The pile viewer's filter now matches names, types, and rules text — type \"flying\" in your library to find every flier.",
+      },
+    ],
+  },
+  {
     id: "round-2-shortcut-polish",
     label: "Round 2 — shortcut polish",
     date: "2026-08-21",
