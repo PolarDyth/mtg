@@ -31,6 +31,14 @@ Focused typecheck/lint: `npx tsc --noEmit` and `npx eslint src` inside
 `node server/scripts/e2e-m2.js`. Two browser tabs = two players (identity is
 per-tab sessionStorage).
 
+CI: GitHub Actions (`.github/workflows/ci.yml`) runs `lint` / `test` / `build`
+/ `e2e` / `docker` on every PR and push to main — the same root scripts, verbatim.
+The `e2e` job builds, boots `NODE_ENV=production npm start`, and runs both
+`server/scripts/e2e-*.js` scripts; `docker` builds the production image
+(no push). Node version is pinned in `.nvmrc` — keep it in sync with the
+Dockerfile's `ARG NODE_VERSION`. These checks are required on main (branch
+protection), so a red check blocks merge.
+
 ## Architecture rules
 
 - Clients send **actions only**; the server replies with full **personalized

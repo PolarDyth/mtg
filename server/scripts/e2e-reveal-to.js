@@ -90,10 +90,9 @@ async function main() {
   });
   await ada.until((s) => s.players[0]?.hasDeck === true);
   ada.send({ kind: "action", action: { type: "START_GAME" } });
-  await ada.until((s) => s.started === true);
-  ada.send({ kind: "action", action: { type: "DRAW_CARDS", count: 2 } });
+  // START_GAME auto-draws opening hands — no manual draw needed
   const view = await ada.until(
-    (s) => s.players.find((p) => p.name === "Ada").zones.hand.cards?.length === 2
+    (s) => s.players.find((p) => p.name === "Ada").zones.hand.cards?.length === 7
   );
   const hand = view.players.find((p) => p.name === "Ada").zones.hand.cards;
 

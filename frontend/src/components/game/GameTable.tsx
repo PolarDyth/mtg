@@ -408,6 +408,7 @@ export default function GameTable({
             name: get(card.cardId)?.name ?? "Card",
           })
         }
+        onTap={onTap}
       />
 
       {menu.countersCard && menu.countersFor && (
