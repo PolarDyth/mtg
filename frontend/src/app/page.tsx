@@ -62,8 +62,8 @@ export default function HomePage() {
   async function joinTable() {
     if (!validName()) return;
     const cleaned = code.trim().toUpperCase();
-    if (!/^[A-Z]+-\d{4}$/.test(cleaned)) {
-      setError("Room codes look like PLAINS-42");
+    if (!/^[A-Z]+-[A-Z]+-\d{4}$/.test(cleaned)) {
+      setError("Room codes look like RAVEN-STORM-4821");
       return;
     }
     await attempt({ kind: "join", code: cleaned, name: name.trim() });
@@ -139,7 +139,7 @@ export default function HomePage() {
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               onKeyDown={(e) => e.key === "Enter" && joinTable()}
-              placeholder="PLAINS-42"
+              placeholder="RAVEN-STORM-4821"
               className="min-w-0 flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm uppercase tracking-wide text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-emerald-600"
             />
             <button

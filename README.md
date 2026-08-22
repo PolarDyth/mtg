@@ -5,7 +5,7 @@ No rules enforcement — a shared table where 2–6 friends drag cards between
 zones, tap them, track life, roll dice, and chat. The server's only job is
 keeping everyone's view in sync.
 
-- **No accounts** — room codes (`PLAINS-42`) + display names
+- **No accounts** — room codes (`RAVEN-STORM-4821`) + display names
 - **Bring your own decklist** — paste it; Scryfall resolves names and images
 - **Hidden information by construction** — hands, libraries, and face-down
   cards are filtered per-player by the authoritative server

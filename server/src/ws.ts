@@ -23,6 +23,7 @@ import {
   type Player,
 } from "./engine/state";
 import { personalize } from "./engine/view";
+import { HitWindow } from "./ratelimit";
 import { RoomManager, isValidCode, normalizeCode } from "./rooms";
 
 type Conn = {
@@ -32,12 +33,18 @@ type Conn = {
   missedPings: number;
   /** pending "disconnected" announcement (cancelled by a quick rejoin) */
   announceTimer: ReturnType<typeof setTimeout> | null;
+  /** failed join attempts — room-code sweeping gets the socket closed */
+  joinFails: HitWindow;
   ip?: string;
 };
 
 const HEARTBEAT_MS = 30_000;
 const DISCONNECT_ANNOUNCE_MS = 10_000;
 const MAX_PAYLOAD = 64 * 1024;
+const JOIN_FAIL_CONN_LIMIT = 5;
+const JOIN_FAIL_CONN_MS = 10_000;
+const JOIN_FAIL_IP_LIMIT = 10;
+const JOIN_FAIL_IP_MS = 60_000;
 
 const rng: Rng = systemRng();
 const ctx: Ctx = { rng, now: () => Date.now() };
@@ -49,6 +56,11 @@ rooms.onSweep = (game) => {
 rooms.startSweeping();
 
 const conns = new Set<Conn>();
+
+// Failed joins per IP across all connections. Entries are pruned to zero (and
+// deleted) on that IP's next join attempt, so the map only grows with the
+// number of distinct misbehaving IPs.
+const ipJoinFails = new Map<string, HitWindow>();
 
 export function isGameUpgrade(req: IncomingMessage): boolean {
   const { pathname } = new URL(req.url ?? "/", "http://localhost");
@@ -86,6 +98,7 @@ wss.on("connection", (ws, req) => {
     playerId: null,
     missedPings: 0,
     announceTimer: null,
+    joinFails: new HitWindow(JOIN_FAIL_CONN_MS),
     ip: clientIp(req),
   };
   conns.add(conn);
@@ -157,17 +170,20 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
     return;
   }
   if (msg.kind === "join") {
+    if (ipJoinFailCount(conn.ip, Date.now()) >= JOIN_FAIL_IP_LIMIT) {
+      return sendError(conn, "too many join attempts — wait a minute");
+    }
     const code = normalizeCode(msg.code ?? "");
-    if (!isValidCode(code)) return sendError(conn, "that room code doesn't look right");
+    if (!isValidCode(code)) return failJoin(conn, "that room code doesn't look right");
     const game = rooms.get(code);
-    if (!game) return sendError(conn, "room not found");
+    if (!game) return failJoin(conn, "room not found");
     if (game.players.length >= MAX_PLAYERS) {
-      return sendError(conn, "room is full (6 players max)");
+      return failJoin(conn, "room is full (6 players max)");
     }
     const name = cleanName(msg.name);
-    if (!name) return sendError(conn, "pick a name first (1–24 characters)");
+    if (!name) return failJoin(conn, "pick a name first (1–24 characters)");
     if (isBanned(game, name, conn.ip)) {
-      return sendError(conn, "you are banned from this table");
+      return failJoin(conn, "you are banned from this table");
     }
     seat(conn, game, name);
     return;
@@ -204,6 +220,7 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
 function seat(conn: Conn, game: Game, name: string): void {
   const player: Player = makePlayer(game, name, randomUUID(), rng);
   player.ip = conn.ip;
+  conn.joinFails.reset();
   addPlayer(game, player); // first player seated becomes the host
   conn.game = game;
   conn.playerId = player.id;
@@ -270,6 +287,35 @@ function systemMessageNow(game: Game, text: string): void {
 function cleanName(raw: unknown): string {
   if (typeof raw !== "string") return "";
   return raw.replace(/\s+/g, " ").trim().slice(0, 24);
+}
+
+/** Live failed-join count for an IP (prunes the entry when it hits zero). */
+function ipJoinFailCount(ip: string | undefined, now: number): number {
+  if (!ip) return 0;
+  const w = ipJoinFails.get(ip);
+  if (!w) return 0;
+  const n = w.count(now);
+  if (n === 0) ipJoinFails.delete(ip);
+  return n;
+}
+
+/** A failed join attempt: reply with the reason, and when the connection has
+ *  burned through its failure budget (code-sweeping), close it outright. */
+function failJoin(conn: Conn, message: string): void {
+  const now = Date.now();
+  conn.joinFails.hit(now);
+  if (conn.ip) {
+    let w = ipJoinFails.get(conn.ip);
+    if (!w) {
+      w = new HitWindow(JOIN_FAIL_IP_MS);
+      ipJoinFails.set(conn.ip, w);
+    }
+    w.hit(now);
+  }
+  sendError(conn, message);
+  if (conn.joinFails.count(now) > JOIN_FAIL_CONN_LIMIT) {
+    conn.ws.close(1008, "too many failed join attempts");
+  }
 }
 
 /** Client IP: first hop of X-Forwarded-For when behind a proxy, else the socket. */

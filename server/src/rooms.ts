@@ -87,10 +87,13 @@ export class RoomManager {
     this.sweeper.unref();
   }
 
+  // WORD-WORD-1234: 66² × 10⁴ ≈ 4.4 billion codes (~32 bits) — the room code
+  // is the system's only access control, so the space must resist sweeping.
   private freshCode(): string {
-    const word = WORDS[this.rng.int(WORDS.length)];
+    const w1 = WORDS[this.rng.int(WORDS.length)];
+    const w2 = WORDS[this.rng.int(WORDS.length)];
     const number = this.rng.int(10000);
-    return `${word}-${String(number).padStart(4, "0")}`;
+    return `${w1}-${w2}-${String(number).padStart(4, "0")}`;
   }
 }
 
@@ -99,5 +102,5 @@ export function normalizeCode(code: string): string {
 }
 
 export function isValidCode(code: string): boolean {
-  return /^[A-Z]+-\d{4}$/.test(normalizeCode(code));
+  return /^[A-Z]+-[A-Z]+-\d{4}$/.test(normalizeCode(code));
 }
