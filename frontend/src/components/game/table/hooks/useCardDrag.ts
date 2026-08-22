@@ -38,12 +38,15 @@ export function useCardDrag({
   you,
   send,
   snap = false,
+  onTap,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
   /** grid snapping preference — drops land on the 5% lattice */
   snap?: boolean;
+  /** tap-toggle override (useManaPool's tapForMana — adds mana on tap-on) */
+  onTap?: (card: CardView) => void;
 }) {
   const [drag, setDrag] = useState<DragState | null>(null);
   /** anchors to YOUR board's container in whatever view mode is active */
@@ -130,7 +133,8 @@ export function useCardDrag({
       }
       if (p && !p.started && p.zone === "battlefield") {
         // plain click on an own battlefield card toggles tap
-        send({ type: "SET_TAPPED", uid: p.card.uid, value: !p.card.tapped });
+        if (onTap) onTap(p.card);
+        else send({ type: "SET_TAPPED", uid: p.card.uid, value: !p.card.tapped });
       }
     }
     window.addEventListener("pointermove", onMove);
@@ -139,7 +143,7 @@ export function useCardDrag({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [drag, finishDrag, send]);
+  }, [drag, finishDrag, send, onTap]);
 
   return { battlefieldRef, drag, draggedUid: drag?.uid ?? null, begin };
 }

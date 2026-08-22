@@ -2,7 +2,7 @@
 // server: they contain secrets (rejoin tokens) and true card identities that
 // view.ts filters before anything reaches a client.
 
-import { ALL_ZONES, CHAT_CAP, type Arrow, type CardInstance, type ChatMessage, type Format, type Phase, type PlayerId, type Zone } from "@mythic/shared";
+import { ALL_ZONES, CHAT_CAP, emptyMana, type Arrow, type CardInstance, type ChatMessage, type Format, type ManaPool, type Phase, type PlayerId, type Zone } from "@mythic/shared";
 import type { Rng } from "./rng";
 
 export type Player = {
@@ -18,6 +18,8 @@ export type Player = {
   /** Connection IP at seat time (server-private; used by the ban list). */
   ip?: string;
   life: number;
+  /** Public mana pool — synced like life, never auto-emptied. */
+  mana: ManaPool;
   zones: Record<Zone, CardInstance[]>;
   hasDeck: boolean;
 };
@@ -108,6 +110,7 @@ export function makePlayer(
     token,
     connected: true,
     life: 20,
+    mana: emptyMana(),
     zones: emptyZones(),
     hasDeck: false,
   };

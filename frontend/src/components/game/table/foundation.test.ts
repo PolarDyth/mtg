@@ -3,13 +3,19 @@ import { describe, expect, it } from "vitest";
 import type {
   CardView,
   GameView,
+  ManaPool,
   PlayerView,
   Zone,
   ZoneView,
 } from "@mythic/shared";
+import type { CardDef } from "@/lib/scryfall";
 import {
   battlefieldDrop,
+  cardMatchesText,
+  faceDef,
   findOwnCard,
+  manaAfterSpend,
+  manaAfterTap,
   nextPhaseAction,
   onAnyBattlefield,
   pickerMax,
@@ -50,13 +56,65 @@ function mkPlayer(
     const list = cards[zone];
     zones[zone] = list ? { kind: "cards", cards: list } : { kind: "count", count: 0 };
   }
-  return { id, name: id, life: 20, connected: true, hasDeck: false, zones };
+  return {
+    id,
+    name: id,
+    life: 20,
+    mana: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
+    connected: true,
+    hasDeck: false,
+    zones,
+  };
 }
+
+const ZERO: ManaPool = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
 
 function mkView(players: PlayerView[]): GameView {
   // only the fields the helpers read; the rest is cast-filled
   return { players } as unknown as GameView;
 }
+
+function mkDef(overrides: Partial<CardDef> = {}): CardDef {
+  return {
+    id: "id-1",
+    name: "Shivan Dragon",
+    mana_cost: "{4}{R}{R}",
+    type_line: "Creature — Dragon",
+    small: "s.png",
+    normal: "n.png",
+    produced_mana: [],
+    oracle_text:
+      "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+    commanderEligible: false,
+    relatedTokens: [],
+    ...overrides,
+  };
+}
+
+describe("cardMatchesText", () => {
+  it("matches an empty needle and rejects missing defs", () => {
+    expect(cardMatchesText(mkDef(), "")).toBe(true);
+    expect(cardMatchesText(mkDef(), "   ")).toBe(true);
+    expect(cardMatchesText(null, "dragon")).toBe(false);
+  });
+
+  it("matches the name, type line, or rules text case-insensitively", () => {
+    const def = mkDef();
+    expect(cardMatchesText(def, "shivan")).toBe(true);
+    expect(cardMatchesText(def, "CREATURE")).toBe(true);
+    expect(cardMatchesText(def, "flying")).toBe(true);
+  });
+
+  it("matches phrases inside the rules text", () => {
+    expect(cardMatchesText(mkDef(), "can't be blocked")).toBe(true);
+    expect(cardMatchesText(mkDef(), "creatures with flying or reach")).toBe(true);
+  });
+
+  it("rejects text absent from every field", () => {
+    expect(cardMatchesText(mkDef(), "trample")).toBe(false);
+    expect(cardMatchesText(mkDef(), "Shivan")).toBe(true); // sanity: name works
+  });
+});
 
 describe("findOwnCard", () => {
   it("finds a card in each of your own zones", () => {
@@ -136,6 +194,76 @@ describe("pickerMax", () => {
   it("lets put-from-top sit below every current library card", () => {
     expect(pickerMax("putFromTop", 40)).toBe(41);
     expect(pickerMax("putFromTop", 0)).toBe(1);
+  });
+});
+
+describe("faceDef", () => {
+  const dfc = mkDef({
+    name: "Delver of Secrets",
+    back: {
+      name: "Insectile Aberration",
+      mana_cost: "",
+      type_line: "Creature — Insect Human",
+      small: "back-s.png",
+      normal: "back-n.png",
+    },
+  });
+
+  it("returns the front def by default", () => {
+    expect(faceDef(dfc, false)?.name).toBe("Delver of Secrets");
+    expect(faceDef(dfc, undefined)?.small).toBe("s.png");
+  });
+
+  it("overlays the back face when showing it", () => {
+    const back = faceDef(dfc, true);
+    expect(back?.name).toBe("Insectile Aberration");
+    expect(back?.small).toBe("back-s.png");
+    expect(back?.normal).toBe("back-n.png");
+    expect(back?.type_line).toBe("Creature — Insect Human");
+    // shared fields ride along untouched
+    expect(back?.id).toBe("id-1");
+    expect(back?.relatedTokens).toEqual([]);
+  });
+
+  it("ignores showBack on single-faced cards and null defs", () => {
+    expect(faceDef(mkDef(), true)?.name).toBe("Shivan Dragon");
+    expect(faceDef(null, true)).toBeNull();
+    expect(faceDef(null)).toBeNull();
+  });
+});
+
+describe("manaAfterTap", () => {
+  it("adds 1 of each distinct listed color", () => {
+    expect(manaAfterTap(ZERO, ["G"])).toEqual({ ...ZERO, G: 1 });
+    // Sol Ring lists ["C","C"] — one distinct color, one added
+    expect(manaAfterTap(ZERO, ["C", "C"])).toEqual({ ...ZERO, C: 1 });
+    // Birds of Paradise lists all five
+    expect(manaAfterTap(ZERO, ["W", "U", "B", "R", "G"])).toEqual({
+      ...ZERO,
+      W: 1,
+      U: 1,
+      B: 1,
+      R: 1,
+      G: 1,
+    });
+  });
+
+  it("stacks onto an existing pool and caps at 99", () => {
+    expect(manaAfterTap({ ...ZERO, G: 2 }, ["G"])).toEqual({ ...ZERO, G: 3 });
+    expect(manaAfterTap({ ...ZERO, G: 99 }, ["G"])).toEqual({ ...ZERO, G: 99 });
+  });
+
+  it("ignores symbols that are not pool colors", () => {
+    expect(manaAfterTap(ZERO, ["X", "GP"])).toEqual(ZERO);
+    expect(manaAfterTap(ZERO, [])).toEqual(ZERO);
+  });
+});
+
+describe("manaAfterSpend", () => {
+  it("removes mana, floored at zero", () => {
+    expect(manaAfterSpend({ ...ZERO, G: 3 }, "G", 1)).toEqual({ ...ZERO, G: 2 });
+    expect(manaAfterSpend({ ...ZERO, G: 1 }, "G", 1)).toEqual(ZERO);
+    expect(manaAfterSpend(ZERO, "R", 1)).toEqual(ZERO);
   });
 });
 

@@ -50,6 +50,97 @@ describe("SET_TAPPED / SET_FACE_DOWN / SET_POSITION / SET_COUNTERS", () => {
   });
 });
 
+describe("TRANSFORM_CARD", () => {
+  function playOne(): { game: Game; ctx: Ctx; ada: Player; bob: Player; uid: string } {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(s.ada.zones.hand, 0);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid, to: "battlefield" }));
+    return { ...s, uid };
+  }
+
+  it("toggles the showing face and announces the target name", () => {
+    const { game, ctx, ada, uid } = playOne();
+    mustOk(
+      act(game, ctx, ada, { type: "TRANSFORM_CARD", uid, name: "Insectile Aberration" })
+    );
+    expect(ada.zones.battlefield[0]?.showBack).toBe(true);
+    const last = game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    expect(last.text).toContain("transforms into Insectile Aberration");
+
+    mustOk(
+      act(game, ctx, ada, { type: "TRANSFORM_CARD", uid, name: "Delver of Secrets" })
+    );
+    expect(ada.zones.battlefield[0]?.showBack).toBe(false);
+  });
+
+  it("keeps counters, position, tapped, and attachments through the swap", () => {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 2 }));
+    const host = uidAt(s.ada.zones.hand, 0);
+    const dfc = uidAt(s.ada.zones.hand, 1);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: host, to: "battlefield" }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: dfc, to: "battlefield" }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "ATTACH_CARD", uid: host, to: dfc }));
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "SET_COUNTERS",
+        uid: dfc,
+        counters: { "+1/+1": 2 },
+      })
+    );
+    mustOk(act(s.game, s.ctx, s.ada, { type: "SET_POSITION", uid: dfc, x: 30, y: 70 }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "SET_TAPPED", uid: dfc, value: true }));
+
+    mustOk(
+      act(s.game, s.ctx, s.ada, { type: "TRANSFORM_CARD", uid: dfc, name: "Back Face" })
+    );
+    const card = s.ada.zones.battlefield.find((c) => c.uid === dfc);
+    expect(card?.showBack).toBe(true);
+    expect(card?.counters["+1/+1"]).toBe(2);
+    expect(card?.x).toBe(30);
+    expect(card?.y).toBe(70);
+    expect(card?.tapped).toBe(true);
+    expect(card?.attachedTo).toBeUndefined();
+    // the aura attached TO the transformed card stays attached
+    expect(s.ada.zones.battlefield.find((c) => c.uid === host)?.attachedTo).toBe(dfc);
+  });
+
+  it("works in any zone — a transformed card dying isn't stuck", () => {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(s.ada.zones.hand, 0);
+    mustOk(
+      act(s.game, s.ctx, s.ada, { type: "TRANSFORM_CARD", uid, name: "Other Side" })
+    );
+    expect(s.ada.zones.hand[0]?.showBack).toBe(true);
+    mustOk(
+      act(s.game, s.ctx, s.ada, { type: "TRANSFORM_CARD", uid, name: "Front" })
+    );
+    expect(s.ada.zones.hand[0]?.showBack).toBe(false);
+  });
+
+  it("rejects junk names and other players' cards", () => {
+    const { game, ctx, ada, bob, uid } = playOne();
+    mustFail(
+      act(game, ctx, ada, { type: "TRANSFORM_CARD", uid, name: "   " }),
+      "bad transform name"
+    );
+    mustFail(
+      act(game, ctx, ada, { type: "TRANSFORM_CARD", uid, name: "x".repeat(65) }),
+      "bad transform name"
+    );
+    mustFail(
+      act(game, ctx, bob, { type: "TRANSFORM_CARD", uid, name: "Back" }),
+      "not found"
+    );
+  });
+});
+
 describe("ATTACH_CARD", () => {
   function playTwo(): { game: Game; ctx: Ctx; ada: Player; a: string; b: string } {
     const s = setup();

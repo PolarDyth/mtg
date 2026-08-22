@@ -10,7 +10,7 @@ import type { GameView, PlayerId } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { CARD_RATIO } from "../../CardSprite";
 import { cardWidthFor, imageFor, type FocusMode } from "../../tableLayout";
-import { findOwnCard } from "../foundation";
+import { faceDef, findOwnCard } from "../foundation";
 import type { DragState } from "../hooks/useCardDrag";
 
 export function DragGhost({
@@ -28,7 +28,8 @@ export function DragGhost({
   focus: FocusMode | null;
   maximized: boolean;
 }) {
-  const draggedDef = get(findOwnCard(view, you, drag.uid)?.card.cardId ?? null);
+  const dragged = findOwnCard(view, you, drag.uid);
+  const draggedDef = faceDef(get(dragged?.card.cardId ?? null), dragged?.card.showBack);
   const ghostWidth = cardWidthFor(focus, maximized);
   const ghostHeight = Math.round(ghostWidth * CARD_RATIO);
 

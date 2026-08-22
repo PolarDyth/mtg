@@ -2,7 +2,7 @@
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Maximize2, Minimize2, X } from "lucide-react";
-import type { Arrow, CardView, PlayerId, PlayerView } from "@mythic/shared";
+import type { Arrow, CardView, ManaColor, PlayerId, PlayerView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
 import ArrowLayer from "./ArrowLayer";
 import PlayerBand from "./PlayerBand";
@@ -37,6 +37,9 @@ export default function Battlefield({
   onCardHover,
   draggedUid,
   battlefieldRef,
+  onManaAdd,
+  onManaSpend,
+  onManaClear,
 }: {
   players: PlayerView[];
   you: PlayerId | null;
@@ -61,6 +64,10 @@ export default function Battlefield({
   draggedUid: string | null;
   /** anchors to YOUR board's container in whatever mode is active */
   battlefieldRef: React.RefObject<HTMLDivElement | null>;
+  /** mana-pip editing on your own band (useManaPool) */
+  onManaAdd: (color: ManaColor) => void;
+  onManaSpend: (color: ManaColor) => void;
+  onManaClear: () => void;
 }) {
   // render-time guard: focusing a player who left falls back to the table
   const live =
@@ -182,6 +189,9 @@ export default function Battlefield({
                 ? undefined
                 : (zone) => onOpponentPile(band.player.id, zone)
             }
+            onManaAdd={band.isYou ? onManaAdd : undefined}
+            onManaSpend={band.isYou ? onManaSpend : undefined}
+            onManaClear={band.isYou ? onManaClear : undefined}
             boardRef={band.isYou ? battlefieldRef : undefined}
           />
         ))}

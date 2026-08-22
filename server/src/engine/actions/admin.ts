@@ -1,6 +1,6 @@
 // Host powers: ending the game, removing players, banning players.
 
-import type { Action } from "@mythic/shared";
+import { emptyMana, type Action } from "@mythic/shared";
 import {
   emptyZones,
   findPlayer,
@@ -39,6 +39,7 @@ function endGame(
   for (const player of game.players) {
     player.zones = emptyZones();
     player.life = 20;
+    player.mana = emptyMana();
     player.hasDeck = false;
   }
   systemMessage(

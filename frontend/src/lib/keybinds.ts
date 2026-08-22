@@ -15,6 +15,7 @@ export type KeybindId =
   | "passTurn"
   | "untapAll"
   | "buffCreatures"
+  | "clearManaPool"
   | "shuffleLibrary"
   | "rollDie"
   | "millOne"
@@ -40,6 +41,7 @@ export type KeybindId =
   | "tapHover"
   | "attachHover"
   | "flipHover"
+  | "transformHover"
   | "graveyardHover"
   | "bottomHover"
   | "noteHover";
@@ -52,6 +54,7 @@ export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   passTurn: "Ctrl+Shift+Enter",
   untapAll: "Ctrl+U",
   buffCreatures: "Alt+P",
+  clearManaPool: "Alt+C",
   shuffleLibrary: "Ctrl+S",
   rollDie: "Ctrl+I",
   millOne: "Alt+Y",
@@ -77,6 +80,7 @@ export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   tapHover: "Alt+T",
   attachHover: "Alt+H",
   flipHover: "Alt+F",
+  transformHover: "Alt+B",
   graveyardHover: "Ctrl+Delete",
   bottomHover: "Ctrl+B",
   noteHover: "Alt+N",
@@ -98,6 +102,7 @@ export const KEYBIND_LABELS: Record<KeybindId, string> = {
   passTurn: "Pass turn",
   untapAll: "Untap all permanents",
   buffCreatures: "+1/+1 on all my creatures",
+  clearManaPool: "Clear my mana pool",
   shuffleLibrary: "Shuffle library",
   rollDie: "Roll a d20",
   millOne: "Mill 1 card",
@@ -123,6 +128,7 @@ export const KEYBIND_LABELS: Record<KeybindId, string> = {
   tapHover: "Tap / untap it",
   attachHover: "Attach it to another card…",
   flipHover: "Turn it face down / up",
+  transformHover: "Transform — show its other face",
   graveyardHover: "Put it in the graveyard",
   bottomHover: "Put it on the bottom of the library",
   noteHover: "Add a note to it",
@@ -157,6 +163,7 @@ export const SHORTCUT_GROUPS: { title: string; items: KeybindId[] }[] = [
       "passTurn",
       "untapAll",
       "buffCreatures",
+      "clearManaPool",
       "createToken",
       "createAnotherToken",
       "removeMyArrows",
@@ -176,6 +183,7 @@ export const SHORTCUT_GROUPS: { title: string; items: KeybindId[] }[] = [
       "tapHover",
       "attachHover",
       "flipHover",
+      "transformHover",
       "graveyardHover",
       "bottomHover",
       "noteHover",

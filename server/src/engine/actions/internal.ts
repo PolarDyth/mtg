@@ -130,6 +130,7 @@ export function newInstance(cardId: string, ctx: Ctx): CardInstance {
     y: 50,
     tapped: false,
     faceDown: false,
+    showBack: false,
     counters: {},
     annotations: [],
   };

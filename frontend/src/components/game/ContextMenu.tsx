@@ -229,6 +229,15 @@ export default function ContextMenu({
   const relatedTokens =
     onBattlefield && card.cardId ? getDef(card.cardId)?.relatedTokens ?? [] : [];
 
+  // Double-faced: offer the other face (nothing to transform into while a
+  // card is face-down — the card back is showing, not a face).
+  const transformTo: string | null = (() => {
+    if (card.faceDown || !card.cardId) return null;
+    const def = getDef(card.cardId);
+    if (!def?.back) return null;
+    return card.showBack ? def.name : def.back.name;
+  })();
+
   // Mint-new-instances actions, shared by the full menu (own battlefield
   // cards) and the reduced one (opponents' battlefield cards): spawn copies
   // of the card's tokens, or clone the card itself. Face-down cards seen as
@@ -330,7 +339,8 @@ export default function ContextMenu({
           <MenuItem
             label={card.tapped ? "Untap" : "Tap"}
             onClick={() => {
-              send({ type: "SET_TAPPED", uid: card.uid, value: !card.tapped });
+              if (onTap) onTap(card);
+              else send({ type: "SET_TAPPED", uid: card.uid, value: !card.tapped });
               onClose();
             }}
           />
@@ -341,6 +351,15 @@ export default function ContextMenu({
               onClose();
             }}
           />
+          {transformTo !== null && (
+            <MenuItem
+              label={`Transform to ${transformTo}`}
+              onClick={() => {
+                send({ type: "TRANSFORM_CARD", uid: card.uid, name: transformTo });
+                onClose();
+              }}
+            />
+          )}
           <MenuItem
             label="Draw arrow to…"
             onClick={() => {

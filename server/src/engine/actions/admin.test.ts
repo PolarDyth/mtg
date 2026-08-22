@@ -10,6 +10,7 @@ describe("END_GAME and KICK_PLAYER", () => {
     startWithDeck(game, ctx, ada);
     mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 7 }));
     mustOk(act(game, ctx, ada, { type: "SET_LIFE", life: 13 }));
+    mustOk(act(game, ctx, ada, { type: "SET_MANA", mana: { G: 4 } }));
     mustOk(act(game, ctx, ada, { type: "END_GAME" }));
     expect(game.started).toBe(false);
     expect(game.format).toBe("freeform");
@@ -18,6 +19,7 @@ describe("END_GAME and KICK_PLAYER", () => {
     expect(game.startedAt).toBeNull();
     for (const player of [ada, bob]) {
       expect(player.life).toBe(20);
+      expect(player.mana).toEqual({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
       expect(player.hasDeck).toBe(false);
       expect(Object.values(player.zones).every((z) => z.length === 0)).toBe(true);
     }

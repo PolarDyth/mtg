@@ -3,6 +3,7 @@
 import { memo, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import type { CardView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
+import { faceDef } from "./table/foundation";
 
 export const CARD_RATIO = 204 / 146; // scryfall small image
 
@@ -111,6 +112,8 @@ const CardSprite = memo(function CardSprite({
 }: Props) {
   const height = Math.round(width * CARD_RATIO);
   const hidden = card.faceDown || !card.cardId;
+  // double-faced cards render whichever side is showing
+  const face = faceDef(def, card.showBack);
 
   return (
     <div
@@ -120,7 +123,7 @@ const CardSprite = memo(function CardSprite({
         onCardContextMenu ? (e) => onCardContextMenu(card, e) : undefined
       }
       onMouseEnter={
-        onCardHover ? () => onCardHover(hidden ? null : def, card) : undefined
+        onCardHover ? () => onCardHover(hidden ? null : face, card) : undefined
       }
       onMouseLeave={onCardHover ? () => onCardHover(null, null) : undefined}
       className={`absolute select-none touch-none ${
@@ -151,11 +154,11 @@ const CardSprite = memo(function CardSprite({
             MT
           </span>
         </div>
-      ) : def ? (
+      ) : face ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={image === "normal" ? def.normal : def.small}
-          alt={def.name}
+          src={image === "normal" ? face.normal : face.small}
+          alt={face.name}
           draggable={false}
           className="h-full w-full rounded-md object-cover shadow-md pointer-events-none"
         />

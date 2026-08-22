@@ -2,9 +2,10 @@
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Ban, BookOpen, Crown, Hand, Maximize2, Skull, Swords } from "lucide-react";
-import type { CardView, PlayerView } from "@mythic/shared";
+import type { CardView, ManaColor, PlayerView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
 import CardSprite from "./CardSprite";
+import { ManaBar } from "./table/components/ManaBar";
 
 /** Opponent piles you can peek at from their band header. */
 const PILE_CHIPS: { zone: "graveyard" | "exile" | "command"; label: string; Icon: typeof Skull }[] = [
@@ -48,6 +49,9 @@ export default function PlayerBand({
   onFocus,
   onDuel,
   onPile,
+  onManaAdd,
+  onManaSpend,
+  onManaClear,
   boardRef,
 }: {
   player: PlayerView;
@@ -71,6 +75,10 @@ export default function PlayerBand({
   onDuel?: () => void;
   /** open one of this opponent's public piles (only set for opponents) */
   onPile?: (zone: "graveyard" | "exile" | "command") => void;
+  /** mana-pip editing — your own band only */
+  onManaAdd?: (color: ManaColor) => void;
+  onManaSpend?: (color: ManaColor) => void;
+  onManaClear?: () => void;
   /** drop-math anchor — attached only to your own board */
   boardRef?: React.Ref<HTMLDivElement>;
 }) {
@@ -122,6 +130,13 @@ export default function PlayerBand({
         {!player.connected && (
           <span className="shrink-0 text-[10px] text-zinc-600">offline</span>
         )}
+        <ManaBar
+          mana={player.mana}
+          editable={isYou}
+          onAdd={onManaAdd}
+          onSpend={onManaSpend}
+          onClear={onManaClear}
+        />
         {onPile && (
           <span className="flex shrink-0 items-center gap-0.5">
             {COUNT_CHIPS.map(({ zone, label, Icon }) => {

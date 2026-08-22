@@ -1,6 +1,6 @@
-// Game flow: starting the game, turn order, life totals, leaving.
+// Game flow: starting the game, turn order, life totals, mana pools, leaving.
 
-import { ALL_PHASES, type Action, type Format } from "@mythic/shared";
+import { ALL_PHASES, MANA_COLORS, emptyMana, type Action, type Format } from "@mythic/shared";
 import {
   removePlayer,
   systemMessage,
@@ -76,6 +76,26 @@ function setLife(
     return err("bad life total");
   }
   actor.life = action.life;
+  return ok(game);
+}
+
+/** Whole-record mana commit, SET_LIFE-style: structural validation only.
+ *  Missing colors default to zero; nothing here ever drains a pool — the
+ *  server syncs bookkeeping, it doesn't judge phases. */
+function setMana(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "SET_MANA" }>
+): ActionResult {
+  for (const [color, amount] of Object.entries(action.mana)) {
+    if (!MANA_COLORS.includes(color as (typeof MANA_COLORS)[number])) {
+      return err("bad mana color");
+    }
+    if (!Number.isInteger(amount) || amount < 0 || amount > 99) {
+      return err("bad mana amount");
+    }
+  }
+  actor.mana = { ...emptyMana(), ...action.mana };
   return ok(game);
 }
 
@@ -159,6 +179,7 @@ export const gameHandlers = {
   NEXT_TURN: nextTurn,
   SET_PHASE: setPhase,
   SET_LIFE: setLife,
+  SET_MANA: setMana,
   MULLIGAN: mulligan,
   LEAVE_GAME: leaveGame,
 } satisfies Partial<HandlerMap>;

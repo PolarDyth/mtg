@@ -57,6 +57,8 @@ function playerView(player: Player, viewerId: PlayerId): PlayerView {
     id: player.id,
     name: player.name,
     life: player.life,
+    // Public like life — every viewer sees every pool.
+    mana: player.mana,
     connected: player.connected,
     hasDeck: player.hasDeck,
     zones,

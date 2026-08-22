@@ -1,6 +1,7 @@
 **Date:** 2026-08-21
-**Status:** In progress (v1 — second playtest round; §6–§11 §12–§15 except
-§2–§5 shipped: bug-fix, small-features, and convenience passes done)
+**Status:** In progress (v1 — second playtest round; §6–§15 shipped, plus
+§3 transform + §5 mana pool via the round-3 data trio — only §2 stack and
+§4 give-control remain)
 **Project:** Mythic Table
 
 # Playtest Feedback Round 2 → Implementation Roadmap
@@ -27,9 +28,9 @@ the matching domain file under `server/src/engine/actions/` → tests in
 | # | Feedback (verbatim) | Root cause | Plan | Effort | Priority | Status |
 |---|---|---|---|---|---|---|
 | 2 | "add a visible stack, easy to cast cards. If it can be cast add it to the stack first (i.e. land, played from library, played from graveyard etc..), if it isn't cast just play it" | No stack zone (7 fixed zones); no double-click anywhere; every play path lands directly on the battlefield | §2 | L | P2 | — |
-| 3 | "cards that can be transformed currently isnt possible to be transformed, same with cards that have another side to it" | `CardDef` captures only the front face; `cardId` immutable server-side | §3 | M | P2 | — |
+| 3 | "cards that can be transformed currently isnt possible to be transformed, same with cards that have another side to it" | `CardDef` captures only the front face; `cardId` immutable server-side | §3 | M | P2 | **done** |
 | 4 | "cant give control of cards to other players" | `ownCard` is strictly zone-owner; no controller concept anywhere | §4 | M | P2 | — |
-| 5 | "add mana counter, when you tap a land it gives you a visible coloured mana chart…" | No mana state; `produced_mana` never fetched from Scryfall | §5 | M | P2 | — |
+| 5 | "add mana counter, when you tap a land it gives you a visible coloured mana chart…" | No mana state; `produced_mana` never fetched from Scryfall | §5 | M | P2 | **done** |
 | 6 | "Look at top N cards of deck reveals your entire library, make it work similar to scry" | Look-at-top-N opened PileModal over the whole library, cards beyond N merely dimmed | §6 | S | P1 | **done** |
 | 7 | "no preview for cards when you hover on scry" | ScryModal had zero hover-preview wiring | §7 | S | P1 | **done** |
 | 8 | "add a way to discard a card at random" | `DISCARD_CARDS` is explicit-uids only | §8 | S | P1 | **done** |
@@ -161,6 +162,22 @@ counters/position/attachedTo, rejects non-battlefield cards, round-trip
 front→back→front. Frontend: `toDef` back-face extraction for a mocked
 transform card and an MDFC (pure).
 
+**Status: implemented 2026-08-21.** One shared v3→v4 cache bump carries
+`back`, `produced_mana`, and `oracle_text` together. **Deviation from the
+plan:** TRANSFORM_CARD does not swap `cardId` — Scryfall `card_faces` have
+no ids of their own (both faces share the parent card id), so there is no
+back-face id to swap to and every client already resolves both faces from
+the one def. Instead `CardBase.showBack?: boolean` (public, rides the view
+spread untouched) marks which face is showing; `TRANSFORM_CARD { uid, name }`
+toggles it, own-card-only with **no zone restriction** (matches SET_TAPPED —
+a transformed card that changes zones must never be stuck), logging
+"Ada transforms into <name>" from the client-supplied target-face name.
+Frontend: `faceDef(def, showBack)` overlays the back face's identity and
+every surface resolves through it (CardSprite, drag ghost, pile viewer,
+scry, reveal names); menu item "Transform to <other face>" on own face-up
+cards with a back; keybind is **Alt+B** (the sketch's Alt+T was already
+tap/untap). Face-down still wins over showBack in rendering.
+
 **Acceptance.** Right-click a face-up Delver of Secrets → "Transform to
 Insectile Aberration" → art, name, and identity swap for every player at the
 table; counters and attachments survive; transforming back works. MDFCs
@@ -264,6 +281,20 @@ commander eligibility and discarded.
 **Tests.** Server (`actions/game.test.ts`): `SET_MANA` validation (range,
 structural), view exposure. Frontend: pure reducer `manaAfterTap(pool,
 producedMana)` (unit-testable without DOM).
+
+**Status: implemented 2026-08-21.** As locked: `Player.mana` +
+`PlayerView.mana` public like life (zeroed in makePlayer and on END_GAME,
+survives disconnects); `SET_MANA { mana: Partial<ManaPool> }` whole-record
+commit (keys must be real colors, amounts integers 0–99, missing default
+zero; no chat line — ±1 spam would drown chat and SET_LIFE doesn't log
+either). Tap convenience fires on **all three tap paths** (plain click,
+Alt+T, the menu item — one shared `tapForMana`), adding 1 of each distinct
+`produced_mana` symbol (Sol Ring's ["C","C"] dedupes to one C); untapping
+and Ctrl+U never touch the pool. **Deviation from the plan's popover:**
+per user feedback the pips are directly editable on your band-header bar —
+left-click +1, right-click/Shift-click −1 (floored at zero), ✕ clear when
+non-empty, Alt+C clears — one gesture each way, no popover. Opponents'
+bars read-only and hidden while empty.
 
 **Acceptance.** Tap a Forest → your bar shows G: 1; tap a Llanowar Elves →
 G: 2; everyone at the table sees your counts live. Edit/clear manually any
@@ -554,8 +585,8 @@ permissions.
    counter + clock → §8 random discard → §14 badge placement.
 3. **Convenience (shipped 2026-08-21):** §12 bulk +1/+1 → §13 grid snap →
    §15 lobby hint.
-4. **§5 mana pool + §3 transform together** — one shared cache bump
-   (v3 → v4) covers both CardDef additions.
+4. **§5 mana pool + §3 transform together** (shipped 2026-08-21) — one
+   shared cache bump (v3 → v4) covers both CardDef additions.
 5. **§4 give control.**
 6. **§2 stack & casting last** — the zone-union change ripples widest
    (shared → engine → view → ZoneRail/PileModal/GameTable/e2e), so let the
@@ -565,7 +596,9 @@ permissions.
 
 - Cast legality / cost validation of any kind (core philosophy).
 - Auto-emptying mana pools on phase change or turn pass (judgment).
-- Persisting full `oracle_text` (only `produced_mana` is captured).
+- ~~Persisting full `oracle_text` (only `produced_mana` is captured).~~
+  Superseded 2026-08-21 by round-3 #29 (pile-viewer full-text search) —
+  `oracle_text` ships in the same v4 cache bump.
 - Bulk counters on opponents' creatures (per-card, as today).
 - Timer pauses / chess clocks.
 - Anything that moves a card into another player's *zone* (control ≠

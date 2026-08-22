@@ -51,6 +51,7 @@ import { useGridSnap } from "./table/hooks/useGridSnap";
 import { useHandSelection } from "./table/hooks/useHandSelection";
 import { useHeaderMenus } from "./table/hooks/useHeaderMenus";
 import { useHoverActions } from "./table/hooks/useHoverActions";
+import { useManaPool } from "./table/hooks/useManaPool";
 import { usePickerFlow } from "./table/hooks/usePickerFlow";
 import { usePileViewer } from "./table/hooks/usePileViewer";
 import { useRevealFlow } from "./table/hooks/useRevealFlow";
@@ -83,7 +84,11 @@ export default function GameTable({
   const headerMenus = useHeaderMenus(view);
   const focusView = useFocusView(view);
   const chatSignals = useChatSignals({ self, send });
-  const drag = useCardDrag({ view, you, send, snap: gridSnap.gridSnap });
+  const mana = useManaPool({ self, send });
+  // one tap path for all three surfaces (click, Alt+T, menu): tapping one of
+  // your producers banks its colors alongside the SET_TAPPED
+  const onTap = (card: CardView) => mana.tapForMana(card, get(card.cardId));
+  const drag = useCardDrag({ view, you, send, snap: gridSnap.gridSnap, onTap });
   const arrows = useArrowPicking({ view, you, send, hoverCard: preview.hoverCard });
   const attach = useAttachPicking({ view, you, send });
   const reveal = useRevealFlow({ view, send });
@@ -115,9 +120,11 @@ export default function GameTable({
     view,
     you,
     send,
+    get,
     hoverCard: preview.hoverCard,
     addNote: menu.addNote,
     startAttach: attach.start,
+    onTap,
   });
 
   // the actions dock fans out across features, so its open flag lives here
@@ -134,6 +141,7 @@ export default function GameTable({
     ...selection.keybinds,
     ...chatSignals.keybinds,
     ...hoverActions.keybinds,
+    ...mana.keybinds,
   };
   const { shortcutsOpen, openShortcuts, closeShortcuts } = useTableKeybinds(keybinds);
 
@@ -229,6 +237,9 @@ export default function GameTable({
     onCardHover: preview.onHover,
     draggedUid: drag.draggedUid,
     battlefieldRef: drag.battlefieldRef,
+    onManaAdd: mana.addMana,
+    onManaSpend: mana.spendMana,
+    onManaClear: mana.clearMana,
   };
 
   const revealPopup = reveal.revealPopup;

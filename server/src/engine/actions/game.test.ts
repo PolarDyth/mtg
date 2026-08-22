@@ -157,6 +157,31 @@ describe("SET_LIFE", () => {
   });
 });
 
+describe("SET_MANA", () => {
+  it("commits the whole pool and defaults missing colors to zero", () => {
+    const { game, ctx, ada } = setup();
+    mustOk(act(game, ctx, ada, { type: "SET_MANA", mana: { G: 3, R: 1 } }));
+    expect(ada.mana).toEqual({ W: 0, U: 0, B: 0, R: 1, G: 3, C: 0 });
+    // whole-record semantics: a partial payload replaces the rest
+    mustOk(act(game, ctx, ada, { type: "SET_MANA", mana: { C: 2 } }));
+    expect(ada.mana).toEqual({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 2 });
+  });
+
+  it("rejects unknown colors and bad amounts", () => {
+    const { game, ctx, ada } = setup();
+    mustFail(
+      act(game, ctx, ada, {
+        type: "SET_MANA",
+        mana: { X: 1 } as unknown as { G: number },
+      }),
+      "mana color"
+    );
+    mustFail(act(game, ctx, ada, { type: "SET_MANA", mana: { G: -1 } }), "mana amount");
+    mustFail(act(game, ctx, ada, { type: "SET_MANA", mana: { G: 100 } }), "mana amount");
+    mustFail(act(game, ctx, ada, { type: "SET_MANA", mana: { G: 1.5 } }), "mana amount");
+  });
+});
+
 describe("LEAVE_GAME", () => {
   it("removes a leaving player and advances the turn if it was theirs", () => {
     const { game, ctx, ada, bob } = setup();

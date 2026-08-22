@@ -49,6 +49,24 @@ function setFaceDown(
   return ok(game);
 }
 
+/** Toggle which face of a double-faced card shows. The client names the
+ *  target face (the server never knows what a card is); everything else on
+ *  the instance — counters, position, tapped, attachments — rides along. */
+function transformCard(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "TRANSFORM_CARD" }>,
+  ctx: Ctx
+): ActionResult {
+  const name = action.name?.trim() ?? "";
+  if (name.length < 1 || name.length > 64) return err("bad transform name");
+  const found = ownCard(game, actor, action.uid);
+  if (!found) return err("card not found");
+  found.card.showBack = !found.card.showBack;
+  systemMessage(game, `${actor.name} transforms into ${name}`, ctx.rng, ctx.now());
+  return ok(game);
+}
+
 function setPosition(
   game: Game,
   actor: Player,
@@ -243,6 +261,7 @@ function clearArrows(
 export const cardsHandlers = {
   SET_TAPPED: setTapped,
   SET_FACE_DOWN: setFaceDown,
+  TRANSFORM_CARD: transformCard,
   SET_COUNTERS: setCounters,
   SET_POSITION: setPosition,
   SET_NOTES: setNotes,

@@ -7,9 +7,12 @@
 
 import {
   ALL_PHASES,
+  MANA_COLORS,
   type Action,
   type CardView,
   type GameView,
+  type ManaColor,
+  type ManaPool,
   type Phase,
   type PlayerId,
   type Zone,
@@ -27,6 +30,19 @@ export function isCreature(
   return (
     card.cardId !== null &&
     (get(card.cardId)?.type_line ?? "").includes("Creature")
+  );
+}
+
+/** Pile-viewer filter: case-insensitive substring over everything a player
+ *  might remember about a card — name, type line, and rules text. An empty
+ *  needle matches everything; a missing def (hidden card, unfetched id)
+ *  matches nothing. */
+export function cardMatchesText(def: CardDef | null, needle: string): boolean {
+  const key = needle.trim().toLowerCase();
+  if (!key) return true;
+  if (!def) return false;
+  return [def.name, def.type_line, def.oracle_text].some((text) =>
+    text.toLowerCase().includes(key)
   );
 }
 
@@ -102,6 +118,42 @@ export function pickerMax(
     case "putFromTop":
       return libraryCount + 1; // may sit below every current card
   }
+}
+
+/** The tap convenience, deliberately dumb: tapping a card with non-empty
+ *  produced_mana adds 1 of each DISTINCT color it lists (a Forest's ["G"]
+ *  adds one G; Birds of Paradise adds one of each of WUBRG; Sol Ring's
+ *  ["C","C"] dedupes to one C — correct what you meant by hand). Only ever
+ *  called on a tap-ON; untapping never touches the pool. */
+export function manaAfterTap(pool: ManaPool, produced: string[]): ManaPool {
+  const next = { ...pool };
+  for (const symbol of new Set(produced)) {
+    if ((MANA_COLORS as readonly string[]).includes(symbol)) {
+      const color = symbol as ManaColor;
+      next[color] = Math.min(99, next[color] + 1);
+    }
+  }
+  return next;
+}
+
+/** Pip-control math: remove `amount` of one color, floored at zero. */
+export function manaAfterSpend(
+  pool: ManaPool,
+  color: ManaColor,
+  amount: number
+): ManaPool {
+  return { ...pool, [color]: Math.max(0, pool[color] - amount) };
+}
+
+/** The def as it should render: a double-faced card showing its back uses
+ *  the back face's identity (name, type, cost, art) over the shared def.
+ *  One helper so every surface — table, zoom, pile viewer, drag ghost —
+ *  agrees on which face is "the card" right now. */
+export function faceDef(
+  def: CardDef | null,
+  showBack?: boolean
+): CardDef | null {
+  return showBack && def?.back ? { ...def, ...def.back } : def;
 }
 
 /** Structural stand-in for the rects getBoundingClientRect returns — plain

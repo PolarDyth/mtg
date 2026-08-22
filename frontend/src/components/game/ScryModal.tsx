@@ -5,6 +5,7 @@ import type { Action, CardView } from "@mythic/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { PREVIEW_DEFAULT } from "@/lib/settings";
 import CardPreview from "./CardPreview";
+import { faceDef } from "./table/foundation";
 
 /**
  * Arranges the top of the library for SCRY (top/bottom) or SURVEIL
@@ -82,7 +83,7 @@ export default function ScryModal({
             {seq.map((uid, i) => {
               const card = cards.find((c) => c.uid === uid);
               if (!card) return null;
-              const def = getDef(card.cardId);
+              const def = faceDef(getDef(card.cardId), card.showBack);
               const onTop = keep[uid] !== false;
               return (
                 <div key={uid} className="flex w-28 shrink-0 flex-col gap-1.5">

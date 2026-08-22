@@ -17,7 +17,15 @@ function mkPlayer(id: string): PlayerView {
     "sideboard",
   ];
   for (const zone of all) zones[zone] = { kind: "count", count: 0 };
-  return { id, name: id, life: 20, connected: true, hasDeck: false, zones };
+  return {
+    id,
+    name: id,
+    life: 20,
+    mana: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 },
+    connected: true,
+    hasDeck: false,
+    zones,
+  };
 }
 
 function players(...ids: string[]): PlayerView[] {

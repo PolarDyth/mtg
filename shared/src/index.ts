@@ -59,6 +59,9 @@ type CardBase = {
   y: number;
   tapped: boolean;
   faceDown: boolean;
+  /** Double-faced cards: the back face is showing. Public — transform is
+   *  table knowledge; the def (same cardId both faces) carries the art. */
+  showBack?: boolean;
   counters: Record<string, number>;
   annotations: string[];
   /** uid of the card this one is attached to (auras, equipment). */
@@ -97,6 +100,17 @@ export type Format = "freeform" | "commander";
 
 export type DeckEntry = { cardId: string; count: number };
 
+/** The six mana colors a pool tracks: W/U/B/R/G plus colorless. */
+export const MANA_COLORS = ["W", "U", "B", "R", "G", "C"] as const;
+export type ManaColor = (typeof MANA_COLORS)[number];
+export type ManaPool = Record<ManaColor, number>;
+
+/** An all-zero pool — the starting state, the END_GAME reset, and the
+ *  client's "clear pool" button. */
+export function emptyMana(): ManaPool {
+  return { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+}
+
 export type Action =
   | { type: "LOAD_DECK"; library: DeckEntry[]; sideboard: DeckEntry[] }
   | { type: "START_GAME"; format?: Format }
@@ -116,6 +130,11 @@ export type Action =
   | { type: "MOVE_CARD_INDEX"; uid: string; index: number }
   | { type: "SET_TAPPED"; uid: string; value: boolean }
   | { type: "SET_FACE_DOWN"; uid: string; value: boolean }
+  /** Toggle which face of a double-faced card is showing. The client
+   *  supplies the target face's display name (the server is card-id
+   *  agnostic) for the chat line; counters, position, and attachments
+   *  ride along untouched. */
+  | { type: "TRANSFORM_CARD"; uid: string; name: string }
   | { type: "SET_COUNTERS"; uid: string; counters: Record<string, number> }
   | { type: "SET_POSITION"; uid: string; x: number; y: number }
   | { type: "SET_NOTES"; uid: string; notes: string[] }
@@ -145,6 +164,10 @@ export type Action =
    *  graveyard (in array order). */
   | { type: "SURVEIL"; look: number; top: string[]; graveyard: string[] }
   | { type: "SET_LIFE"; life: number }
+  /** Whole-record mana pool commit (like SET_LIFE): the client sends the
+   *  complete pool it wants; missing colors default to zero. Public state —
+   *  everyone sees every pool, and nothing auto-empties it. */
+  | { type: "SET_MANA"; mana: Partial<ManaPool> }
   | { type: "ROLL_DIE"; sides: number }
   | { type: "SET_PHASE"; phase: Phase }
   | { type: "NEXT_TURN" }
@@ -177,6 +200,8 @@ export type PlayerView = {
   id: PlayerId;
   name: string;
   life: number;
+  /** Public mana pool — visible to every viewer, like life. */
+  mana: ManaPool;
   connected: boolean;
   hasDeck: boolean;
   zones: Record<Zone, ZoneView>;
