@@ -114,6 +114,7 @@ export default function ContextMenu({
   onCreateToken,
   onClone,
   onPutFromTop,
+  onTap,
 }: {
   menu: MenuState;
   send: (action: Action) => void;
@@ -137,6 +138,8 @@ export default function ContextMenu({
   onClone: (card: CardView) => void;
   /** opens the count picker to put this card N cards from the library top */
   onPutFromTop: (card: CardView) => void;
+  /** tap-toggle override (useManaPool's tapForMana — adds mana on tap-on) */
+  onTap?: (card: CardView) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [moveOpen, setMoveOpen] = useState(false);
