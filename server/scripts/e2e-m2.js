@@ -79,7 +79,7 @@ async function main() {
   host.send({ kind: "create", name: "Ada" });
   await host.until(() => true).then((s) => s);
   const code = host.welcome.code;
-  check("host got a welcome with code format", /^[A-Z]+-\d{4}$/.test(code), code);
+  check("host got a welcome with code format", /^[A-Z]+-[A-Z]+-\d{4}$/.test(code), code);
 
   const guest = new Client("guest");
   await guest.opened();
@@ -184,7 +184,7 @@ async function main() {
   console.log("bad room:");
   const stray = new Client("stray");
   await stray.opened();
-  stray.send({ kind: "join", code: "NOSUCH-9999", name: "Nobody" });
+  stray.send({ kind: "join", code: "NOSUCH-CODE-9999", name: "Nobody" });
   await sleep(300);
   check("unknown room rejected", stray.errors.some((e) => e.includes("room not found")));
 

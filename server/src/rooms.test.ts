@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { seededRng } from "./engine/rng";
 import { addPlayer, makePlayer, type Game } from "./engine/state";
-import { RoomManager } from "./rooms";
+import { RoomManager, isValidCode } from "./rooms";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -18,6 +18,28 @@ function seatTwo(game: Game): void {
   addPlayer(game, makePlayer(game, "Ada", "tok-ada", seededRng(2)));
   addPlayer(game, makePlayer(game, "Bob", "tok-bob", seededRng(2)));
 }
+
+describe("room codes", () => {
+  it("accept WORD-WORD-1234 (case-insensitive)", () => {
+    expect(isValidCode("RAVEN-STORM-4821")).toBe(true);
+    expect(isValidCode("raven-storm-4821")).toBe(true);
+    expect(isValidCode("  PLAINS-ISLAND-0000  ")).toBe(true);
+  });
+
+  it("reject the old single-word format and malformed codes", () => {
+    expect(isValidCode("RAVEN-4821")).toBe(false); // old WORD-1234 format
+    expect(isValidCode("RAVEN-STORM-42")).toBe(false); // short number
+    expect(isValidCode("RAVEN-STORM")).toBe(false);
+    expect(isValidCode("raven--4821")).toBe(false);
+    expect(isValidCode("")).toBe(false);
+  });
+
+  it("minted codes match the two-word format", () => {
+    const { rooms } = manager();
+    const game = rooms.create();
+    expect(game.code).toMatch(/^[A-Z]+-[A-Z]+-\d{4}$/);
+  });
+});
 
 describe("RoomManager.sweep", () => {
   it("deletes a room idle for over an hour with nobody connected", () => {
