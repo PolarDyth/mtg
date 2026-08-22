@@ -41,6 +41,8 @@ export const ALLOWED_DIE_SIDES: readonly number[] = [4, 6, 8, 10, 12, 20, 100];
 export const MAX_DECK_ENTRIES = 250;
 export const MAX_TOTAL_CARDS = 1000;
 export const MAX_TOKENS_AT_ONCE = 20;
+/** Total battlefield cards one player may hold (tokens included). */
+export const MAX_BATTLEFIELD_CARDS = 250;
 export const MAX_REVEAL_AT_ONCE = 30;
 export const MAX_COUNTER_KINDS = 12;
 export const MAX_ANNOTATIONS = 8;

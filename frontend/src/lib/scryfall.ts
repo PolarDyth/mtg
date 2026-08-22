@@ -113,6 +113,17 @@ export function relatedTokensOf(card: {
  *  and fused cards are one combined identity — they never get a `back`. */
 const DFC_LAYOUTS = new Set(["transform", "modal_dfc", "reversible_card"]);
 
+/** Card images must come from https URLs — a hostile or tampered response
+ *  must not point <img src> at an arbitrary host (IP/Referer leak). */
+export function httpsUrl(url: unknown): string | null {
+  if (typeof url !== "string" || url.length === 0) return null;
+  try {
+    return new URL(url).protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The other face of a double-faced card, or undefined. A back face without
  *  both image sizes is dropped — the front def still works, it just can't
  *  transform visually. */
@@ -120,13 +131,15 @@ function backOf(card: ScryfallCard): CardBack | undefined {
   if (!DFC_LAYOUTS.has(card.layout ?? "")) return undefined;
   const face = card.card_faces?.[1];
   const images = face?.image_uris;
-  if (!face || !face.name || !images?.small || !images.normal) return undefined;
+  const small = httpsUrl(images?.small);
+  const normal = httpsUrl(images?.normal);
+  if (!face || !face.name || !small || !normal) return undefined;
   return {
     name: face.name,
     mana_cost: face.mana_cost ?? "",
     type_line: face.type_line ?? "",
-    small: images.small,
-    normal: images.normal,
+    small,
+    normal,
   };
 }
 
@@ -134,14 +147,16 @@ export function toDef(card: ScryfallCard): CardDef | null {
   const front = card.card_faces?.[0];
   const images = card.image_uris ?? front?.image_uris;
   const mana = card.mana_cost || front?.mana_cost || "";
-  if (!images?.small || !images?.normal) return null;
+  const small = httpsUrl(images?.small);
+  const normal = httpsUrl(images?.normal);
+  if (!small || !normal) return null;
   return {
     id: card.id,
     name: card.name,
     mana_cost: mana,
     type_line: card.type_line ?? front?.type_line ?? "",
-    small: images.small,
-    normal: images.normal,
+    small,
+    normal,
     produced_mana: card.produced_mana ?? [],
     oracle_text:
       card.oracle_text ??

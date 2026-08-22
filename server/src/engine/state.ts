@@ -32,6 +32,8 @@ export type BanList = {
 
 export type Game = {
   code: string;
+  /** Creator's IP (server-private; caps rooms per network in ws.ts). */
+  creatorIp?: string;
   started: boolean;
   format: Format;
   /** Current turn phase — a synced label, never enforced. */
