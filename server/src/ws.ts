@@ -23,7 +23,8 @@ import {
   type Player,
 } from "./engine/state";
 import { personalize } from "./engine/view";
-import { HitWindow } from "./ratelimit";
+import { originAllowed, resolveClientIp } from "./netguard";
+import { HitWindow, TokenBucket } from "./ratelimit";
 import { RoomManager, isValidCode, normalizeCode } from "./rooms";
 
 type Conn = {
@@ -35,6 +36,12 @@ type Conn = {
   announceTimer: ReturnType<typeof setTimeout> | null;
   /** failed join attempts — room-code sweeping gets the socket closed */
   joinFails: HitWindow;
+  /** message budget — every accepted action fans out snapshots to all seats */
+  bucket: TokenBucket;
+  /** tighter budget for pre-seat hello/create/join/rejoin chatter */
+  helloBucket: TokenBucket;
+  /** rate-limit denials — repeated abuse closes the connection */
+  strikes: HitWindow;
   ip?: string;
 };
 
@@ -45,6 +52,22 @@ const JOIN_FAIL_CONN_LIMIT = 5;
 const JOIN_FAIL_CONN_MS = 10_000;
 const JOIN_FAIL_IP_LIMIT = 10;
 const JOIN_FAIL_IP_MS = 60_000;
+// ~10 msg/s sustained with a burst of 30 — several× any human drag/draw cadence
+const MSG_CAPACITY = 30;
+const MSG_REFILL_PER_SEC = 10;
+const HELLO_CAPACITY = 5;
+const HELLO_REFILL_PER_SEC = 1;
+const RATE_STRIKE_LIMIT = 5;
+const RATE_STRIKE_MS = 60_000;
+const MAX_CONNECTIONS = envInt("MAX_CONNECTIONS", 300);
+const MAX_CONNECTIONS_PER_IP = 20; // friends behind one NAT
+const MAX_ROOMS = envInt("MAX_ROOMS", 100);
+const MAX_ROOMS_PER_IP = 5;
+const TRUST_PROXY = envInt("TRUST_PROXY", 0);
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter((entry) => entry.length > 0);
 
 const rng: Rng = systemRng();
 const ctx: Ctx = { rng, now: () => Date.now() };
@@ -72,6 +95,13 @@ export function handleGameUpgrade(
   socket: Duplex,
   head: Buffer
 ): void {
+  if (!originAllowed(req.headers.origin, req.headers.host, ALLOWED_ORIGINS)) {
+    // Cross-site WebSocket hijacking: another site's page must not be able
+    // to drive the server from a visitor's browser.
+    socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+    socket.destroy();
+    return;
+  }
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
 }
 
@@ -92,6 +122,15 @@ const heartbeat = setInterval(() => {
 heartbeat.unref();
 
 wss.on("connection", (ws, req) => {
+  const ip = clientIp(req);
+  if (
+    conns.size >= MAX_CONNECTIONS ||
+    (ip && connectionsFrom(ip) >= MAX_CONNECTIONS_PER_IP)
+  ) {
+    send(ws, { type: "error", message: "server is busy — try again later" });
+    ws.close(1013, "server is busy");
+    return;
+  }
   const conn: Conn = {
     ws,
     game: null,
@@ -99,7 +138,10 @@ wss.on("connection", (ws, req) => {
     missedPings: 0,
     announceTimer: null,
     joinFails: new HitWindow(JOIN_FAIL_CONN_MS),
-    ip: clientIp(req),
+    bucket: new TokenBucket(MSG_CAPACITY, MSG_REFILL_PER_SEC, Date.now),
+    helloBucket: new TokenBucket(HELLO_CAPACITY, HELLO_REFILL_PER_SEC, Date.now),
+    strikes: new HitWindow(RATE_STRIKE_MS),
+    ip,
   };
   conns.add(conn);
 
@@ -109,6 +151,14 @@ wss.on("connection", (ws, req) => {
 
   ws.on("message", (data, isBinary) => {
     if (isBinary) return;
+    if (!conn.bucket.tryTake()) {
+      conn.strikes.hit(Date.now());
+      sendError(conn, "slow down");
+      if (conn.strikes.count(Date.now()) > RATE_STRIKE_LIMIT) {
+        conn.ws.close(1008, "flooding");
+      }
+      return;
+    }
     let msg: ClientMessage;
     try {
       msg = JSON.parse(data.toString());
@@ -118,6 +168,10 @@ wss.on("connection", (ws, req) => {
     }
     try {
       if (!conn.playerId) {
+        if (!conn.helloBucket.tryTake()) {
+          sendError(conn, "slow down");
+          return;
+        }
         handleHello(conn, msg);
       } else if (msg.kind === "action") {
         handleAction(conn, msg.action);
@@ -165,7 +219,13 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
   if (msg.kind === "create") {
     const name = cleanName(msg.name);
     if (!name) return sendError(conn, "pick a name first (1–24 characters)");
-    const game = rooms.create();
+    if (rooms.count() >= MAX_ROOMS) {
+      return sendError(conn, "server is full — try again later");
+    }
+    if (conn.ip && rooms.countByCreatorIp(conn.ip) >= MAX_ROOMS_PER_IP) {
+      return sendError(conn, "too many rooms created from your network");
+    }
+    const game = rooms.create(conn.ip);
     seat(conn, game, name);
     return;
   }
@@ -318,11 +378,23 @@ function failJoin(conn: Conn, message: string): void {
   }
 }
 
-/** Client IP: first hop of X-Forwarded-For when behind a proxy, else the socket. */
+/** Client IP: the socket address, or the n-th X-Forwarded-For hop from the
+ *  right when TRUST_PROXY says a forwarding proxy fronts us (0 = trust none,
+ *  so a forged header can't steer the ban list). */
 function clientIp(req: IncomingMessage): string | undefined {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.length > 0) {
-    return forwarded.split(",")[0].trim();
-  }
-  return req.socket.remoteAddress ?? undefined;
+  return resolveClientIp(req.headers, req.socket.remoteAddress, TRUST_PROXY);
+}
+
+function connectionsFrom(ip: string): number {
+  let n = 0;
+  for (const conn of conns) if (conn.ip === ip) n += 1;
+  return n;
+}
+
+/** Env int with a default; junk values fall back to the default. */
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }

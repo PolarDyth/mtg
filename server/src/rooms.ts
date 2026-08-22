@@ -31,13 +31,26 @@ export class RoomManager {
 
   constructor(private rng: Rng, private now: () => number = Date.now) {}
 
-  create(): Game {
+  create(creatorIp?: string): Game {
     let code = this.freshCode();
     while (this.rooms.has(code)) code = this.freshCode();
     const game = createGame(code);
+    game.creatorIp = creatorIp; // server-private: caps rooms per network
     this.rooms.set(code, game);
     this.touch(code);
     return game;
+  }
+
+  count(): number {
+    return this.rooms.size;
+  }
+
+  countByCreatorIp(ip: string): number {
+    let n = 0;
+    for (const game of this.rooms.values()) {
+      if (game.creatorIp === ip) n += 1;
+    }
+    return n;
   }
 
   get(code: string): Game | undefined {

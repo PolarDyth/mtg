@@ -124,6 +124,25 @@ describe("toDef", () => {
     expect(def?.oracle_text).toBe("");
   });
 
+  it("rejects non-https image URLs (tampered/hypothetical hostile response)", () => {
+    expect(
+      toDef({
+        object: "card",
+        id: "card-1",
+        name: "Card",
+        image_uris: { small: "http://img/s.png", normal: "https://img/n.png" },
+      })
+    ).toBeNull();
+    expect(
+      toDef({
+        object: "card",
+        id: "card-1",
+        name: "Card",
+        image_uris: { small: "javascript:alert(1)", normal: "https://img/n.png" },
+      })
+    ).toBeNull();
+  });
+
   it("captures the back face of a transform card", () => {
     const def = toDef({
       object: "card",

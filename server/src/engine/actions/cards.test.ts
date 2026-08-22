@@ -228,6 +228,26 @@ describe("CREATE_TOKEN", () => {
     );
     mustFail(act(game, ctx, ada, { type: "CREATE_TOKEN", name: "  ", count: 1 }), "name");
   });
+
+  it("caps total battlefield cards — boundary is inclusive, zone untouched on reject", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada);
+    // 12 × 20 = 240, then 9 more = 249 (one under the cap of 250)
+    for (let i = 0; i < 12; i++) {
+      mustOk(act(game, ctx, ada, { type: "CREATE_TOKEN", name: "Goblin", count: 20 }));
+    }
+    mustOk(act(game, ctx, ada, { type: "CREATE_TOKEN", name: "Goblin", count: 9 }));
+    expect(ada.zones.battlefield).toHaveLength(249);
+
+    mustOk(act(game, ctx, ada, { type: "CREATE_TOKEN", name: "Goblin", count: 1 }));
+    expect(ada.zones.battlefield).toHaveLength(250);
+
+    mustFail(
+      act(game, ctx, ada, { type: "CREATE_TOKEN", name: "Goblin", count: 1 }),
+      "battlefield is full"
+    );
+    expect(ada.zones.battlefield).toHaveLength(250); // unchanged on failure
+  });
 });
 
 describe("DRAW_ARROW / CLEAR_ARROWS", () => {

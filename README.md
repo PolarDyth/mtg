@@ -63,6 +63,34 @@ on Railway, Fly.io, Render, or any VPS. **Not Vercel** — serverless functions
 can't hold WebSocket connections. Games live in server RAM only; a restart
 clears rooms (accepted v1 trade-off).
 
+The server binds to **localhost by default** (`HOST` env var overrides — the
+Docker image sets `HOST=0.0.0.0`). For anything exposed beyond your machine,
+put it behind a TLS-terminating reverse proxy: the rejoin token (the only
+credential) travels in the WebSocket handshake, and plain HTTP lets anyone
+on-path steal it. With Caddy that's two lines:
+
+```
+mtg.example.com {
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+(nginx/Traefik work the same way.) When behind a proxy, also set
+`TRUST_PROXY=1` so IP bans use the real client address from
+`X-Forwarded-For` instead of the proxy's IP — with it unset, a forged XFF
+header is ignored entirely, which is the safe default for direct exposure.
+
+### Environment variables
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `3000` | Listen port (dev and prod) |
+| `HOST` | `127.0.0.1` | Bind address (`0.0.0.0` to expose on all interfaces; the Docker image sets this) |
+| `TRUST_PROXY` | `0` | Trusted proxy hops: `1` behind one reverse proxy, `2` behind two… Client IP comes from the matching `X-Forwarded-For` hop |
+| `ALLOWED_ORIGINS` | — | Comma-separated extra origins allowed to open the game WebSocket (for split-domain deployments) |
+| `MAX_CONNECTIONS` | `300` | Total concurrent WebSocket connections |
+| `MAX_ROOMS` | `100` | Total concurrent rooms |
+
 ### Docker (Linux)
 
 ```bash
@@ -71,10 +99,12 @@ docker compose logs -f         # follow
 docker compose down            # stop (rooms are RAM-only; they're gone)
 ```
 
-Custom host port: `MYTHIC_PORT=8080 docker compose up -d --build` (or put
-`MYTHIC_PORT=8080` in a `.env` file). The image runs the same command as
-`npm start` — the production Next build booted by the custom server via tsx —
-as the non-root `node` user, with a healthcheck on `/`.
+Custom host port: `MYTHIC_PORT=8080 docker compose up -d --build`; expose on
+all interfaces with `MYTHIC_BIND=0.0.0.0` (loopback by default). The image
+runs the same command as `npm start` — the production Next build booted by
+the custom server via tsx — as the non-root `node` user, with a healthcheck
+on `/`, `no-new-privileges`, all capabilities dropped, and a digest-pinned
+`node:22-alpine` base.
 
 ## Card data
 

@@ -15,6 +15,9 @@ const frontendDir = path.resolve(__dirname, "../../frontend");
 
 const port = parseInt(process.env.PORT || "3000", 10);
 const dev = process.env.NODE_ENV !== "production";
+// Default to loopback so dev mode (source, stack traces, HMR) never leaks to
+// the LAN; the Docker image sets HOST=0.0.0.0 (required for the port mapping).
+const host = process.env.HOST ?? "127.0.0.1";
 
 async function main(): Promise<void> {
   const app = next({ dev, dir: frontendDir });
@@ -42,9 +45,9 @@ async function main(): Promise<void> {
     }
   });
 
-  server.listen(port, () => {
+  server.listen(port, host, () => {
     console.log(
-      `> Mythic Table listening on http://localhost:${port} (${dev ? "dev" : "production"})`
+      `> Mythic Table listening on http://${host}:${port} (${dev ? "dev" : "production"})`
     );
   });
 }

@@ -23,3 +23,37 @@ export class HitWindow {
     this.hits = [];
   }
 }
+
+/**
+ * Token bucket for per-connection message limits: full capacity available as
+ * a burst, refilling continuously at refillPerSecond. Clock is injected so
+ * tests are deterministic.
+ */
+export class TokenBucket {
+  private tokens: number;
+  private lastRefill: number;
+
+  constructor(
+    private capacity: number,
+    private refillPerSecond: number,
+    private now: () => number
+  ) {
+    this.tokens = capacity;
+    this.lastRefill = now();
+  }
+
+  tryTake(tokens = 1): boolean {
+    this.refill();
+    if (this.tokens < tokens) return false;
+    this.tokens -= tokens;
+    return true;
+  }
+
+  private refill(): void {
+    const now = this.now();
+    const elapsed = (now - this.lastRefill) / 1000;
+    if (elapsed <= 0) return;
+    this.tokens = Math.min(this.capacity, this.tokens + elapsed * this.refillPerSecond);
+    this.lastRefill = now;
+  }
+}

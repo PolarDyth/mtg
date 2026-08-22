@@ -15,6 +15,7 @@ import {
   err,
   MAX_ANNOTATIONS,
   MAX_ARROWS,
+  MAX_BATTLEFIELD_CARDS,
   MAX_COUNTER_KINDS,
   MAX_TOKENS_AT_ONCE,
   newInstance,
@@ -177,6 +178,11 @@ function createToken(
   }
   if (action.cardId !== undefined && (action.cardId.length === 0 || action.cardId.length > 64)) {
     return err("bad token card id");
+  }
+  // Tokens share the battlefield cap so repeated creation can't grow the
+  // zone (and every broadcast) without bound.
+  if (actor.zones.battlefield.length + action.count > MAX_BATTLEFIELD_CARDS) {
+    return err("battlefield is full — too many cards");
   }
 
   // Default position: spread across the middle of the owner's battlefield

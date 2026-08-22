@@ -5,32 +5,62 @@
 // to invalidate old shapes (v2 added commanderEligible; v3 added
 // relatedTokens; v4 added produced_mana, oracle_text, back).
 
-import type { CardDef } from "./scryfall";
+import { httpsUrl, type CardDef } from "./scryfall";
 
 const CACHE_KEY = "mtg:cards:v4";
 
-type CacheShape = {
+export type CacheShape = {
   byId: Record<string, CardDef>;
   /** normalized name → card id */
   nameIndex: Record<string, string>;
 };
 
+const EMPTY_CACHE: CacheShape = { byId: {}, nameIndex: {} };
+
 function normalizeName(name: string): string {
   return name.trim().toLowerCase();
+}
+
+/** Deep-validate a parsed cache. localStorage is attacker-writable on a
+ *  shared machine, so a single tampered entry (wrong-typed field, non-https
+ *  image URL) invalidates the whole cache — refetching from Scryfall beats
+ *  trusting it (or crashing on a non-string where the UI expects one). */
+export function sanitizeCache(parsed: unknown): CacheShape {
+  if (!parsed || typeof parsed !== "object") return EMPTY_CACHE;
+  const { byId, nameIndex } = parsed as Partial<CacheShape>;
+  if (!byId || typeof byId !== "object" || !nameIndex || typeof nameIndex !== "object") {
+    return EMPTY_CACHE;
+  }
+  const isString = (v: unknown): v is string => typeof v === "string";
+  for (const def of Object.values(byId)) {
+    if (!def || typeof def !== "object") return EMPTY_CACHE;
+    if (!isString(def.id) || !isString(def.name) || !isString(def.oracle_text)) {
+      return EMPTY_CACHE;
+    }
+    if (!httpsUrl(def.small) || !httpsUrl(def.normal)) return EMPTY_CACHE;
+    if (!Array.isArray(def.produced_mana) || !Array.isArray(def.relatedTokens)) {
+      return EMPTY_CACHE;
+    }
+    if (def.back !== undefined) {
+      if (!isString(def.back.name)) return EMPTY_CACHE;
+      if (!httpsUrl(def.back.small) || !httpsUrl(def.back.normal)) return EMPTY_CACHE;
+    }
+  }
+  for (const id of Object.values(nameIndex)) {
+    if (!isString(id)) return EMPTY_CACHE;
+  }
+  return { byId, nameIndex };
 }
 
 function readCache(): CacheShape {
   try {
     const raw = localStorage.getItem(CACHE_KEY);
-    if (!raw) return { byId: {}, nameIndex: {} };
-    const parsed = JSON.parse(raw) as CacheShape;
-    if (parsed && typeof parsed === "object" && parsed.byId && parsed.nameIndex) {
-      return parsed;
-    }
+    if (!raw) return EMPTY_CACHE;
+    return sanitizeCache(JSON.parse(raw));
   } catch {
     // corrupted cache — start fresh
   }
-  return { byId: {}, nameIndex: {} };
+  return EMPTY_CACHE;
 }
 
 function writeCache(cache: CacheShape): void {

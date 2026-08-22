@@ -143,6 +143,16 @@ describe("host in views", () => {
     startWithDeck(game, ctx, ada);
     expect(personalize(game, ada.id).hostId).toBe(ada.id);
   });
+
+  it("server-private fields (creatorIp, tokens, IPs, ban list) never reach a view", () => {
+    const { game, ada } = setup();
+    game.creatorIp = "203.0.113.7";
+    const json = JSON.stringify(personalize(game, ada.id));
+    expect(json).not.toContain("creatorIp");
+    expect(json).not.toContain("203.0.113.7");
+    expect(json).not.toContain("tok-"); // player rejoin tokens
+    expect(json).not.toContain('"banned"');
+  });
 });
 
 describe("arrows in views", () => {
