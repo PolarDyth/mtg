@@ -1,4 +1,4 @@
-# Mythic Table — Workspace Guide
+# Cardessa — Workspace Guide
 
 Web-based virtual tabletop for Magic: The Gathering (Cockatrice-style, **no rules
 enforcement** — the server syncs state, never judges legality). Room codes +
@@ -153,7 +153,7 @@ protection), so a red check blocks merge.
 
 - **Production runs source through tsx** (`node --import tsx server/src/index.ts`).
   Don't switch `npm start` to `server/dist` — compiled CJS cannot `require`
-  the raw-TS `@mythic/shared` package (this broke once already). The Docker
+  the raw-TS `@cardessa/shared` package (this broke once already). The Docker
   runtime stage mirrors this on purpose; don't "optimize" it to compiled
   dist either. `.dockerignore` must keep `*.test.ts` in the context — the
   in-image `npm run build` typechecks them.

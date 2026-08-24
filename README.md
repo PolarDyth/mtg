@@ -1,4 +1,4 @@
-# Mythic Table
+# Cardessa
 
 A web-based virtual tabletop for Magic: The Gathering, inspired by Cockatrice.
 No rules enforcement — a shared table where 2–6 friends drag cards between
@@ -99,8 +99,8 @@ docker compose logs -f         # follow
 docker compose down            # stop (rooms are RAM-only; they're gone)
 ```
 
-Custom host port: `MYTHIC_PORT=8080 docker compose up -d --build`; expose on
-all interfaces with `MYTHIC_BIND=0.0.0.0` (loopback by default). The image
+Custom host port: `CARDESSA_PORT=8080 docker compose up -d --build`; expose on
+all interfaces with `CARDESSA_BIND=0.0.0.0` (loopback by default). The image
 runs the same command as `npm start` — the production Next build booted by
 the custom server via tsx — as the non-root `node` user, with a healthcheck
 on `/`, `no-new-privileges`, all capabilities dropped, and a digest-pinned

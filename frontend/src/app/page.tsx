@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ClientMessage, ServerMessage } from "@cardessa/shared";
 import PatchNotes from "@/components/PatchNotes";
+import { Logo } from "@/components/Logo";
 import { loadName, saveName, saveSession } from "@/lib/session";
 
 type Welcome = Extract<ServerMessage, { type: "welcome" }>;
@@ -100,6 +101,7 @@ export default function HomePage() {
     <main className="flex min-h-dvh items-center justify-center p-6">
       <div className="flex max-h-[calc(100dvh-3rem)] w-full max-w-md flex-col">
         <header className="mb-8 shrink-0 text-center">
+          <Logo className="mx-auto mb-3 h-12 w-12 drop-shadow-lg" />
           <h1 className="text-4xl font-serif font-bold tracking-tight text-zinc-100">
             Cardessa
           </h1>

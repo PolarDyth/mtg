@@ -1,14 +1,14 @@
 services:
-  mythic-table:
+  cardessa:
     build: .
-    image: mythic-table:latest
-    container_name: mythic-table
+    image: cardessa:latest
+    container_name: cardessa
     init: true # tini as PID 1 -> clean SIGTERM handling
     restart: unless-stopped
-    # Loopback by default; set MYTHIC_BIND=0.0.0.0 (behind a reverse proxy or
+    # Loopback by default; set CARDESSA_BIND=0.0.0.0 (behind a reverse proxy or
     # firewall) to expose the port on other interfaces.
     ports:
-      - "${MYTHIC_BIND:-127.0.0.1}:${MYTHIC_PORT:-3000}:3000"
+      - "${CARDESSA_BIND:-127.0.0.1}:${CARDESSA_PORT:-3000}:3000"
     # The app is RAM-only: no filesystem writes, no capabilities needed.
     security_opt:
       - no-new-privileges:true
