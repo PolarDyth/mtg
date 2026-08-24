@@ -1,7 +1,8 @@
-// Game-flow tests: START_GAME, NEXT_TURN, SET_PHASE, SET_LIFE, LEAVE_GAME.
+// Game-flow tests: START_GAME, NEXT_TURN, UNDO_TURN, SET_PHASE, SET_LIFE, LEAVE_GAME.
 
 import type { Phase } from "@mythic/shared";
 import { describe, expect, it } from "vitest";
+import { addPlayer, makePlayer } from "../state";
 import { act, mustFail, mustOk, setup, startWithDeck, uidAt } from "./testUtils";
 
 describe("START_GAME and NEXT_TURN", () => {
@@ -16,16 +17,57 @@ describe("START_GAME and NEXT_TURN", () => {
     expect(game.activePlayerId).toBe(ada.id);
   });
 
-  it("counts turns from 1 and stamps the game clock at start", () => {
+  it("counts rounds from 1 and stamps both clocks at start", () => {
     const { game, ctx, ada, bob } = setup();
     expect(game.turnNumber).toBe(0);
     expect(game.startedAt).toBeNull();
+    expect(game.turnStartedAt).toBeNull();
     startWithDeck(game, ctx, ada);
     expect(game.turnNumber).toBe(1);
     expect(game.startedAt).toBe(1_000); // ctx.now() from the harness
+    expect(game.turnStartedAt).toBe(1_000);
+    // 2 players: the counter advances once per full cycle (2 passes)
+    mustOk(act(game, ctx, bob, { type: "NEXT_TURN" }));
+    expect(game.turnNumber).toBe(1);
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
+    expect(game.turnNumber).toBe(2);
     mustOk(act(game, ctx, bob, { type: "NEXT_TURN" }));
     mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
     expect(game.turnNumber).toBe(3);
+  });
+
+  it("advances one round per full cycle regardless of seat count", () => {
+    const { game, ctx, ada, bob } = setup();
+    const cal = makePlayer(game, "Cal", "tok-cal", ctx.rng);
+    addPlayer(game, cal);
+    startWithDeck(game, ctx, ada);
+    // 3 players: passes ada→bob→cal keep the round, cal→ada wraps to 2
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
+    expect(game.activePlayerId).toBe(bob.id);
+    expect(game.turnNumber).toBe(1);
+    mustOk(act(game, ctx, bob, { type: "NEXT_TURN" }));
+    expect(game.activePlayerId).toBe(cal.id);
+    expect(game.turnNumber).toBe(1);
+    mustOk(act(game, ctx, cal, { type: "NEXT_TURN" }));
+    expect(game.activePlayerId).toBe(ada.id);
+    expect(game.turnNumber).toBe(2);
+    // mid-round passes never bump the counter
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
+    expect(game.turnNumber).toBe(2);
+  });
+
+  it("restamps the turn clock on every turn change", () => {
+    const { game, ctx, ada, bob } = setup();
+    let t = 1_000;
+    ctx.now = () => t;
+    startWithDeck(game, ctx, ada);
+    expect(game.turnStartedAt).toBe(1_000);
+    t = 5_000;
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
+    expect(game.turnStartedAt).toBe(5_000);
+    t = 9_000;
+    mustOk(act(game, ctx, bob, { type: "UNDO_TURN" }));
+    expect(game.turnStartedAt).toBe(9_000);
   });
 
   it("rejects actions before the game starts", () => {
@@ -145,6 +187,63 @@ describe("NEXT_TURN phases", () => {
     mustOk(act(game, ctx, ada, { type: "NEXT_TURN" })); // -> back to ada
     expect(game.activePlayerId).toBe(ada.id);
     expect(ada.zones.battlefield[0]?.tapped).toBe(false);
+  });
+});
+
+describe("UNDO_TURN", () => {
+  it("steps back to the previous seat and unwinds the round across the wrap", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" })); // -> bob, round 1
+    mustOk(act(game, ctx, bob, { type: "NEXT_TURN" })); // -> ada, round 2
+    expect(game.turnNumber).toBe(2);
+    mustOk(act(game, ctx, ada, { type: "UNDO_TURN" })); // any seated sender
+    expect(game.activePlayerId).toBe(bob.id);
+    expect(game.turnNumber).toBe(1);
+    expect(game.phase).toBe("untap");
+    const last = game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    expect(last.text).toBe("Ada takes the turn back — it is now Bob's turn");
+  });
+
+  it("keeps the round counter inside a cycle and never dips below 1", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" })); // -> bob, still round 1
+    mustOk(act(game, ctx, bob, { type: "UNDO_TURN" })); // <- ada, no decrement
+    expect(game.activePlayerId).toBe(ada.id);
+    expect(game.turnNumber).toBe(1);
+    // undo before any pass: seat moves back, counter clamps at 1
+    mustOk(act(game, ctx, ada, { type: "UNDO_TURN" }));
+    expect(game.activePlayerId).toBe(bob.id);
+    expect(game.turnNumber).toBe(1);
+  });
+
+  it("never rewinds zones or taps", () => {
+    const { game, ctx, ada, bob } = setup();
+    mustOk(
+      act(game, ctx, bob, {
+        type: "LOAD_DECK",
+        library: [{ cardId: "bob-0", count: 40 }],
+        sideboard: [],
+      })
+    );
+    startWithDeck(game, ctx, ada); // both drew 7: hand 7 / library 33
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" })); // -> bob
+    mustOk(act(game, ctx, bob, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(bob.zones.hand, 0);
+    mustOk(act(game, ctx, bob, { type: "MOVE_CARD", uid, to: "battlefield" }));
+    mustOk(act(game, ctx, bob, { type: "SET_TAPPED", uid, value: true }));
+    mustOk(act(game, ctx, bob, { type: "NEXT_TURN" })); // -> ada, round 2
+    mustOk(act(game, ctx, ada, { type: "UNDO_TURN" })); // <- bob
+    expect(bob.zones.hand).toHaveLength(7);
+    expect(bob.zones.library).toHaveLength(32);
+    expect(bob.zones.battlefield[0]?.tapped).toBe(true);
+  });
+
+  it("rejects undo before the game starts", () => {
+    const { game, ctx, ada } = setup();
+    mustFail(act(game, ctx, ada, { type: "UNDO_TURN" }), "not started");
   });
 });
 

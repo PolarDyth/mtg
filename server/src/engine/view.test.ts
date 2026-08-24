@@ -35,13 +35,17 @@ describe("personalized snapshots", () => {
     expect(personalize(game, ada.id).phase).toBe("main2");
   });
 
-  it("exposes the turn counter and start stamp to every viewer", () => {
+  it("exposes the round counter and both clock stamps to every viewer", () => {
     const { game, ctx, ada, bob } = setup();
     startWithDeck(game, ctx, ada);
-    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" }));
+    mustOk(act(game, ctx, ada, { type: "NEXT_TURN" })); // mid-round: counter holds
+    expect(personalize(game, bob.id).turnNumber).toBe(1);
+    expect(personalize(game, ada.id).turnNumber).toBe(1);
+    mustOk(act(game, ctx, bob, { type: "NEXT_TURN" })); // wraps: round 2
     expect(personalize(game, bob.id).turnNumber).toBe(2);
     expect(personalize(game, ada.id).turnNumber).toBe(2);
     expect(personalize(game, bob.id).startedAt).toBe(1_000);
+    expect(personalize(game, ada.id).turnStartedAt).toBe(1_000);
   });
 
   it("exposes every player's mana pool to every viewer", () => {
