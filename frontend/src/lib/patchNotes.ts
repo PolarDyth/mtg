@@ -23,6 +23,18 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-4-partner-commanders",
+    label: "Round 4 — partner commanders",
+    date: "2026-08-24",
+    items: [
+      {
+        title: "Two commanders, one command zone",
+        detail:
+          "Partner pairs work: pick one card or two in the commander picker — both sit in your command zone for the whole table to see, and swapping one never disturbs the other. Deck exports with a Commander section (Moxfield, Archidekt) pre-load both partners automatically.",
+      },
+    ],
+  },
+  {
     id: "round-4-mana-accuracy",
     label: "Round 4 — mana pool accuracy",
     date: "2026-08-24",
