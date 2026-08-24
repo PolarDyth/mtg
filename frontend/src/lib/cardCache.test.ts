@@ -12,6 +12,7 @@ function def(overrides: Partial<CardDef> = {}): CardDef {
     normal: "https://cards.scryfall.io/normal.jpg",
     produced_mana: [],
     oracle_text: "Deal 3 damage to any target.",
+    dfc: false,
     commanderEligible: false,
     relatedTokens: [],
     ...overrides,
@@ -51,6 +52,7 @@ describe("sanitizeCache", () => {
     expect(bad({ oracle_text: 42 as unknown as string }).byId).toEqual({});
     expect(bad({ name: null as unknown as string }).byId).toEqual({});
     expect(bad({ produced_mana: "W" as unknown as string[] }).byId).toEqual({});
+    expect(bad({ dfc: "yes" as unknown as boolean }).byId).toEqual({});
   });
 
   it("drops the cache when a back face is tampered", () => {

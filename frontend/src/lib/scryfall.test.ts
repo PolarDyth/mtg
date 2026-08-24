@@ -110,6 +110,7 @@ describe("toDef", () => {
     });
     expect(def?.produced_mana).toEqual(["G"]);
     expect(def?.oracle_text).toBe("{T}: Add {G}.");
+    expect(def?.dfc).toBe(false);
     expect(def?.back).toBeUndefined();
   });
 
@@ -176,6 +177,7 @@ describe("toDef", () => {
     // faces carry the oracle text; top-level oracle_text is absent on DFCs
     expect(def?.oracle_text).toContain("Flying");
     expect(def?.oracle_text).toContain(" // ");
+    expect(def?.dfc).toBe(true);
     expect(def?.mana_cost).toBe("{U}");
   });
 
@@ -217,6 +219,7 @@ describe("toDef", () => {
       ],
     });
     expect(def?.back).toBeUndefined();
+    expect(def?.dfc).toBe(false); // one combined identity, not swappable
     expect(def?.oracle_text).toBe(
       "Destroy target artifact. // Destroy target enchantment."
     );
@@ -235,6 +238,8 @@ describe("toDef", () => {
     });
     expect(def).not.toBeNull();
     expect(def?.back).toBeUndefined();
+    // still two-faced — faceOracleText must not read the joined text as front
+    expect(def?.dfc).toBe(true);
   });
 
   it("returns null without both front image sizes", () => {

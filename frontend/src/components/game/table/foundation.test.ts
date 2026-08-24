@@ -87,6 +87,7 @@ function mkDef(overrides: Partial<CardDef> = {}): CardDef {
     produced_mana: [],
     oracle_text:
       "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+    dfc: false,
     commanderEligible: false,
     relatedTokens: [],
     ...overrides,
@@ -202,6 +203,7 @@ describe("pickerMax", () => {
 describe("faceDef", () => {
   const dfc = mkDef({
     name: "Delver of Secrets",
+    dfc: true,
     back: {
       name: "Insectile Aberration",
       mana_cost: "",
@@ -237,6 +239,7 @@ describe("faceDef", () => {
 
 describe("faceOracleText", () => {
   const dfc = mkDef({
+    dfc: true,
     oracle_text: "Front face text. // Back face text.",
     back: {
       name: "Back",
@@ -263,6 +266,14 @@ describe("faceOracleText", () => {
     expect(faceOracleText(def)).toBe(def.oracle_text);
   });
 
+  it("treats a back-less DFC as still two-faced", () => {
+    // backOf drops a back face without images — the card is still a DFC
+    const noBack = mkDef({ dfc: true, oracle_text: "Front text. // Back text." });
+    expect(faceOracleText(noBack, false)).toBe("Front text.");
+    // the back's text is unknowable, not the front's
+    expect(faceOracleText(noBack, true)).toBe("");
+  });
+
   it("returns empty text for missing defs", () => {
     expect(faceOracleText(null, true)).toBe("");
     expect(faceOracleText(null)).toBe("");
@@ -282,12 +293,30 @@ describe("tapManaYield", () => {
   });
 
   it("banks a single pip of the first listed color for any-color producers", () => {
-    // City of Brass / Birds of Paradise list all five — one mana, one pip
+    // City of Brass / Birds of Paradise / Lotus Petal list all five — one
+    // mana, one pip
     expect(
       tapManaYield("{T}: Add one mana of any color.", ["W", "U", "B", "R", "G"])
     ).toEqual({ W: 1 });
     // "of any type" phrasing; no listed colors left → colorless
     expect(tapManaYield("Add one mana of any type.", [])).toEqual({ C: 1 });
+  });
+
+  it("banks the spelled-out amount for any-ONE-color lotus wording", () => {
+    // Black Lotus / Gilded Lotus: "Add three mana of any one color."
+    expect(
+      tapManaYield("{T}, Sacrifice: Add three mana of any one color.", [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G",
+      ])
+    ).toEqual({ W: 3 });
+    // X amounts are indeterminate — bank one, pips correct the rest
+    expect(tapManaYield("Add X mana of any one color.", ["W", "U"])).toEqual({
+      W: 1,
+    });
   });
 
   it("falls back to one of each distinct listed color when the amount is indeterminate", () => {
@@ -312,6 +341,14 @@ describe("tapManaYield", () => {
       {}
     );
     expect(tapManaYield("", ["W"])).toEqual({});
+  });
+
+  it("does not treat counter additions or additional costs as production", () => {
+    // "Add a +1/+1 counter" — {T} is not evidence of a mana symbol, and a
+    // DFC front like this must not bank the back's colors
+    expect(tapManaYield("{T}: Add a +1/+1 counter.", ["W"])).toEqual({});
+    // "additional" contains no word-boundary "add", and {2} is a cost
+    expect(tapManaYield("You may pay an additional {2}.", ["W"])).toEqual({});
   });
 
   it("routes non-pool symbol runs through the fallback", () => {

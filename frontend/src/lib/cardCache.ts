@@ -4,7 +4,7 @@
 // thousands of cards fit comfortably in the ~5MB quota. Versioned key: bump
 // to invalidate old shapes (v2 added commanderEligible; v3 added
 // relatedTokens; v4 added produced_mana, oracle_text, back; v5 added
-// back.oracle_text).
+// back.oracle_text and the dfc marker).
 
 import { httpsUrl, type CardDef } from "./scryfall";
 
@@ -42,6 +42,7 @@ export function sanitizeCache(parsed: unknown): CacheShape {
     if (!Array.isArray(def.produced_mana) || !Array.isArray(def.relatedTokens)) {
       return EMPTY_CACHE;
     }
+    if (typeof def.dfc !== "boolean") return EMPTY_CACHE;
     if (def.back !== undefined) {
       if (!isString(def.back.name) || !isString(def.back.oracle_text)) {
         return EMPTY_CACHE;
@@ -66,8 +67,27 @@ function readCache(): CacheShape {
   return EMPTY_CACHE;
 }
 
+/** Sweep older-version keys (mtg:cards:v1…v4) before the first write of a
+ *  fresh one: a bump otherwise strands the old payload in localStorage
+ *  forever, and on a nearly-full quota it can make the new write fail after
+ *  every refetch. Best-effort, once per page load. */
+let staleCachesEvicted = false;
+
+function evictStaleCaches(): void {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key !== null && key.startsWith("mtg:cards:") && key !== CACHE_KEY) {
+      localStorage.removeItem(key);
+    }
+  }
+}
+
 function writeCache(cache: CacheShape): void {
   try {
+    if (!staleCachesEvicted) {
+      evictStaleCaches();
+      staleCachesEvicted = true;
+    }
     localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
   } catch {
     // quota exceeded — drop the cache rather than break the app
