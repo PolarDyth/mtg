@@ -61,7 +61,10 @@ describe("SET_COMMANDER", () => {
   it("places the chosen card alone in the command zone", () => {
     const { game, ctx, ada } = setup();
     mustOk(
-      act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "cmd-atarxa", name: "Atraxa" })
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [{ cardId: "cmd-atarxa", name: "Atraxa" }],
+      })
     );
     expect(ada.zones.command).toHaveLength(1);
     expect(ada.zones.command[0]?.cardId).toBe("cmd-atarxa");
@@ -70,49 +73,151 @@ describe("SET_COMMANDER", () => {
     expect(game.chat.at(-1)?.kind).toBe("system");
   });
 
-  it("re-picking replaces the previous commander", () => {
+  it("holds both partners — the second pick doesn't discard the first", () => {
     const { game, ctx, ada } = setup();
-    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "a", name: "First" }));
-    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "b", name: "Second" }));
-    expect(ada.zones.command).toHaveLength(1);
-    expect(ada.zones.command[0]?.cardId).toBe("b");
+    mustOk(
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [
+          { cardId: "kodama", name: "Kodama" },
+          { cardId: "esika", name: "Esika" },
+        ],
+      })
+    );
+    expect(ada.zones.command.map((c) => c.cardId)).toEqual(["kodama", "esika"]);
+    expect(ada.zones.command[0]?.annotations[0]).toBe("†Kodama");
+    expect(ada.zones.command[1]?.annotations[0]).toBe("†Esika");
+    const last = game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    expect(last.text).toContain("Kodama + Esika");
+    expect(last.text).toContain("commanders");
   });
 
-  it("picking a commander from the loaded deck removes that copy", () => {
+  it("re-picking swaps only the dropped partner, keeping the other's instance", () => {
+    const { game, ctx, ada } = setup();
+    mustOk(
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [
+          { cardId: "a", name: "First" },
+          { cardId: "b", name: "Second" },
+        ],
+      })
+    );
+    const keptUid = ada.zones.command[0]?.uid;
+    mustOk(
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [
+          { cardId: "a", name: "First" },
+          { cardId: "c", name: "Third" },
+        ],
+      })
+    );
+    expect(ada.zones.command.map((c) => c.cardId)).toEqual(["a", "c"]);
+    expect(ada.zones.command[0]?.uid).toBe(keptUid);
+    // the dropped partner returned to the bottom of the library
+    expect(ada.zones.library.at(-1)?.cardId).toBe("b");
+  });
+
+  it("re-picking an unchanged commander keeps its uid and notes", () => {
+    const { game, ctx, ada } = setup();
+    mustOk(
+      act(game, ctx, ada, { type: "SET_COMMANDER", cards: [{ cardId: "krenko", name: "Krenko" }] })
+    );
+    const uid = ada.zones.command[0]?.uid;
+    if (!uid) throw new Error("no commander");
+    mustOk(act(game, ctx, ada, { type: "SET_NOTES", uid, notes: ["marked"] }));
+    mustOk(
+      act(game, ctx, ada, { type: "SET_COMMANDER", cards: [{ cardId: "krenko", name: "Krenko" }] })
+    );
+    expect(ada.zones.command).toHaveLength(1);
+    expect(ada.zones.command[0]?.uid).toBe(uid);
+    expect(ada.zones.command[0]?.annotations).toEqual(["†Krenko", "marked"]);
+  });
+
+  it("picking commanders from the loaded deck removes one copy each", () => {
     const { game, ctx, ada } = setup();
     mustOk(
       act(game, ctx, ada, {
         type: "LOAD_DECK",
         library: [
           { cardId: "krenko", count: 1 },
-          { cardId: "mountain", count: 99 },
+          { cardId: "esika", count: 1 },
+          { cardId: "mountain", count: 98 },
         ],
         sideboard: [],
       })
     );
     expect(ada.zones.library).toHaveLength(100);
-    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "krenko", name: "Krenko" }));
-    expect(ada.zones.library).toHaveLength(99);
+    mustOk(
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [
+          { cardId: "krenko", name: "Krenko" },
+          { cardId: "esika", name: "Esika" },
+        ],
+      })
+    );
+    expect(ada.zones.library).toHaveLength(98);
     expect(ada.zones.library.some((c) => c.cardId === "krenko")).toBe(false);
-    expect(ada.zones.command).toHaveLength(1);
-    // re-picking after the copy left the library still works
-    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "krenko", name: "Krenko" }));
-    expect(ada.zones.library).toHaveLength(99);
-    expect(ada.zones.command).toHaveLength(1);
+    expect(ada.zones.library.some((c) => c.cardId === "esika")).toBe(false);
+    expect(ada.zones.command).toHaveLength(2);
+    // re-sending the same set doesn't remove more copies from the 99
+    mustOk(
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [
+          { cardId: "krenko", name: "Krenko" },
+          { cardId: "esika", name: "Esika" },
+        ],
+      })
+    );
+    expect(ada.zones.library).toHaveLength(98);
+    expect(ada.zones.command).toHaveLength(2);
   });
 
-  it("rejects junk ids", () => {
+  it("rejects junk payloads", () => {
     const { game, ctx, ada } = setup();
+    mustFail(act(game, ctx, ada, { type: "SET_COMMANDER", cards: [] }), "bad commander count");
     mustFail(
-      act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "", name: "X" }),
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [
+          { cardId: "a", name: "A" },
+          { cardId: "b", name: "B" },
+          { cardId: "c", name: "C" },
+        ],
+      }),
+      "bad commander count"
+    );
+    mustFail(
+      act(game, ctx, ada, { type: "SET_COMMANDER", cards: [{ cardId: "", name: "X" }] }),
       "bad commander"
+    );
+    mustFail(
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [
+          { cardId: "a", name: "A" },
+          { cardId: "a", name: "A" },
+        ],
+      }),
+      "duplicate"
     );
   });
 
   it("a commander leaving the battlefield survives — it is not a token", () => {
     const { game, ctx, ada, bob } = setup();
-    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "cmd-atarxa", name: "Atraxa" }));
-    mustOk(act(game, ctx, bob, { type: "SET_COMMANDER", cardId: "cmd-bob", name: "Ragavan" }));
+    mustOk(
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [{ cardId: "cmd-atarxa", name: "Atraxa" }],
+      })
+    );
+    mustOk(
+      act(game, ctx, bob, { type: "SET_COMMANDER", cards: [{ cardId: "cmd-bob", name: "Ragavan" }] })
+    );
     mustOk(act(game, ctx, ada, { type: "START_GAME" }));
     const uid = ada.zones.command[0]?.uid;
     if (!uid) throw new Error("no commander");
@@ -129,13 +234,21 @@ describe("SET_COMMANDER", () => {
     expect(ada.zones.hand.some((c) => c.uid === uid)).toBe(true);
   });
 
-  it("shows the commander to everyone via the public command zone", () => {
+  it("shows both commanders to everyone via the public command zone", () => {
     const { game, ctx, ada, bob } = setup();
-    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "cmd-1", name: "Krenko" }));
+    mustOk(
+      act(game, ctx, ada, {
+        type: "SET_COMMANDER",
+        cards: [
+          { cardId: "cmd-1", name: "Krenko" },
+          { cardId: "cmd-2", name: "Esika" },
+        ],
+      })
+    );
     const bobView = personalize(game, bob.id);
     const adaFromBob = bobView.players.find((p) => p.id === ada.id);
     if (adaFromBob?.zones.command.kind !== "cards") throw new Error("expected cards");
-    expect(adaFromBob.zones.command.cards[0]?.cardId).toBe("cmd-1");
+    expect(adaFromBob.zones.command.cards.map((c) => c.cardId)).toEqual(["cmd-1", "cmd-2"]);
     expect(bobView.format).toBe("freeform");
   });
 });

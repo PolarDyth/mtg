@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Action, Format, GameView, PlayerId } from "@cardessa/shared";
+import type { CardDef } from "@/lib/scryfall";
 import { Crown } from "lucide-react";
 import { getCardById } from "@/lib/cardCache";
 import { useCardDefs } from "@/lib/useCardDefs";
@@ -13,6 +14,20 @@ const FORMATS: { value: Format; label: string; detail: string }[] = [
   { value: "freeform", label: "Freeform", detail: "20 life, anything goes" },
   { value: "commander", label: "Commander", detail: "40 life, command zone" },
 ];
+
+/** A commander's display name: the def when resolvable, else the server's
+ *  † annotation (marker stripped) as the fallback. */
+function commanderName(
+  get: (id: string | null) => CardDef | null,
+  cardId: string | null,
+  annotation: string | undefined
+): string | null {
+  return (
+    (cardId ? get(cardId)?.name : undefined) ??
+    annotation?.replace(/^†/, "") ??
+    null
+  );
+}
 
 export default function Lobby({
   view,
@@ -49,26 +64,32 @@ export default function Lobby({
   const self = view.players.find((p) => p.id === you);
   const commandCards =
     self?.zones.command.kind === "cards" ? self.zones.command.cards : [];
-  const commander = commandCards[0] ?? null;
   // Commanders may be cards this client never loaded — resolve their defs
   // reactively (batch Scryfall fetch on miss) instead of a sync cache read
-  // that blanks other players' rows. The annotation is the server-side name
-  // fallback until the def arrives.
+  // that blanks other players' rows. The † annotation is the server-side
+  // name fallback until the def arrives.
   const commanderIds = useMemo(() => {
     const ids = new Set<string>();
     for (const player of view.players) {
       const zone = player.zones.command;
-      const card = zone.kind === "cards" ? zone.cards[0] : undefined;
-      if (card?.cardId) ids.add(card.cardId);
+      if (zone.kind !== "cards") continue;
+      for (const card of zone.cards) {
+        if (card.cardId) ids.add(card.cardId);
+      }
     }
     return ids;
   }, [view.players]);
   const { get } = useCardDefs(commanderIds);
-  const commanderDef = commander?.cardId ? get(commander.cardId) : null;
-  const commanderName = commanderDef?.name ?? commander?.annotations[0] ?? null;
+  const commanderLabel = commandCards
+    .map((card) => commanderName(get, card.cardId, card.annotations[0]))
+    .filter((name): name is string => name !== null)
+    .join(" + ");
 
-  // commander-eligible cards currently sitting in your library/sideboard
-  const deckCandidates = useMemo<DeckCandidate[]>(() => {
+  // commander-eligible cards currently sitting in your library/sideboard.
+  // Plain computation (no manual useMemo): the React Compiler memoizes it
+  // automatically — a manual memo here can't be preserved once commandCards
+  // is iterated for the picker's `current` prop, and the linter errors.
+  const deckCandidates: DeckCandidate[] = (() => {
     if (!self) return [];
     const counts = new Map<string, number>();
     for (const zone of [self.zones.library, self.zones.sideboard]) {
@@ -83,7 +104,7 @@ export default function Lobby({
       if (def?.commanderEligible) candidates.push({ def, count });
     }
     return candidates.sort((a, b) => a.def.name.localeCompare(b.def.name));
-  }, [self]);
+  })();
 
   async function copyCode() {
     try {
@@ -123,10 +144,10 @@ export default function Lobby({
             {view.players.map((player) => {
               const command =
                 player.zones.command.kind === "cards" ? player.zones.command.cards : [];
-              const theirCommander = command[0];
-              const theirName =
-                get(theirCommander?.cardId ?? null)?.name ??
-                theirCommander?.annotations[0];
+              const names = command
+                .map((card) => commanderName(get, card.cardId, card.annotations[0]))
+                .filter((name): name is string => name !== null);
+              const hasCommander = command.length > 0;
               return (
                 <li
                   key={player.id}
@@ -146,13 +167,13 @@ export default function Lobby({
                       you
                     </span>
                   )}
-                  {theirCommander && (
+                  {hasCommander && (
                     <span
-                      className="flex items-center gap-1 text-xs text-zinc-500"
-                      title={`${theirName ?? "Commander"} — commander`}
+                      className="flex min-w-0 items-center gap-1 text-xs text-zinc-500"
+                      title={`${names.join(" + ") || "Commander"} — commander${command.length > 1 ? "s" : ""}`}
                     >
-                      <Crown className="h-3.5 w-3.5" strokeWidth={1.75} />
-                      {theirName ?? "Commander"}
+                      <Crown className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+                      <span className="truncate">{names.join(" + ") || "Commander"}</span>
                     </span>
                   )}
                   <span className="ml-auto text-xs text-zinc-500">
@@ -175,7 +196,9 @@ export default function Lobby({
               className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm text-zinc-200 hover:border-emerald-600"
             >
               <Crown className="h-4 w-4" strokeWidth={1.75} />
-              {commanderName ? `Commander: ${commanderName}` : "Choose commander…"}
+              {commanderLabel
+                ? `${commandCards.length > 1 ? "Commanders" : "Commander"}: ${commanderLabel}`
+                : "Choose commander…"}
             </button>
             <button
               onClick={onLeave}
@@ -235,7 +258,7 @@ export default function Lobby({
               </button>
             )}
           </div>
-          {format === "commander" && !commanderName && (
+          {format === "commander" && commandCards.length === 0 && (
             <p className="mt-2 text-xs text-amber-300/80">
               Tip: pick your commander before starting - it sits in your command
               zone where everyone can see it.
@@ -261,18 +284,35 @@ export default function Lobby({
       {deckOpen && (
         <DeckLoader
           started={view.started}
-          onLoad={(library, sideboard) =>
-            send({ type: "LOAD_DECK", library, sideboard })
-          }
+          onLoad={(library, sideboard, commanders) => {
+            send({ type: "LOAD_DECK", library, sideboard });
+            // a decklist export with a Commander section pre-picks them
+            // (the engine pulls each pick out of the 99)
+            if (commanders.length > 0) {
+              send({ type: "SET_COMMANDER", cards: commanders });
+            }
+          }}
           onClose={() => setDeckOpen(false)}
         />
       )}
 
       {commanderOpen && (
         <CommanderPicker
-          currentName={commanderName}
+          current={commandCards.flatMap((card) =>
+            card.cardId
+              ? [
+                  {
+                    cardId: card.cardId,
+                    name:
+                      commanderName(get, card.cardId, card.annotations[0]) ??
+                      "Commander",
+                  },
+                ]
+              : []
+          )}
           deckCandidates={deckCandidates}
           send={send}
+          getDef={get}
           onClose={() => setCommanderOpen(false)}
         />
       )}

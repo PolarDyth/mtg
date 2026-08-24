@@ -72,35 +72,82 @@ function loadDeck(
   return ok(game);
 }
 
+/** Partner pairs cap the command zone: one commander or two, never more. */
+const MAX_COMMANDERS = 2;
+
 function setCommander(
   game: Game,
   actor: Player,
   action: Extract<Action, { type: "SET_COMMANDER" }>,
   ctx: Ctx
 ): ActionResult {
-  const name = (action.name ?? "").trim().slice(0, 100) || "Commander";
+  const picks = action.cards;
   if (
-    typeof action.cardId !== "string" ||
-    action.cardId.length === 0 ||
-    action.cardId.length > 64
+    !Array.isArray(picks) ||
+    picks.length < 1 ||
+    picks.length > MAX_COMMANDERS
+  ) {
+    return err(`bad commander count (1-${MAX_COMMANDERS})`);
+  }
+  const clean = picks.map((pick) => ({
+    cardId: pick.cardId,
+    name: (pick.name ?? "").trim().slice(0, 100) || "Commander",
+  }));
+  if (
+    clean.some(
+      (pick) =>
+        typeof pick.cardId !== "string" ||
+        pick.cardId.length === 0 ||
+        pick.cardId.length > 64
+    )
   ) {
     return err("bad commander card id");
   }
-  // When the pick comes from the loaded deck, remove that copy so the
-  // 99-card library doesn't still contain the commander.
-  for (const zone of [actor.zones.library, actor.zones.sideboard] as const) {
-    const index = zone.findIndex((c) => c.cardId === action.cardId);
-    if (index !== -1) {
-      zone.splice(index, 1);
-      break;
+  if (new Set(clean.map((pick) => pick.cardId)).size !== clean.length) {
+    return err("duplicate commander");
+  }
+  const prev = actor.zones.command;
+  // Fresh picks leave the 99 (one copy each, library first then sideboard) —
+  // picks already in the zone don't re-remove a second copy from the deck.
+  for (const pick of clean) {
+    if (prev.some((c) => c.cardId === pick.cardId)) continue;
+    for (const zone of [actor.zones.library, actor.zones.sideboard] as const) {
+      const index = zone.findIndex((c) => c.cardId === pick.cardId);
+      if (index !== -1) {
+        zone.splice(index, 1);
+        break;
+      }
     }
   }
-  // The command zone holds exactly the chosen commander (replace on re-pick).
-  const commander = newInstance(action.cardId, ctx);
-  commander.annotations = [`${COMMANDER_MARKER}${name}`];
-  actor.zones.command = [commander];
+  // Commanders dropped from the set go back to the bottom of the library.
+  for (const old of prev) {
+    if (!clean.some((pick) => pick.cardId === old.cardId)) {
+      actor.zones.library.push(old);
+    }
+  }
+  // Full-set commit: kept picks keep their instance (uid, counters, notes —
+  // only the † name annotation is refreshed); new picks get fresh instances.
+  actor.zones.command = clean.map((pick) => {
+    const existing = prev.find((c) => c.cardId === pick.cardId);
+    if (existing) {
+      existing.annotations = [
+        `${COMMANDER_MARKER}${pick.name}`,
+        ...existing.annotations.filter((a) => !a.startsWith(COMMANDER_MARKER)),
+      ];
+      return existing;
+    }
+    const commander = newInstance(pick.cardId, ctx);
+    commander.annotations = [`${COMMANDER_MARKER}${pick.name}`];
+    return commander;
+  });
   actor.hasDeck = true; // a commander alone is enough to be "ready"
-  systemMessage(game, `${actor.name} set ${name} as their commander`, ctx.rng, ctx.now());
+  const names = clean.map((pick) => pick.name).join(" + ");
+  systemMessage(
+    game,
+    `${actor.name} set ${names} as their commander${clean.length > 1 ? "s" : ""}`,
+    ctx.rng,
+    ctx.now()
+  );
   return ok(game);
 }
 

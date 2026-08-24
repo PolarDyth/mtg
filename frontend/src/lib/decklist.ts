@@ -9,6 +9,9 @@ export type ParsedLine = {
 export type ParseResult = {
   main: ParsedLine[];
   side: ParsedLine[];
+  /** "Commander"/"Commanders" section — Moxfield/Archidekt exports put
+   *  partner pairs here instead of burying them in the 99. */
+  commander: ParsedLine[];
   unparseable: string[];
 };
 
@@ -21,17 +24,22 @@ const CSV_LINE = /^\s*"?(\d{1,3})x?"?,\s*"?([^",]+)"?/;
 
 const SIDE_HEADERS = /^(sideboard|sb)\s*:?\s*(?:\(\d+\))?$/i;
 const MAIN_HEADERS = /^(main|maindeck|deck)\s*:?\s*(?:\(\d+\))?$/i;
+const COMMANDER_HEADERS = /^(commanders?|command zone)\s*:?\s*(?:\(\d+\))?$/i;
 const COMMENT = /^\/\//;
 
 export function parseDecklist(text: string): ParseResult {
-  const result: ParseResult = { main: [], side: [], unparseable: [] };
-  let board: "main" | "side" = "main";
+  const result: ParseResult = { main: [], side: [], commander: [], unparseable: [] };
+  let board: "main" | "side" | "commander" = "main";
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (line.length === 0 || COMMENT.test(line)) continue;
     if (SIDE_HEADERS.test(line)) {
       board = "side";
+      continue;
+    }
+    if (COMMANDER_HEADERS.test(line)) {
+      board = "commander";
       continue;
     }
     if (MAIN_HEADERS.test(line)) {

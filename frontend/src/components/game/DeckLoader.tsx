@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DeckEntry } from "@cardessa/shared";
+import type { CommanderPick, DeckEntry } from "@cardessa/shared";
 import { mergeDuplicates, parseDecklist, totalCards } from "@/lib/decklist";
 import { getCardByName, putCards } from "@/lib/cardCache";
 import { resolveCards, type CardDef } from "@/lib/scryfall";
@@ -16,7 +16,7 @@ export default function DeckLoader({
   onClose,
 }: {
   started: boolean;
-  onLoad: (library: DeckEntry[], sideboard: DeckEntry[]) => void;
+  onLoad: (library: DeckEntry[], sideboard: DeckEntry[], commanders: CommanderPick[]) => void;
   onClose: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>("paste");
@@ -31,6 +31,7 @@ export default function DeckLoader({
   const parsed = useMemo(() => parseDecklist(text), [text]);
   const mainMerged = useMemo(() => mergeDuplicates(parsed.main), [parsed]);
   const sideMerged = useMemo(() => mergeDuplicates(parsed.side), [parsed]);
+  const commanderMerged = useMemo(() => mergeDuplicates(parsed.commander), [parsed]);
 
   const entries = useMemo(() => {
     const toEntries = (lines: typeof mainMerged): DeckEntry[] =>
@@ -40,11 +41,21 @@ export default function DeckLoader({
           return def ? { cardId: def.id, count: line.quantity } : null;
         })
         .filter((e): e is DeckEntry => e !== null);
+    // each distinct Commander-section name is one pick (a section listing
+    // 2x the same card is still a single commander)
+    const toPicks = (lines: typeof mainMerged): CommanderPick[] =>
+      lines
+        .map((line) => {
+          const def = resolved.get(line.name) ?? getCardByName(line.name);
+          return def ? { cardId: def.id, name: def.name } : null;
+        })
+        .filter((p): p is CommanderPick => p !== null);
     return {
       library: toEntries(mainMerged),
       sideboard: toEntries(sideMerged),
+      commanders: toPicks(commanderMerged).slice(0, 2),
     };
-  }, [mainMerged, sideMerged, resolved]);
+  }, [mainMerged, sideMerged, commanderMerged, resolved]);
 
   const libraryTotal = entries.library.reduce((sum, e) => sum + e.count, 0);
   const sideTotal = entries.sideboard.reduce((sum, e) => sum + e.count, 0);
@@ -53,7 +64,7 @@ export default function DeckLoader({
     setPhase("resolving");
     setError(null);
     try {
-      const names = [...mainMerged, ...sideMerged].map((line) => line.name);
+      const names = [...mainMerged, ...sideMerged, ...commanderMerged].map((line) => line.name);
       const result = await resolveCards(names);
       putCards([...result.defs.values()]);
       setResolved(result.defs);
@@ -68,7 +79,7 @@ export default function DeckLoader({
 
   function load() {
     localStorage.setItem(LAST_DECK_KEY, text);
-    onLoad(entries.library, entries.sideboard);
+    onLoad(entries.library, entries.sideboard, entries.commanders);
     onClose();
   }
 
@@ -108,6 +119,8 @@ export default function DeckLoader({
             <div className="flex items-center gap-3">
               <span className="text-xs text-zinc-500">
                 {totalCards(parsed.main)} main · {totalCards(parsed.side)} side
+                {parsed.commander.length > 0 &&
+                  ` · ${commanderMerged.length} commander${commanderMerged.length > 1 ? "s" : ""}`}
                 {parsed.unparseable.length > 0 &&
                   ` · ${parsed.unparseable.length} unreadable line(s)`}
               </span>
@@ -128,7 +141,7 @@ export default function DeckLoader({
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-700 border-t-emerald-500" />
             <p className="text-sm text-zinc-400">
               Talking to Scryfall — resolving{" "}
-              {mainMerged.length + sideMerged.length} unique names…
+              {mainMerged.length + sideMerged.length + commanderMerged.length} unique names…
             </p>
           </div>
         )}
@@ -144,6 +157,19 @@ export default function DeckLoader({
                 <p className="mt-1 font-mono text-xs text-amber-300/80">
                   {missing.join(" · ")}
                 </p>
+              </div>
+            )}
+
+            {commanderMerged.length > 0 && (
+              <div className="mb-4">
+                <BoardList
+                  title={`Commander — ${entries.commanders.length || commanderMerged.length} pick${
+                    (entries.commanders.length || commanderMerged.length) > 1 ? "s" : ""
+                  } (loaded into your command zone)`}
+                  lines={commanderMerged}
+                  resolved={resolved}
+                  fuzzy={fuzzy}
+                />
               </div>
             )}
 

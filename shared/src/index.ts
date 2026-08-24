@@ -100,6 +100,11 @@ export type Format = "freeform" | "commander";
 
 export type DeckEntry = { cardId: string; count: number };
 
+/** One commander pick (a partner pair is two). The client supplies the name —
+ *  the server is card-id agnostic and only echoes it into the chat line and
+ *  the † annotation. */
+export type CommanderPick = { cardId: string; name: string };
+
 /** The six mana colors a pool tracks: W/U/B/R/G plus colorless. */
 export const MANA_COLORS = ["W", "U", "B", "R", "G", "C"] as const;
 export type ManaColor = (typeof MANA_COLORS)[number];
@@ -114,7 +119,11 @@ export function emptyMana(): ManaPool {
 export type Action =
   | { type: "LOAD_DECK"; library: DeckEntry[]; sideboard: DeckEntry[] }
   | { type: "START_GAME"; format?: Format }
-  | { type: "SET_COMMANDER"; cardId: string; name: string }
+  /** Set your command zone to exactly these commanders (1–2 cards, partner
+   *  pairs): a full-set commit like SET_MANA — picks already in the zone
+   *  keep their instance, dropped ones return to the library, fresh ones
+   *  leave the 99. */
+  | { type: "SET_COMMANDER"; cards: CommanderPick[] }
   | { type: "DRAW_CARDS"; count: number }
   /** Shuffle your whole hand into your library, then draw `draw` cards. */
   | { type: "MULLIGAN"; draw: number }

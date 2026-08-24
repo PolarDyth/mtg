@@ -53,6 +53,32 @@ describe("parseDecklist", () => {
     ]);
   });
 
+  it("routes a Commander section (both partners) out of the maindeck", () => {
+    const result = parseDecklist(
+      [
+        "Commander",
+        "1 Kodama of the West Tree",
+        "1 Esika, God of the Tree",
+        "Deck",
+        "36 Forest",
+      ].join("\n")
+    );
+    expect(result.commander).toEqual([
+      { quantity: 1, name: "Kodama of the West Tree" },
+      { quantity: 1, name: "Esika, God of the Tree" },
+    ]);
+    expect(result.main).toEqual([{ quantity: 36, name: "Forest" }]);
+  });
+
+  it("accepts Commanders/Command zone header variants with counts", () => {
+    const withS = parseDecklist("Commanders\n1 A\nCommand Zone (2)\n1 B");
+    expect(withS.commander.map((l) => l.name)).toEqual(["A", "B"]);
+    expect(withS.main).toEqual([]);
+    const colon = parseDecklist("Commander: 1 Ragavan");
+    expect(colon.commander).toEqual([]);
+    expect(colon.main).toEqual([{ quantity: 1, name: "Commander: 1 Ragavan" }]);
+  });
+
   it("parses CSV-style Archidekt exports", () => {
     const result = parseDecklist("4,Lightning Bolt,Red,Damage\n1x,Island,,");
     expect(result.main).toEqual([

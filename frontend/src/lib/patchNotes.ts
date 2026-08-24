@@ -23,10 +23,15 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
-    id: "round-4-counter-quick-wins",
-    label: "Round 4 — counter quick wins",
+    id: "round-4-counters-partners",
+    label: "Round 4 — counters and partners",
     date: "2026-08-24",
     items: [
+      {
+        title: "Two commanders, one command zone",
+        detail:
+          "Partner pairs work: pick one card or two in the commander picker — both sit in your command zone for the whole table to see, and swapping one never disturbs the other. Deck exports with a Commander section (Moxfield, Archidekt) pre-load both partners automatically.",
+      },
       {
         title: "+1/+1 counters, one keypress",
         detail:
