@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { originAllowed, resolveClientIp } from "./netguard";
+import { originAllowed, resolveClientIp, sanitizeRequestUrl } from "./netguard";
 
 describe("originAllowed", () => {
   it("allows requests without an Origin header (non-browser clients)", () => {
@@ -62,5 +62,37 @@ describe("resolveClientIp", () => {
       resolveClientIp({ "x-forwarded-for": ["1.2.3.4", "5.6.7.8"] }, "10.0.0.1", 1)
     ).toBe("5.6.7.8");
     expect(resolveClientIp({ "x-forwarded-for": ", ," }, "10.0.0.1", 1)).toBe("10.0.0.1");
+  });
+});
+
+describe("sanitizeRequestUrl", () => {
+  it("passes URLs without % through unchanged", () => {
+    expect(sanitizeRequestUrl("/game/FOO-BAR-1234")).toBe("/game/FOO-BAR-1234");
+  });
+
+  it("passes valid escapes through unchanged (path and query)", () => {
+    expect(sanitizeRequestUrl("/game/PLAIN-ISLAND-0042?x=%20foo%2Fbar")).toBe(
+      "/game/PLAIN-ISLAND-0042?x=%20foo%2Fbar"
+    );
+  });
+
+  it("canonicalizes bare % to %25", () => {
+    expect(sanitizeRequestUrl("/game/%ZZ")).toBe("/game/%25ZZ");
+    expect(sanitizeRequestUrl("/100%")).toBe("/100%25");
+  });
+
+  it("canonicalizes truncated escapes, leaving valid neighbors intact", () => {
+    expect(sanitizeRequestUrl("/game/%E4%BD")).toBe("/game/%25E4%25BD");
+    expect(sanitizeRequestUrl("/a%zz%41")).toBe("/a%25zz%41");
+  });
+
+  it("handles a lone trailing %", () => {
+    expect(sanitizeRequestUrl("/game/%")).toBe("/game/%25");
+  });
+
+  it("never throws and always yields a decodable URL", () => {
+    for (const raw of ["/%", "/%%%", "/%G1", "/x%zz?q=%", "/%E4%BD"]) {
+      expect(() => decodeURIComponent(sanitizeRequestUrl(raw))).not.toThrow();
+    }
   });
 });
