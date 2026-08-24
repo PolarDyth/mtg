@@ -12,6 +12,7 @@ function def(overrides: Partial<CardDef> = {}): CardDef {
     normal: "https://cards.scryfall.io/normal.jpg",
     produced_mana: [],
     oracle_text: "Deal 3 damage to any target.",
+    dfc: false,
     commanderEligible: false,
     relatedTokens: [],
     ...overrides,
@@ -51,24 +52,32 @@ describe("sanitizeCache", () => {
     expect(bad({ oracle_text: 42 as unknown as string }).byId).toEqual({});
     expect(bad({ name: null as unknown as string }).byId).toEqual({});
     expect(bad({ produced_mana: "W" as unknown as string[] }).byId).toEqual({});
+    expect(bad({ dfc: "yes" as unknown as boolean }).byId).toEqual({});
   });
 
   it("drops the cache when a back face is tampered", () => {
-    const tampered = sanitizeCache({
-      byId: {
-        "card-1": def({
-          back: {
-            name: "Insectile Aberration",
-            mana_cost: "",
-            type_line: "Creature",
-            small: "javascript:alert(1)",
-            normal: "https://cards.scryfall.io/normal-back.jpg",
-          },
-        }),
-      },
-      nameIndex: valid.nameIndex,
-    });
-    expect(tampered.byId).toEqual({});
+    const withBack = (back: CardDef["back"]) =>
+      sanitizeCache({ byId: { "card-1": def({ back }) }, nameIndex: valid.nameIndex });
+    expect(
+      withBack({
+        name: "Insectile Aberration",
+        mana_cost: "",
+        type_line: "Creature",
+        oracle_text: "Flying",
+        small: "javascript:alert(1)",
+        normal: "https://cards.scryfall.io/normal-back.jpg",
+      }).byId
+    ).toEqual({});
+    expect(
+      withBack({
+        name: "Insectile Aberration",
+        mana_cost: "",
+        type_line: "Creature",
+        oracle_text: 42 as unknown as string,
+        small: "https://cards.scryfall.io/small-back.jpg",
+        normal: "https://cards.scryfall.io/normal-back.jpg",
+      }).byId
+    ).toEqual({});
   });
 
   it("drops the cache when the name index maps to a non-string", () => {

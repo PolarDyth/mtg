@@ -23,6 +23,11 @@ export type CardDef = {
   /** Rules text (faces joined " // " for multi-face single cards) — drives
    *  the pile viewer's full-text filter. */
   oracle_text: string;
+  /** True for swappable-face layouts (transform/MDFC/reversible): the
+   *  oracle text is the two faces joined " // " and the back can be the
+   *  showing face — even when `back` was dropped (missing back image), the
+   *  front's text is still only the first segment. */
+  dfc: boolean;
   /** The other face of a double-faced card (transform / MDFC / reversible).
    *  Splits and adventures keep their combined single identity — no back. */
   back?: CardBack;
@@ -37,6 +42,9 @@ export type CardBack = {
   name: string;
   mana_cost: string;
   type_line: string;
+  /** The back face's own rules text — Scryfall has no per-face
+   *  produced_mana, so face-scoped mana parsing reads this. */
+  oracle_text: string;
   small: string;
   normal: string;
 };
@@ -138,6 +146,7 @@ function backOf(card: ScryfallCard): CardBack | undefined {
     name: face.name,
     mana_cost: face.mana_cost ?? "",
     type_line: face.type_line ?? "",
+    oracle_text: face.oracle_text ?? "",
     small,
     normal,
   };
@@ -162,6 +171,7 @@ export function toDef(card: ScryfallCard): CardDef | null {
       card.oracle_text ??
       card.card_faces?.map((f) => f.oracle_text ?? "").join(" // ") ??
       "",
+    dfc: DFC_LAYOUTS.has(card.layout ?? ""),
     back: backOf(card),
     commanderEligible: isCommanderEligible(card),
     relatedTokens: relatedTokensOf(card),

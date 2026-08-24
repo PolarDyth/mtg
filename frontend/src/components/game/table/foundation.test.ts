@@ -13,12 +13,14 @@ import {
   battlefieldDrop,
   cardMatchesText,
   faceDef,
+  faceOracleText,
   findOwnCard,
   manaAfterSpend,
   manaAfterTap,
   nextPhaseAction,
   onAnyBattlefield,
   pickerMax,
+  tapManaYield,
 } from "./foundation";
 
 const YOU = "you";
@@ -85,6 +87,7 @@ function mkDef(overrides: Partial<CardDef> = {}): CardDef {
     produced_mana: [],
     oracle_text:
       "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+    dfc: false,
     commanderEligible: false,
     relatedTokens: [],
     ...overrides,
@@ -200,10 +203,12 @@ describe("pickerMax", () => {
 describe("faceDef", () => {
   const dfc = mkDef({
     name: "Delver of Secrets",
+    dfc: true,
     back: {
       name: "Insectile Aberration",
       mana_cost: "",
       type_line: "Creature — Insect Human",
+      oracle_text: "Flying",
       small: "back-s.png",
       normal: "back-n.png",
     },
@@ -232,30 +237,140 @@ describe("faceDef", () => {
   });
 });
 
-describe("manaAfterTap", () => {
-  it("adds 1 of each distinct listed color", () => {
-    expect(manaAfterTap(ZERO, ["G"])).toEqual({ ...ZERO, G: 1 });
-    // Sol Ring lists ["C","C"] — one distinct color, one added
-    expect(manaAfterTap(ZERO, ["C", "C"])).toEqual({ ...ZERO, C: 1 });
-    // Birds of Paradise lists all five
-    expect(manaAfterTap(ZERO, ["W", "U", "B", "R", "G"])).toEqual({
-      ...ZERO,
-      W: 1,
-      U: 1,
-      B: 1,
-      R: 1,
+describe("faceOracleText", () => {
+  const dfc = mkDef({
+    dfc: true,
+    oracle_text: "Front face text. // Back face text.",
+    back: {
+      name: "Back",
+      mana_cost: "",
+      type_line: "Land",
+      oracle_text: "Back face text.",
+      small: "back-s.png",
+      normal: "back-n.png",
+    },
+  });
+
+  it("returns the back face's own text when transformed", () => {
+    expect(faceOracleText(dfc, true)).toBe("Back face text.");
+  });
+
+  it("splits the front segment out of the joined text for the front face", () => {
+    expect(faceOracleText(dfc, false)).toBe("Front face text.");
+    expect(faceOracleText(dfc)).toBe("Front face text.");
+  });
+
+  it("passes single-faced cards through untouched", () => {
+    const def = mkDef();
+    expect(faceOracleText(def, true)).toBe(def.oracle_text);
+    expect(faceOracleText(def)).toBe(def.oracle_text);
+  });
+
+  it("treats a back-less DFC as still two-faced", () => {
+    // backOf drops a back face without images — the card is still a DFC
+    const noBack = mkDef({ dfc: true, oracle_text: "Front text. // Back text." });
+    expect(faceOracleText(noBack, false)).toBe("Front text.");
+    // the back's text is unknowable, not the front's
+    expect(faceOracleText(noBack, true)).toBe("");
+  });
+
+  it("returns empty text for missing defs", () => {
+    expect(faceOracleText(null, true)).toBe("");
+    expect(faceOracleText(null)).toBe("");
+  });
+});
+
+describe("tapManaYield", () => {
+  it("counts a run of pool symbols after Add per symbol", () => {
+    // Sol Ring: {T}: Add {C}{C}. — the report's undercount
+    expect(tapManaYield("{T}: Add {C}{C}.", ["C"])).toEqual({ C: 2 });
+    // Simic Signet: {1}, {T}: Add {G}{U}.
+    expect(tapManaYield("{1}, {T}: Add {G}{U}.", ["G", "U"])).toEqual({
       G: 1,
+      U: 1,
+    });
+    expect(tapManaYield("{T}: Add {G}.", ["G"])).toEqual({ G: 1 });
+  });
+
+  it("banks a single pip of the first listed color for any-color producers", () => {
+    // City of Brass / Birds of Paradise / Lotus Petal list all five — one
+    // mana, one pip
+    expect(
+      tapManaYield("{T}: Add one mana of any color.", ["W", "U", "B", "R", "G"])
+    ).toEqual({ W: 1 });
+    // "of any type" phrasing; no listed colors left → colorless
+    expect(tapManaYield("Add one mana of any type.", [])).toEqual({ C: 1 });
+  });
+
+  it("banks the spelled-out amount for any-ONE-color lotus wording", () => {
+    // Black Lotus / Gilded Lotus: "Add three mana of any one color."
+    expect(
+      tapManaYield("{T}, Sacrifice: Add three mana of any one color.", [
+        "W",
+        "U",
+        "B",
+        "R",
+        "G",
+      ])
+    ).toEqual({ W: 3 });
+    // X amounts are indeterminate — bank one, pips correct the rest
+    expect(tapManaYield("Add X mana of any one color.", ["W", "U"])).toEqual({
+      W: 1,
     });
   });
 
-  it("stacks onto an existing pool and caps at 99", () => {
-    expect(manaAfterTap({ ...ZERO, G: 2 }, ["G"])).toEqual({ ...ZERO, G: 3 });
-    expect(manaAfterTap({ ...ZERO, G: 99 }, ["G"])).toEqual({ ...ZERO, G: 99 });
+  it("falls back to one of each distinct listed color when the amount is indeterminate", () => {
+    // Nykthos: {X}, {T}: Add an amount of {G} equal to your devotion to green.
+    expect(
+      tapManaYield(
+        "{X}, {T}: Add an amount of {G} equal to your devotion to green.",
+        ["G"]
+      )
+    ).toEqual({ G: 1 });
+    // triggered "adds an additional" has words between Add and the symbol
+    expect(
+      tapManaYield("Whenever you tap a Mountain, this adds an additional {R}.", [
+        "R",
+      ])
+    ).toEqual({ R: 1 });
   });
 
-  it("ignores symbols that are not pool colors", () => {
-    expect(manaAfterTap(ZERO, ["X", "GP"])).toEqual(ZERO);
-    expect(manaAfterTap(ZERO, [])).toEqual(ZERO);
+  it("banks nothing when the face's text never adds mana", () => {
+    // Emeria's Call front: a sorcery whose back face is the producer
+    expect(tapManaYield("Create two 1/1 white Human creature tokens.", ["W"])).toEqual(
+      {}
+    );
+    expect(tapManaYield("", ["W"])).toEqual({});
+  });
+
+  it("does not treat counter additions or additional costs as production", () => {
+    // "Add a +1/+1 counter" — {T} is not evidence of a mana symbol, and a
+    // DFC front like this must not bank the back's colors
+    expect(tapManaYield("{T}: Add a +1/+1 counter.", ["W"])).toEqual({});
+    // "additional" contains no word-boundary "add", and {2} is a cost
+    expect(tapManaYield("You may pay an additional {2}.", ["W"])).toEqual({});
+  });
+
+  it("routes non-pool symbol runs through the fallback", () => {
+    // {S} is not a pool color — no run match, so the distinct list wins
+    expect(tapManaYield("{T}: Add {S}.", ["G"])).toEqual({ G: 1 });
+  });
+});
+
+describe("manaAfterTap", () => {
+  it("adds the parsed gain color by color", () => {
+    expect(manaAfterTap(ZERO, { G: 1 })).toEqual({ ...ZERO, G: 1 });
+    expect(manaAfterTap(ZERO, { C: 2 })).toEqual({ ...ZERO, C: 2 }); // Sol Ring
+    expect(manaAfterTap(ZERO, { G: 1, U: 1 })).toEqual({ ...ZERO, G: 1, U: 1 });
+  });
+
+  it("stacks onto an existing pool and caps at 99", () => {
+    expect(manaAfterTap({ ...ZERO, G: 2 }, { G: 1 })).toEqual({ ...ZERO, G: 3 });
+    expect(manaAfterTap({ ...ZERO, G: 99 }, { G: 2 })).toEqual({ ...ZERO, G: 99 });
+  });
+
+  it("leaves the pool alone for an empty gain", () => {
+    expect(manaAfterTap(ZERO, {})).toEqual(ZERO);
   });
 });
 

@@ -41,6 +41,7 @@ import { useEscapeChain } from "./table/escape";
 import { useTableKeybinds, type KeybindHandler } from "./table/keybinds";
 import { useArrowPicking } from "./table/hooks/useArrowPicking";
 import { useAttachPicking } from "./table/hooks/useAttachPicking";
+import { useAutoClearMana } from "./table/hooks/useAutoClearMana";
 import { useCardDrag } from "./table/hooks/useCardDrag";
 import { useCardMenu } from "./table/hooks/useCardMenu";
 import { useCardPreview } from "./table/hooks/useCardPreview";
@@ -85,6 +86,7 @@ export default function GameTable({
   const focusView = useFocusView(view);
   const chatSignals = useChatSignals({ self, send });
   const mana = useManaPool({ self, send });
+  const autoClearMana = useAutoClearMana({ view, self, send });
   // one tap path for all three surfaces (click, Alt+T, menu): tapping one of
   // your producers banks its colors alongside the SET_TAPPED
   const onTap = (card: CardView) => mana.tapForMana(card, get(card.cardId));
@@ -263,6 +265,8 @@ export default function GameTable({
         onPreviewWidth={preview.setPreviewWidth}
         gridSnap={gridSnap.gridSnap}
         onGridSnap={gridSnap.setGridSnap}
+        autoClearMana={autoClearMana.autoClear}
+        onAutoClearMana={autoClearMana.setAutoClear}
         copied={headerMenus.copied}
         copyCode={headerMenus.copyCode}
         hostMenuOpen={headerMenus.hostMenuOpen}
