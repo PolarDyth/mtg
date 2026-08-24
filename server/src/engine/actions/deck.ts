@@ -2,9 +2,9 @@
 
 import type { Action, Format } from "@cardessa/shared";
 import {
+  COMMANDER_MARKER,
   emptyZones,
   systemMessage,
-  TOKEN_MARKER,
   type Game,
   type Player,
 } from "../state";
@@ -97,7 +97,7 @@ function setCommander(
   }
   // The command zone holds exactly the chosen commander (replace on re-pick).
   const commander = newInstance(action.cardId, ctx);
-  commander.annotations = [`${TOKEN_MARKER}${name}`];
+  commander.annotations = [`${COMMANDER_MARKER}${name}`];
   actor.zones.command = [commander];
   actor.hasDeck = true; // a commander alone is enough to be "ready"
   systemMessage(game, `${actor.name} set ${name} as their commander`, ctx.rng, ctx.now());

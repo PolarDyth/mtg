@@ -3,6 +3,7 @@
 
 import type { Action, CardInstance } from "@cardessa/shared";
 import {
+  COMMANDER_MARKER,
   findPlayer,
   randomId,
   systemMessage,
@@ -102,7 +103,9 @@ function setNotes(
     if (trimmed) clean.push(trimmed);
   }
   found.card.annotations = [
-    ...found.card.annotations.filter((a) => a.startsWith(TOKEN_MARKER)),
+    ...found.card.annotations.filter(
+      (a) => a.startsWith(TOKEN_MARKER) || a.startsWith(COMMANDER_MARKER)
+    ),
     ...clean,
   ];
   return ok(game);

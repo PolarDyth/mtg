@@ -159,3 +159,9 @@ export function systemMessage(game: Game, text: string, rng: Rng, at: number): v
 
 /** Token labels live in annotations with this marker; note edits keep them. */
 export const TOKEN_MARKER = "¶";
+
+/** Commander labels get their own marker: they share the annotation mechanism
+ *  with tokens, but a commander is a real card — it must never dissolve when
+ *  it leaves the battlefield (isToken checks TOKEN_MARKER only). Note edits
+ *  keep this marker too. */
+export const COMMANDER_MARKER = "†";

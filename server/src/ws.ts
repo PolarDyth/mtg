@@ -121,6 +121,7 @@ const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD });
 // evicts fully-expired ipJoinFails entries (60s window → gone within ~90s).
 const heartbeat = setInterval(() => {
   try {
+    sweepHitWindows(ipJoinFails, Date.now());
     for (const conn of conns) {
       if (conn.missedPings >= 2) {
         conn.ws.terminate();
