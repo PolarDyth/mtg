@@ -43,7 +43,7 @@ export default function HandFan({
     >
       <button
         onClick={onToggleSelectMode}
-        className={`absolute right-2 top-2 z-[70] rounded-md border px-2.5 py-1 text-xs transition-colors ${
+        className={`absolute right-2 top-2 z-30 rounded-md border px-2.5 py-1 text-xs transition-colors ${
           selectMode
             ? "border-emerald-600 bg-emerald-800/60 text-emerald-200"
             : "border-zinc-700 bg-zinc-900/80 text-zinc-400 hover:border-emerald-700 hover:text-zinc-200"
@@ -52,7 +52,7 @@ export default function HandFan({
         {selectMode ? "Done" : "Select"}
       </button>
       {selectMode && cards.length > 0 && (
-        <span className="absolute left-2 top-3 z-[70] text-xs text-zinc-600">
+        <span className="absolute left-2 top-3 z-30 text-xs text-zinc-600">
           click cards to mark them
         </span>
       )}
@@ -64,9 +64,9 @@ export default function HandFan({
             key={card.uid}
             onClick={() => selectMode && onToggleSelect(card)}
             className={`relative transition-transform duration-150 ${
-              selectMode ? "cursor-pointer" : "hover:z-50 hover:-translate-y-6 hover:scale-110"
+              selectMode ? "cursor-pointer" : "hover:z-30 hover:-translate-y-6 hover:scale-110"
             } ${isSelected ? "-translate-y-5" : ""}`}
-            style={{ marginLeft: i === 0 ? 0 : -width + overlap, zIndex: isSelected ? 60 : i }}
+            style={{ marginLeft: i === 0 ? 0 : -width + overlap, zIndex: isSelected ? 30 : i }}
           >
             <div className={`rounded-lg ${isSelected ? "ring-2 ring-emerald-500" : ""}`}>
               <CardSprite

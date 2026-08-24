@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* z-index scale (convention — keep new chrome inside it):
+   z-10  table content (pile bodies, chat, arrow layer internals)
+   z-30  hand chrome (Select toggle, hint, hover/selection lifts)
+   z-40  modal backdrops and fullscreen overlays (pile viewer, maximize)
+   z-50  popovers and menus (card menu, previews, drag ghost, headers)
+   Hand chrome must stay ≤ z-30 so every modal fully covers it (#48). */
+
 :root {
   --background: #0c0f0d;
   --foreground: #e7e9e7;
