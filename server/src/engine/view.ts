@@ -10,7 +10,7 @@ import {
   type PlayerId,
   type PlayerView,
   type ZoneView,
-} from "@mythic/shared";
+} from "@cardessa/shared";
 import type { Game, Player } from "./state";
 import { TOKEN_MARKER } from "./state";
 

@@ -6,7 +6,7 @@
  * surface being dragged over (table / focus board / duel / maximized).
  */
 
-import type { GameView, PlayerId } from "@mythic/shared";
+import type { GameView, PlayerId } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { CARD_RATIO } from "../../CardSprite";
 import { cardWidthFor, imageFor, type FocusMode } from "../../tableLayout";

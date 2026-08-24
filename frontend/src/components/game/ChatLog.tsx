@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { ChatMessage, PlayerId, PlayerView } from "@mythic/shared";
+import type { ChatMessage, PlayerId, PlayerView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { PREVIEW_DEFAULT } from "@/lib/settings";
 import CardPreview from "./CardPreview";

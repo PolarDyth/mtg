@@ -16,7 +16,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import type { Action, CardView, GameView, PlayerId } from "@mythic/shared";
+import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
 import { nameColor } from "@/lib/playerColor";
 import type { KeybindId } from "@/lib/keybinds";
 import ActionsModal from "./ActionsModal";

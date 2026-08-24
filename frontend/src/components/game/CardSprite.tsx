@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent } from "react";
-import type { CardView } from "@mythic/shared";
+import type { CardView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { faceDef } from "./table/foundation";
 

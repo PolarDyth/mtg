@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Action, Format, GameView, PlayerId } from "@mythic/shared";
+import type { Action, Format, GameView, PlayerId } from "@cardessa/shared";
 import { Crown } from "lucide-react";
 import { getCardById } from "@/lib/cardCache";
 import { useCardDefs } from "@/lib/useCardDefs";

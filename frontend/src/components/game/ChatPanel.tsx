@@ -1,6 +1,6 @@
 "use client";
 
-import type { Action, DieSides, GameView, PlayerId, PlayerView } from "@mythic/shared";
+import type { Action, DieSides, GameView, PlayerId, PlayerView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { Crown, Hand } from "lucide-react";
 import { useState } from "react";

@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useState } from "react";
-import type { Action, CardView, GameView, PlayerId } from "@mythic/shared";
+import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import type { MenuState } from "../../ContextMenu";
 import { faceDef, findOwnCard, onAnyBattlefield } from "../foundation";

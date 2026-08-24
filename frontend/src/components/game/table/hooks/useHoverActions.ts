@@ -7,7 +7,7 @@
  * your own.
  */
 
-import type { Action, CardView, GameView, PlayerId } from "@mythic/shared";
+import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { findOwnHovered } from "../foundation";
 import type { KeybindSlice } from "../keybinds";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-// type-only: no runtime dependency on @mythic/shared inside vitest
+// type-only: no runtime dependency on @cardessa/shared inside vitest
 import type {
   CardView,
   GameView,
@@ -7,7 +7,7 @@ import type {
   PlayerView,
   Zone,
   ZoneView,
-} from "@mythic/shared";
+} from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import {
   battlefieldDrop,

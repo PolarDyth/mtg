@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SkipForward, Undo2 } from "lucide-react";
-import { ALL_PHASES, type Phase } from "@mythic/shared";
+import { ALL_PHASES, type Phase } from "@cardessa/shared";
 
 /** Compact strip labels; tooltips spell out the less obvious ones. */
 const PHASE_LABELS: Record<Phase, string> = {

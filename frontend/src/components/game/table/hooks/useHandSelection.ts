@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useState } from "react";
-import type { Action, CardView } from "@mythic/shared";
+import type { Action, CardView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { faceDef } from "../foundation";
 import type { KeybindSlice } from "../keybinds";

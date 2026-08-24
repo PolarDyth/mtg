@@ -16,7 +16,7 @@ import {
   type Phase,
   type PlayerId,
   type Zone,
-} from "@mythic/shared";
+} from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import type { PickerMode } from "../CountPickerModal";
 

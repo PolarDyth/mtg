@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Action, CardView, Zone } from "@mythic/shared";
+import type { Action, CardView, Zone } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import type { PickerMode } from "./CountPickerModal";
 

@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { Action, CardView, GameView, PlayerId } from "@mythic/shared";
+import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
 import { findOwnCard } from "../foundation";
 import { arrowTargetAt } from "../hitTest";
 

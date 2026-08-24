@@ -3,14 +3,14 @@
 // tests are deterministic.
 //
 // Dispatch goes through a compile-time exhaustive handler map. To add an
-// action: extend the Action union in @mythic/shared, then add a handler and
+// action: extend the Action union in @cardessa/shared, then add a handler and
 // one map entry in the right domain file — a missing entry fails `tsc`. To
 // add a domain: new file exporting a `satisfies Partial<HandlerMap>` map,
 // plus one import and one spread here. A domain file can also graduate to a
 // folder (cards.ts → cards/index.ts aggregating subdomain maps) without
 // touching anything else, since domains are known here only by import path.
 
-import { type Action, type PlayerId } from "@mythic/shared";
+import { type Action, type PlayerId } from "@cardessa/shared";
 import { findPlayer, type Game } from "../state";
 import { adminHandlers } from "./admin";
 import { chatHandlers } from "./chat";

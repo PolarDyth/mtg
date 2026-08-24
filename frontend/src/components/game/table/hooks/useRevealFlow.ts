@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useState } from "react";
-import type { Action, GameView, PlayerId } from "@mythic/shared";
+import type { Action, GameView, PlayerId } from "@cardessa/shared";
 import type { RevealChatMessage } from "../../RevealPopup";
 
 export type AudienceCards = { uid: string; name: string }[];

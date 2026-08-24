@@ -1,6 +1,6 @@
 // Deck preparation: loading a decklist and picking a commander.
 
-import type { Action, Format } from "@mythic/shared";
+import type { Action, Format } from "@cardessa/shared";
 import {
   COMMANDER_MARKER,
   emptyZones,

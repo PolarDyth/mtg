@@ -2,7 +2,7 @@
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Ban, BookOpen, Crown, Hand, Maximize2, Skull, Swords } from "lucide-react";
-import type { CardView, ManaColor, PlayerView } from "@mythic/shared";
+import type { CardView, ManaColor, PlayerView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import CardSprite from "./CardSprite";
 import { ManaBar } from "./table/components/ManaBar";

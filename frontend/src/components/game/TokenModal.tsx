@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Action } from "@mythic/shared";
+import type { Action } from "@cardessa/shared";
 import { searchTokenCards, type CardDef } from "@/lib/scryfall";
 
 /** Create tokens: search Scryfall's token cards, or mint a generic one. */

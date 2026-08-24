@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type MouseEvent as ReactMouseEvent } from "react";
-import type { Action, CardView, Zone } from "@mythic/shared";
+import type { Action, CardView, Zone } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { PREVIEW_DEFAULT } from "@/lib/settings";
 import { Eye, Hand, Layers, Swords } from "lucide-react";

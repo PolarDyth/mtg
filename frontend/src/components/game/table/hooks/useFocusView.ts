@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useState } from "react";
-import type { GameView, PlayerId } from "@mythic/shared";
+import type { GameView, PlayerId } from "@cardessa/shared";
 import { focusPlayerId, type FocusMode } from "../../tableLayout";
 
 export function useFocusView(view: GameView) {

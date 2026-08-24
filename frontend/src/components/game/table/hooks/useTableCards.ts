@@ -7,7 +7,7 @@
  */
 
 import { useMemo } from "react";
-import type { GameView, PlayerId, Zone } from "@mythic/shared";
+import type { GameView, PlayerId, Zone } from "@cardessa/shared";
 import { useCardDefs } from "@/lib/useCardDefs";
 
 export function useTableCards(view: GameView, you: PlayerId | null) {

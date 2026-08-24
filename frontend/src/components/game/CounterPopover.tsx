@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Action, CardView } from "@mythic/shared";
+import type { Action, CardView } from "@cardessa/shared";
 
 /** Common counter kinds, one tap each. */
 const PRESETS = ["+1/+1", "-1/-1", "Lore", "Shield", "Stun"];

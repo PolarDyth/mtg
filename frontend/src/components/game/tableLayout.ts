@@ -1,4 +1,4 @@
-import type { PlayerId, PlayerView } from "@mythic/shared";
+import type { PlayerId, PlayerView } from "@cardessa/shared";
 
 /** Which board(s) fill the battlefield area instead of the full table. */
 export type FocusMode =

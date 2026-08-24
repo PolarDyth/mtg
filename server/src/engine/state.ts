@@ -2,7 +2,7 @@
 // server: they contain secrets (rejoin tokens) and true card identities that
 // view.ts filters before anything reaches a client.
 
-import { ALL_ZONES, CHAT_CAP, emptyMana, type Arrow, type CardInstance, type ChatMessage, type Format, type ManaPool, type Phase, type PlayerId, type Zone } from "@mythic/shared";
+import { ALL_ZONES, CHAT_CAP, emptyMana, type Arrow, type CardInstance, type ChatMessage, type Format, type ManaPool, type Phase, type PlayerId, type Zone } from "@cardessa/shared";
 import type { Rng } from "./rng";
 
 export type Player = {

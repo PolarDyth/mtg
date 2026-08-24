@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@mythic/shared"],
+  transpilePackages: ["@cardessa/shared"],
   poweredByHeader: false,
   // Security headers for production only — dev keeps HMR friction-free.
   async headers() {
