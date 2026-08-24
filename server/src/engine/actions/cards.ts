@@ -79,7 +79,11 @@ function setPosition(
   found.card.y = clamp(action.y, 0, 100);
   // Moving a card by hand is an implicit detach — dragging a follower off
   // its host separates them (the explicit Detach menu item stays too).
-  found.card.attachedTo = undefined;
+  if (actor.zones.battlefield.includes(found.card)) {
+    detachAndReorder(actor.zones.battlefield, found.card);
+  } else {
+    found.card.attachedTo = undefined;
+  }
   return ok(game);
 }
 
@@ -131,6 +135,14 @@ function setCounters(
   return ok(game);
 }
 
+/** Loose cards paint freshest-on-top: a card that stops being an attachment
+ *  rejoins the end of the battlefield order. */
+function detachAndReorder(battlefield: CardInstance[], card: CardInstance): void {
+  card.attachedTo = undefined;
+  battlefield.splice(battlefield.indexOf(card), 1);
+  battlefield.push(card);
+}
+
 function attachCard(
   game: Game,
   actor: Player,
@@ -142,7 +154,7 @@ function attachCard(
     return err("card is not on the battlefield");
   }
   if (action.to === null) {
-    found.card.attachedTo = undefined;
+    detachAndReorder(actor.zones.battlefield, found.card);
     return ok(game);
   }
   if (action.to === found.card.uid) return err("cannot attach to itself");
@@ -156,6 +168,14 @@ function attachCard(
     cursor = actor.zones.battlefield.find((c) => c.uid === cursor?.attachedTo);
   }
   found.card.attachedTo = host.uid;
+  // The newest attachment tucks in BEHIND the stack: the battlefield array
+  // is the stack's source of truth, so the fresh card is placed before the
+  // host's existing followers — it gets the innermost cascade slot (painted
+  // first, smallest offset) and the older ones stay on top.
+  const battlefield = actor.zones.battlefield;
+  battlefield.splice(battlefield.indexOf(found.card), 1);
+  const followers = battlefield.filter((c) => c.attachedTo === host.uid);
+  battlefield.splice(battlefield.indexOf(followers[0] ?? host), 0, found.card);
   return ok(game);
 }
 
