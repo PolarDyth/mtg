@@ -39,6 +39,7 @@ export function TableHeader({
   onOpenShortcuts,
   previewWidth,
   onPreviewWidth,
+  onResetPreviewPos,
   gridSnap,
   onGridSnap,
   autoClearMana,
@@ -61,6 +62,8 @@ export function TableHeader({
   onOpenShortcuts: () => void;
   previewWidth: number;
   onPreviewWidth: (width: number) => void;
+  /** forget a dragged preview position — back to the default anchor */
+  onResetPreviewPos: () => void;
   /** grid-snapping preference — drops land on a 5% lattice when on */
   gridSnap: boolean;
   onGridSnap: (value: boolean) => void;
@@ -178,6 +181,20 @@ export function TableHeader({
                 <br />
                 also resizes
               </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between gap-2">
+              <span className="text-[10px] leading-tight text-zinc-600">
+                drag the grip above the art
+                <br />
+                to move it anywhere
+              </span>
+              <button
+                onClick={onResetPreviewPos}
+                title="Return the preview to its default spot"
+                className="rounded px-2 py-0.5 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+              >
+                Reset position
+              </button>
             </div>
             <div className="my-2.5 h-px bg-zinc-800" />
             <div className="flex items-center justify-between gap-2">

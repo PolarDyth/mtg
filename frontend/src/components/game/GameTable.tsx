@@ -263,6 +263,7 @@ export default function GameTable({
         onOpenShortcuts={openShortcuts}
         previewWidth={preview.previewWidth}
         onPreviewWidth={preview.setPreviewWidth}
+        onResetPreviewPos={preview.resetPos}
         gridSnap={gridSnap.gridSnap}
         onGridSnap={gridSnap.setGridSnap}
         autoClearMana={autoClearMana.autoClear}
@@ -358,12 +359,17 @@ export default function GameTable({
         </div>
       )}
 
-      {/* hover zoom (above the fullscreen overlay) */}
-      {preview.zoom && (
+      {/* hover zoom (above the fullscreen overlay) — draggable via its grab
+          strip; until first dragged it keeps the default bottom-left anchor */}
+      {preview.panelDef && (
         <CardPreview
-          def={preview.zoom}
+          def={preview.panelDef}
           width={preview.previewWidth}
-          className="fixed bottom-[160px] left-[100px] z-50"
+          className={`fixed z-50 ${preview.panelPos ? "" : "bottom-[160px] left-[100px]"}`}
+          style={
+            preview.panelPos ? { left: preview.panelPos.x, top: preview.panelPos.y } : undefined
+          }
+          dragHandle={{ onPointerDown: preview.beginPanelDrag }}
         />
       )}
 
