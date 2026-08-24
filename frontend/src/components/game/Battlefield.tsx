@@ -37,6 +37,8 @@ export default function Battlefield({
   onCardHover,
   draggedUid,
   battlefieldRef,
+  selectedUids,
+  onBoardPointerDown,
   onManaAdd,
   onManaSpend,
   onManaClear,
@@ -64,6 +66,10 @@ export default function Battlefield({
   draggedUid: string | null;
   /** anchors to YOUR board's container in whatever mode is active */
   battlefieldRef: React.RefObject<HTMLDivElement | null>;
+  /** uids checked into the battlefield multi-selection */
+  selectedUids: Set<string>;
+  /** marquee multi-select — your own band's board surface only */
+  onBoardPointerDown?: (event: ReactPointerEvent) => void;
   /** mana-pip editing on your own band (useManaPool) */
   onManaAdd: (color: ManaColor) => void;
   onManaSpend: (color: ManaColor) => void;
@@ -181,6 +187,7 @@ export default function Battlefield({
             onCardHover={onCardHover}
             draggedUid={draggedUid}
             arrowTargetedUid={arrowTargetedUid}
+            selectedUids={selectedUids}
             headTargeted={arrowTargetedPlayerId === band.player.id}
             onFocus={() => onFocus(band.player.id)}
             onDuel={band.isYou ? undefined : () => onDuel(band.player.id)}
@@ -192,6 +199,7 @@ export default function Battlefield({
             onManaAdd={band.isYou ? onManaAdd : undefined}
             onManaSpend={band.isYou ? onManaSpend : undefined}
             onManaClear={band.isYou ? onManaClear : undefined}
+            onBoardPointerDown={band.isYou ? onBoardPointerDown : undefined}
             boardRef={band.isYou ? battlefieldRef : undefined}
           />
         ))}

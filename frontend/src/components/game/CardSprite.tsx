@@ -18,6 +18,8 @@ type Props = {
   attachedStackIndex?: number;
   /** highlighted as the hovered target of an arrow being drawn */
   arrowTargeted?: boolean;
+  /** checked into the current multi-selection (battlefield band-select) */
+  selected?: boolean;
   /** left/top % refer to the card's center (battlefield placement). */
   centered?: boolean;
   onCardPointerDown?: (card: CardView, event: ReactPointerEvent) => void;
@@ -106,6 +108,7 @@ const CardSprite = memo(function CardSprite({
   dragging = false,
   attachedStackIndex,
   arrowTargeted = false,
+  selected = false,
   centered = false,
   onCardPointerDown,
   onCardContextMenu,
@@ -131,7 +134,9 @@ const CardSprite = memo(function CardSprite({
       className={`absolute select-none touch-none ${
         onCardPointerDown ? "cursor-grab active:cursor-grabbing" : ""
       } ${dragging ? "opacity-30" : "hover:brightness-110"} ${
-        arrowTargeted ? "rounded-md ring-2 ring-emerald-400 brightness-110" : ""
+        arrowTargeted || selected
+          ? "rounded-md ring-2 ring-emerald-400 brightness-110"
+          : ""
       } ${className}`}
       style={{
         width,

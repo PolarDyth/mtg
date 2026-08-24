@@ -333,7 +333,7 @@ export function TableHeader({
       </button>
       <span className="ml-auto text-xs text-zinc-600">
         drag to move · click to tap · right-click for actions ·
-        ctrl+right-click to draw an arrow
+        ctrl+right-click to draw an arrow · drag empty board to band-select
       </span>
     </header>
   );

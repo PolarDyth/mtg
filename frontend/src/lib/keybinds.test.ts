@@ -153,6 +153,13 @@ describe("default keybind matching", () => {
     expect(id({ key: "=" })).toBeNull();
     expect(id({ key: "-" })).toBeNull();
   });
+
+  it("binds select-all permanents as the Shift sibling of hand select-all", () => {
+    expect(id({ key: "a", ctrlKey: true, shiftKey: true })).toBe("selectAllPermanents");
+    // the base combo keeps its hand meaning, plain A stays unbound
+    expect(id({ key: "a", ctrlKey: true })).toBe("selectAll");
+    expect(id({ key: "a" })).toBeNull();
+  });
 });
 
 describe("isTypingTarget", () => {

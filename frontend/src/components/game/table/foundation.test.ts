@@ -19,7 +19,9 @@ import {
   manaAfterTap,
   nextPhaseAction,
   onAnyBattlefield,
+  marqueeRect,
   pickerMax,
+  rectsIntersect,
   tapManaYield,
 } from "./foundation";
 
@@ -408,5 +410,64 @@ describe("battlefieldDrop", () => {
     // clamped edges snap inward, never past the clamp
     expect(battlefieldDrop(rect, 0, 0, true)).toEqual({ x: 5, y: 10 });
     expect(battlefieldDrop(rect, 9999, 9999, true)).toEqual({ x: 95, y: 90 });
+  });
+});
+
+describe("rectsIntersect", () => {
+  const a = { left: 0, top: 0, width: 100, height: 100 };
+
+  it("flags overlapping rects in every relative position", () => {
+    expect(rectsIntersect(a, { left: 50, top: 50, width: 100, height: 100 })).toBe(true);
+    expect(rectsIntersect(a, { left: -50, top: -50, width: 100, height: 100 })).toBe(true);
+    expect(rectsIntersect(a, { left: 90, top: 90, width: 50, height: 50 })).toBe(true);
+    // containment both ways
+    expect(rectsIntersect(a, { left: 10, top: 10, width: 10, height: 10 })).toBe(true);
+    expect(rectsIntersect(a, { left: -10, top: -10, width: 120, height: 120 })).toBe(true);
+  });
+
+  it("rejects disjoint rects", () => {
+    expect(rectsIntersect(a, { left: 100, top: 0, width: 50, height: 50 })).toBe(false);
+    expect(rectsIntersect(a, { left: 0, top: 200, width: 50, height: 50 })).toBe(false);
+    expect(rectsIntersect(a, { left: 500, top: 500, width: 10, height: 10 })).toBe(false);
+  });
+
+  it("rejects edge-touching (a zero-width graze selects nothing)", () => {
+    expect(rectsIntersect(a, { left: 100, top: 0, width: 10, height: 10 })).toBe(false);
+    expect(rectsIntersect(a, { left: 0, top: 100, width: 10, height: 10 })).toBe(false);
+  });
+});
+
+describe("marqueeRect", () => {
+  it("normalizes a down-right drag", () => {
+    expect(marqueeRect({ x0: 10, y0: 20, x: 110, y: 70 })).toEqual({
+      left: 10,
+      top: 20,
+      width: 100,
+      height: 50,
+    });
+  });
+
+  it("normalizes an up-left drag to the same rect", () => {
+    expect(marqueeRect({ x0: 110, y0: 70, x: 10, y: 20 })).toEqual({
+      left: 10,
+      top: 20,
+      width: 100,
+      height: 50,
+    });
+  });
+
+  it("handles mixed directions and zero-size rects", () => {
+    expect(marqueeRect({ x0: 100, y0: 0, x: 0, y: 50 })).toEqual({
+      left: 0,
+      top: 0,
+      width: 100,
+      height: 50,
+    });
+    expect(marqueeRect({ x0: 40, y0: 40, x: 40, y: 40 })).toEqual({
+      left: 40,
+      top: 40,
+      width: 0,
+      height: 0,
+    });
   });
 });

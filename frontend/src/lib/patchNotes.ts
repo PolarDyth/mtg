@@ -23,6 +23,18 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-4-board-multi-select",
+    label: "Round 4 — board multi-select",
+    date: "2026-08-24",
+    items: [
+      {
+        title: "Band-select your board",
+        detail:
+          "Drag on empty board space to rubber-band a group of your permanents, or ctrl/shift-click cards to check them one by one — then tap, untap, grow, or move the whole group with one toolbar (Ctrl+Shift+A checks everything at once; Esc or a click on empty space clears).",
+      },
+    ],
+  },
+  {
     id: "round-4-preview-drag",
     label: "Round 4 — preview, anywhere",
     date: "2026-08-24",

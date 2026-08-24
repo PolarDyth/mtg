@@ -42,6 +42,7 @@ import { useTableKeybinds, type KeybindHandler } from "./table/keybinds";
 import { useArrowPicking } from "./table/hooks/useArrowPicking";
 import { useAttachPicking } from "./table/hooks/useAttachPicking";
 import { useAutoClearMana } from "./table/hooks/useAutoClearMana";
+import { useBattlefieldSelection } from "./table/hooks/useBattlefieldSelection";
 import { useCardDrag } from "./table/hooks/useCardDrag";
 import { useCardMenu } from "./table/hooks/useCardMenu";
 import { useCardPreview } from "./table/hooks/useCardPreview";
@@ -104,6 +105,13 @@ export default function GameTable({
     self?.zones.battlefield.kind === "cards" ? self.zones.battlefield.cards : [];
   const creatureCount = battlefield.filter((card) => isCreature(card, get)).length;
 
+  // marquee + ctrl/shift-click multi-select over your own permanents
+  const bfSel = useBattlefieldSelection({
+    send,
+    battlefield,
+    battlefieldRef: drag.battlefieldRef,
+  });
+
   const selection = useHandSelection({
     send,
     get,
@@ -141,6 +149,7 @@ export default function GameTable({
     ...pickerFlow.keybinds,
     ...arrows.keybinds,
     ...selection.keybinds,
+    ...bfSel.keybinds,
     ...chatSignals.keybinds,
     ...hoverActions.keybinds,
     ...mana.keybinds,
@@ -164,6 +173,7 @@ export default function GameTable({
     pickerFlow.escape,
     pile.escape,
     selection.escape,
+    bfSel.escape,
     () => {
       preview.clearZoom();
       return false;
@@ -183,7 +193,8 @@ export default function GameTable({
 
   // One pointer-down entry for every card surface: ctrl/⌘+right-click on a
   // battlefield card starts a sticky arrow; while selecting or picking,
-  // clicks belong to those modes; otherwise the press may become a drag
+  // clicks belong to those modes; ctrl/shift+click on your own battlefield
+  // cards toggles multi-selection; otherwise the press may become a drag
   // (useCardDrag gates on button + own card, and turns a plain click on an
   // own battlefield card into a tap toggle).
   const onCardPointerDown = (card: CardView, event: ReactPointerEvent) => {
@@ -191,6 +202,7 @@ export default function GameTable({
     if (selection.selectMode) return; // clicks toggle selection instead of dragging
     if (arrows.arrowPicking) return; // clicks pick arrow targets instead
     if (attach.attachSource) return; // clicks pick attach targets instead
+    if (bfSel.tryToggleFromPointer(card, event)) return;
     drag.begin(card, event);
   };
 
@@ -239,6 +251,8 @@ export default function GameTable({
     onCardHover: preview.onHover,
     draggedUid: drag.draggedUid,
     battlefieldRef: drag.battlefieldRef,
+    selectedUids: bfSel.highlighted,
+    onBoardPointerDown: bfSel.beginMarquee,
     onManaAdd: mana.addMana,
     onManaSpend: mana.spendMana,
     onManaClear: mana.clearMana,
@@ -285,14 +299,30 @@ export default function GameTable({
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           {!focusView.showOverlay && <Battlefield {...battlefieldProps} maximized={false} />}
+          {bfSel.selectedOnBoard.length > 0 && (
+            <SelectionBar
+              count={bfSel.selectedOnBoard.length}
+              actions={[
+                { label: "Tap", run: () => bfSel.tapSelected(true) },
+                { label: "Untap", run: () => bfSel.tapSelected(false) },
+                { label: "+1/+1 each", run: bfSel.buffSelected },
+                { label: "To graveyard", run: () => bfSel.moveSelected("graveyard") },
+                { label: "To exile", run: () => bfSel.moveSelected("exile") },
+                { label: "To hand", run: () => bfSel.moveSelected("hand") },
+                { label: "To bottom", run: () => bfSel.moveSelected("library") },
+              ]}
+            />
+          )}
           {selection.selectMode && (
             <SelectionBar
               count={selection.selectedInHand.length}
-              onDiscard={selection.discardSelected}
-              onExile={selection.exileSelected}
-              onReveal={selection.revealSelected}
-              onRevealTo={selection.revealToSelected}
-              onBottom={selection.bottomSelected}
+              actions={[
+                { label: "Discard", run: selection.discardSelected },
+                { label: "Exile", run: selection.exileSelected },
+                { label: "Reveal", run: selection.revealSelected },
+                { label: "Reveal to…", run: selection.revealToSelected },
+                { label: "To bottom", run: selection.bottomSelected },
+              ]}
             />
           )}
           {arrows.arrowPicking && (
@@ -380,6 +410,19 @@ export default function GameTable({
           x={arrows.arrowDraft.x}
           y={arrows.arrowDraft.y}
           color={you ? nameColor(you) : "#6ee7b7"}
+        />
+      )}
+
+      {/* marquee band while selecting battlefield cards */}
+      {bfSel.marqueeView && (
+        <div
+          className="pointer-events-none fixed z-40 rounded border border-emerald-500/70 bg-emerald-500/10"
+          style={{
+            left: bfSel.marqueeView.left,
+            top: bfSel.marqueeView.top,
+            width: bfSel.marqueeView.width,
+            height: bfSel.marqueeView.height,
+          }}
         />
       )}
 

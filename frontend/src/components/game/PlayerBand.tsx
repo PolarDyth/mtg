@@ -44,6 +44,8 @@ export default function PlayerBand({
   draggedUid,
   /** uid of the card currently hovered as an arrow target (drawing UI) */
   arrowTargetedUid,
+  /** uids checked into the battlefield multi-selection */
+  selectedUids,
   /** this band's header is hovered as an arrow target */
   headTargeted,
   onFocus,
@@ -52,6 +54,7 @@ export default function PlayerBand({
   onManaAdd,
   onManaSpend,
   onManaClear,
+  onBoardPointerDown,
   boardRef,
 }: {
   player: PlayerView;
@@ -70,6 +73,7 @@ export default function PlayerBand({
   onCardHover: (def: CardDef | null, card: CardView | null) => void;
   draggedUid: string | null;
   arrowTargetedUid: string | null;
+  selectedUids: Set<string>;
   headTargeted: boolean;
   onFocus?: () => void;
   onDuel?: () => void;
@@ -79,6 +83,8 @@ export default function PlayerBand({
   onManaAdd?: (color: ManaColor) => void;
   onManaSpend?: (color: ManaColor) => void;
   onManaClear?: () => void;
+  /** marquee multi-select — your own band's board surface only */
+  onBoardPointerDown?: (event: ReactPointerEvent) => void;
   /** drop-math anchor — attached only to your own board */
   boardRef?: React.Ref<HTMLDivElement>;
 }) {
@@ -191,7 +197,11 @@ export default function PlayerBand({
           )}
         </span>
       </div>
-      <div ref={boardRef} className="relative flex-1 overflow-hidden">
+      <div
+        ref={boardRef}
+        onPointerDown={onBoardPointerDown}
+        className="relative flex-1 overflow-hidden"
+      >
         {cards.map((card) => {
           if (card.attachedTo && byUid.has(card.attachedTo)) return null;
           const stack = attached.get(card.uid) ?? [];
@@ -205,6 +215,7 @@ export default function PlayerBand({
                 centered
                 dragging={draggedUid === card.uid}
                 arrowTargeted={arrowTargetedUid === card.uid}
+                selected={selectedUids.has(card.uid)}
                 onCardPointerDown={onCardPointerDown}
                 onCardContextMenu={onCardContextMenu}
                 onCardHover={onCardHover}
@@ -220,6 +231,7 @@ export default function PlayerBand({
                   centered
                   dragging={draggedUid === follower.uid}
                   arrowTargeted={arrowTargetedUid === follower.uid}
+                  selected={selectedUids.has(follower.uid)}
                   attachedStackIndex={i + 1}
                   onCardPointerDown={onCardPointerDown}
                   onCardContextMenu={onCardContextMenu}

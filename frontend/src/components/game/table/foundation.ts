@@ -247,6 +247,33 @@ export function faceDef(
  *  numbers so tests can pass literal objects. */
 export type Rect = { left: number; top: number; width: number; height: number };
 
+/** Two viewport rectangles overlap with positive area — merely touching
+ *  edges does not select, so a zero-width marquee band grabs nothing. */
+export function rectsIntersect(a: Rect, b: Rect): boolean {
+  return (
+    a.left < b.left + b.width &&
+    b.left < a.left + a.width &&
+    a.top < b.top + b.height &&
+    b.top < a.top + a.height
+  );
+}
+
+/** A marquee drag's rectangle, normalized so dragging in any direction
+ *  (up-left, down-right, …) yields a positive-size rect. */
+export function marqueeRect(m: {
+  x0: number;
+  y0: number;
+  x: number;
+  y: number;
+}): Rect {
+  return {
+    left: Math.min(m.x0, m.x),
+    top: Math.min(m.y0, m.y),
+    width: Math.abs(m.x - m.x0),
+    height: Math.abs(m.y - m.y0),
+  };
+}
+
 /** Drop position for a card dropped at viewport point (x, y) over the
  *  player's own board rect: percentages of that board (the owner's frame,
  *  un-mirrored), clamped so the card's center can't leave the board, and
