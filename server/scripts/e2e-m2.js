@@ -161,6 +161,12 @@ async function main() {
   await guest.until((s) => s.phase === "untap");
   check("passing the turn resets the phase", true);
 
+  console.log("undo turn:");
+  guest.send({ kind: "action", action: { type: "UNDO_TURN" } });
+  await host.until((s) => s.players.find((p) => p.id === s.activePlayerId)?.name === "Bob");
+  await guest.until((s) => s.players.find((p) => p.id === s.activePlayerId)?.name === "Bob");
+  check("undo steps the turn back to Bob on both clients", true);
+
   console.log("ownership:");
   const stolenUid = hostHand.cards[0].uid;
   guest.send({ kind: "action", action: { type: "MOVE_CARD", uid: stolenUid, to: "battlefield" } });
