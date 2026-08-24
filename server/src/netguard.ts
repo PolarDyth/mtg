@@ -55,3 +55,39 @@ export function resolveClientIp(
   if (index < 0) return remoteAddress;
   return list[index] ?? remoteAddress;
 }
+
+/**
+ * Normalize the request URL into a form decodeURIComponent can always handle.
+ * Next 16's production router throws deep inside routing on undecodable
+ * escapes — a silent 500 for /game/%ZZ — instead of letting the page render
+ * "bad room code". Two malformed classes are handled: a bare `%` (not
+ * followed by two hex digits) is canonicalized to `%25`, which per RFC 3986
+ * is exactly what a literal `%` in a path means; if valid escapes still form
+ * broken UTF-8 (e.g. %E4%BD), every % is escaped so the URL decodes to its
+ * literal text. Valid URLs pass through untouched.
+ */
+export function sanitizeRequestUrl(raw: string): string {
+  if (!raw.includes("%")) return raw;
+  let canonical = "";
+  for (let i = 0; i < raw.length; ) {
+    if (raw[i] === "%") {
+      const hex = raw.slice(i + 1, i + 3);
+      if (/^[0-9a-fA-F]{2}$/.test(hex)) {
+        canonical += raw.slice(i, i + 3);
+        i += 3;
+      } else {
+        canonical += "%25";
+        i += 1;
+      }
+    } else {
+      canonical += raw[i];
+      i += 1;
+    }
+  }
+  try {
+    decodeURIComponent(canonical);
+    return canonical;
+  } catch {
+    return canonical.replace(/%/g, "%25");
+  }
+}

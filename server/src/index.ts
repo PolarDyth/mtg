@@ -9,6 +9,7 @@
 import { createServer } from "node:http";
 import path from "node:path";
 import next from "next";
+import { sanitizeRequestUrl } from "./netguard";
 import { handleGameUpgrade, isGameUpgrade } from "./ws";
 
 const frontendDir = path.resolve(__dirname, "../../frontend");
@@ -19,6 +20,17 @@ const dev = process.env.NODE_ENV !== "production";
 // the LAN; the Docker image sets HOST=0.0.0.0 (required for the port mapping).
 const host = process.env.HOST ?? "127.0.0.1";
 
+// Last-resort crash backstop: this one process hosts every room, so a throw
+// from an unguarded callback must degrade to a log line, not a process exit.
+// (Callbacks that can throw are individually wrapped in ws.ts — these catch
+// whatever a future edit forgets to guard.)
+process.on("uncaughtException", (err) => {
+  console.error("uncaught exception:", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("unhandled rejection:", reason);
+});
+
 async function main(): Promise<void> {
   const app = next({ dev, dir: frontendDir });
   const handle = app.getRequestHandler();
@@ -26,6 +38,9 @@ async function main(): Promise<void> {
   await app.prepare();
 
   const server = createServer((req, res) => {
+    // /game/%ZZ would otherwise 500 deep inside Next's production router —
+    // canonicalize it to /game/%25ZZ so it renders "bad room code" instead
+    req.url = sanitizeRequestUrl(req.url ?? "/");
     handle(req, res).catch((err: unknown) => {
       console.error("request handler error:", err);
       res.statusCode = 500;

@@ -96,7 +96,14 @@ export class RoomManager {
 
   startSweeping(): void {
     if (this.sweeper) return;
-    this.sweeper = setInterval(() => this.sweep(), SWEEP_INTERVAL_MS);
+    this.sweeper = setInterval(() => {
+      try {
+        this.sweep();
+      } catch (err) {
+        // a bug in one pass must not kill the process hosting every room
+        console.error("room sweep error:", err);
+      }
+    }, SWEEP_INTERVAL_MS);
     this.sweeper.unref();
   }
 

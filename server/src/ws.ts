@@ -26,6 +26,7 @@ import { personalize } from "./engine/view";
 import { originAllowed, resolveClientIp } from "./netguard";
 import { HitWindow, TokenBucket } from "./ratelimit";
 import { RoomManager, isValidCode, normalizeCode } from "./rooms";
+import { nameTaken, seatStillHeld } from "./seating";
 
 type Conn = {
   ws: WebSocket;
@@ -59,6 +60,8 @@ const HELLO_CAPACITY = 5;
 const HELLO_REFILL_PER_SEC = 1;
 const RATE_STRIKE_LIMIT = 5;
 const RATE_STRIKE_MS = 60_000;
+// outbound buffer ceiling per socket before the client is presumed stalled
+const SEND_BUFFER_LIMIT = 4 * 1024 * 1024;
 const MAX_CONNECTIONS = envInt("MAX_CONNECTIONS", 300);
 const MAX_CONNECTIONS_PER_IP = 20; // friends behind one NAT
 const MAX_ROOMS = envInt("MAX_ROOMS", 100);
@@ -74,7 +77,12 @@ const ctx: Ctx = { rng, now: () => Date.now() };
 const rooms = new RoomManager(rng);
 // lobby disconnect GC: drop stale unstarted-game seats, tell whoever's left
 rooms.onSweep = (game) => {
-  if (sweepDisconnectedPlayers(game, Date.now(), rng)) broadcast(game);
+  try {
+    if (sweepDisconnectedPlayers(game, Date.now(), rng)) broadcast(game);
+  } catch (err) {
+    // a bug in the sweep must not kill the process hosting every room
+    console.error("seat sweep error:", err);
+  }
 };
 rooms.startSweeping();
 
@@ -110,13 +118,17 @@ const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD });
 // Detect silently-dead TCP connections (network drops without a FIN):
 // ping every 30s and terminate after two missed responses.
 const heartbeat = setInterval(() => {
-  for (const conn of conns) {
-    if (conn.missedPings >= 2) {
-      conn.ws.terminate();
-      continue;
+  try {
+    for (const conn of conns) {
+      if (conn.missedPings >= 2) {
+        conn.ws.terminate();
+        continue;
+      }
+      conn.missedPings += 1;
+      conn.ws.ping();
     }
-    conn.missedPings += 1;
-    conn.ws.ping();
+  } catch (err) {
+    console.error("heartbeat error:", err);
   }
 }, HEARTBEAT_MS);
 heartbeat.unref();
@@ -189,25 +201,35 @@ wss.on("connection", (ws, req) => {
       clearTimeout(conn.announceTimer);
       conn.announceTimer = null;
     }
-    const game = conn.game;
-    if (!game || !conn.playerId) return;
-    const player = game.players.find((p) => p.id === conn.playerId);
-    if (!player) return;
+    try {
+      const game = conn.game;
+      if (!game || !conn.playerId) return;
+      const player = game.players.find((p) => p.id === conn.playerId);
+      if (!player) return;
+      if (seatStillHeld(conns, conn, player.id)) {
+        // a second socket (multi-tab rejoin) still owns the seat — it stays
+        // connected, or the lobby GC would evict a live player
+        rooms.touch(game.code);
+        return;
+      }
 
-    player.connected = false;
-    player.disconnectedAt = Date.now();
-    // A refresh-and-rejoin within a few seconds shouldn't spam the chat:
-    // announce the disconnect only if the seat stays gone.
-    conn.announceTimer = setTimeout(() => {
-      conn.announceTimer = null;
-      player.disconnectedAnnounced = true;
-      systemMessageNow(game, `${player.name} disconnected`);
+      player.connected = false;
+      player.disconnectedAt = Date.now();
+      // A refresh-and-rejoin within a few seconds shouldn't spam the chat:
+      // announce the disconnect only if the seat stays gone.
+      conn.announceTimer = setTimeout(() => {
+        conn.announceTimer = null;
+        player.disconnectedAnnounced = true;
+        systemMessageNow(game, `${player.name} disconnected`);
+        broadcast(game);
+      }, DISCONNECT_ANNOUNCE_MS);
+      conn.announceTimer.unref();
+
       broadcast(game);
-    }, DISCONNECT_ANNOUNCE_MS);
-    conn.announceTimer.unref();
-
-    broadcast(game);
-    rooms.touch(game.code);
+      rooms.touch(game.code);
+    } catch (err) {
+      console.error("close handler error:", err);
+    }
   });
 
   ws.on("error", () => {
@@ -245,6 +267,9 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
     if (isBanned(game, name, conn.ip)) {
       return failJoin(conn, "you are banned from this table");
     }
+    if (nameTaken(game, name)) {
+      return failJoin(conn, "that name is already taken at this table");
+    }
     seat(conn, game, name);
     return;
   }
@@ -256,6 +281,11 @@ function handleHello(conn: Conn, msg: ClientMessage): void {
       (p) => p.token === msg.token && p.token.length > 0
     );
     if (!player) return sendError(conn, "seat not found for that token");
+    // banning removes the seat (so the lookup above usually fails first), but
+    // don't couple ban enforcement to that side effect — check explicitly
+    if (isBanned(game, player.name, conn.ip)) {
+      return sendError(conn, "you are banned from this table");
+    }
     conn.game = game;
     conn.playerId = player.id;
     player.connected = true;
@@ -333,7 +363,14 @@ function broadcast(game: Game): void {
 }
 
 function send(ws: WebSocket, msg: ServerMessage): void {
-  if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
+  if (ws.readyState !== ws.OPEN) return;
+  if (ws.bufferedAmount > SEND_BUFFER_LIMIT) {
+    // the client stopped reading — drop it instead of buffering snapshots
+    // in RAM forever (close fires asynchronously, so this is safe mid-broadcast)
+    ws.terminate();
+    return;
+  }
+  ws.send(JSON.stringify(msg));
 }
 
 function sendError(conn: Conn, message: string): void {
