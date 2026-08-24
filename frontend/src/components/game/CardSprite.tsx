@@ -28,11 +28,13 @@ type Props = {
   style?: React.CSSProperties;
 };
 
-/** Compact chip label for a counter kind. */
-function counterChipLabel(kind: string): string {
-  if (kind === "+1/+1") return "+1";
-  if (kind === "-1/-1") return "−1";
-  return kind.length > 4 ? `${kind.slice(0, 3)}…` : kind;
+/** Chip text for a counter kind. Power counters read as their total — three
+ *  +1/+1 counters display "+3/+3" — while other kinds count units. */
+export function counterChipText(kind: string, count: number): string {
+  if (kind === "+1/+1") return `+${count}/+${count}`;
+  if (kind === "-1/-1") return `−${count}/−${count}`;
+  const label = kind.length > 4 ? `${kind.slice(0, 3)}…` : kind;
+  return `${label} ×${count}`;
 }
 
 /** Power counters scan differently across a board, so they get their own
@@ -69,7 +71,7 @@ function ChipCluster({
               : "border-emerald-400/60 bg-emerald-900 text-emerald-200"
           }`}
         >
-          {counterChipLabel(kind)} ×{counters[kind]}
+          {counterChipText(kind, counters[kind])}
         </span>
       ))}
       {overflow > 0 && (

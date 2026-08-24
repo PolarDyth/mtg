@@ -45,7 +45,9 @@ export type KeybindId =
   | "transformHover"
   | "graveyardHover"
   | "bottomHover"
-  | "noteHover";
+  | "noteHover"
+  | "counterUpHover"
+  | "counterDownHover";
 
 export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   drawOne: "Ctrl+D",
@@ -86,6 +88,8 @@ export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   graveyardHover: "Ctrl+Delete",
   bottomHover: "Ctrl+B",
   noteHover: "Alt+N",
+  counterUpHover: "Alt+=",
+  counterDownHover: "Alt+-",
 };
 
 const COMBO_TO_ID: ReadonlyMap<string, KeybindId> = new Map(
@@ -135,6 +139,8 @@ export const KEYBIND_LABELS: Record<KeybindId, string> = {
   graveyardHover: "Put it in the graveyard",
   bottomHover: "Put it on the bottom of the library",
   noteHover: "Add a note to it",
+  counterUpHover: "Add a +1/+1 counter to it",
+  counterDownHover: "Remove a +1/+1 counter from it",
 };
 
 /** Cheat-sheet section layout (presentation order); tests assert the
@@ -191,6 +197,8 @@ export const SHORTCUT_GROUPS: { title: string; items: KeybindId[] }[] = [
       "graveyardHover",
       "bottomHover",
       "noteHover",
+      "counterUpHover",
+      "counterDownHover",
     ],
   },
 ];

@@ -23,14 +23,24 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
-    id: "round-4-partner-commanders",
-    label: "Round 4 — partner commanders",
+    id: "round-4-counters-partners",
+    label: "Round 4 — counters and partners",
     date: "2026-08-24",
     items: [
       {
         title: "Two commanders, one command zone",
         detail:
           "Partner pairs work: pick one card or two in the commander picker — both sit in your command zone for the whole table to see, and swapping one never disturbs the other. Deck exports with a Commander section (Moxfield, Archidekt) pre-load both partners automatically.",
+      },
+      {
+        title: "+1/+1 counters, one keypress",
+        detail:
+          "Hover a card on your battlefield and press Alt+= to drop a +1/+1 counter on it (Alt+- takes one off). Same rhythm as tapping — no menu diving for the creatures that grow every turn.",
+      },
+      {
+        title: "Power counters read as their total",
+        detail:
+          "A card carrying three +1/+1 counters now shows \"+3/+3\" on its badge instead of \"+1 ×3\", and −1/−1 counters follow suit — the badge tells you the creature's size at a glance.",
       },
     ],
   },
