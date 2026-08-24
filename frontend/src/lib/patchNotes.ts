@@ -23,6 +23,23 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-4-counter-quick-wins",
+    label: "Round 4 — counter quick wins",
+    date: "2026-08-24",
+    items: [
+      {
+        title: "+1/+1 counters, one keypress",
+        detail:
+          "Hover a card on your battlefield and press Alt+= to drop a +1/+1 counter on it (Alt+- takes one off). Same rhythm as tapping — no menu diving for the creatures that grow every turn.",
+      },
+      {
+        title: "Power counters read as their total",
+        detail:
+          "A card carrying three +1/+1 counters now shows \"+3/+3\" on its badge instead of \"+1 ×3\", and −1/−1 counters follow suit — the badge tells you the creature's size at a glance.",
+      },
+    ],
+  },
+  {
     id: "round-4-mana-accuracy",
     label: "Round 4 — mana pool accuracy",
     date: "2026-08-24",

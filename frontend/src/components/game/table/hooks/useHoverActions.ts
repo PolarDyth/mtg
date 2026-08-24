@@ -2,9 +2,9 @@
 
 /**
  * Hovered-card keybinds (Alt+A arrow, Alt+T tap, Alt+H attach, Alt+F flip,
- * Alt+B transform, Ctrl+Delete graveyard, Ctrl+B bottom, Alt+N note): they
- * act on the card under the cursor, but only where that card is one of
- * your own.
+ * Alt+B transform, Ctrl+Delete graveyard, Ctrl+B bottom, Alt+N note,
+ * Alt+= / Alt+- +1/+1 counters): they act on the card under the cursor, but
+ * only where that card is one of your own.
  */
 
 import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
@@ -77,6 +77,27 @@ export function useHoverActions({
     },
     noteHover: () => {
       if (hoverCard && findOwnHovered(view, you, hoverCard)) addNote(hoverCard);
+    },
+    counterUpHover: () => {
+      const own = findOwnHovered(view, you, hoverCard);
+      if (own?.zone !== "battlefield") return;
+      send({
+        type: "SET_COUNTERS",
+        uid: own.card.uid,
+        counters: {
+          ...own.card.counters,
+          "+1/+1": (own.card.counters["+1/+1"] ?? 0) + 1,
+        },
+      });
+    },
+    counterDownHover: () => {
+      const own = findOwnHovered(view, you, hoverCard);
+      if (own?.zone !== "battlefield") return;
+      const current = own.card.counters["+1/+1"] ?? 0;
+      if (current <= 0) return;
+      const next: Record<string, number> = { ...own.card.counters, "+1/+1": current - 1 };
+      if (current === 1) delete next["+1/+1"];
+      send({ type: "SET_COUNTERS", uid: own.card.uid, counters: next });
     },
   } satisfies KeybindSlice;
   return { keybinds };

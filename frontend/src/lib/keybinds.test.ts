@@ -143,6 +143,16 @@ describe("default keybind matching", () => {
     expect(id({ key: "h" })).toBeNull();
     expect(id({ key: "v" })).toBeNull();
   });
+
+  it("binds hovered-card counters without disturbing life ±1", () => {
+    expect(id({ key: "=", altKey: true })).toBe("counterUpHover");
+    expect(id({ key: "-", altKey: true })).toBe("counterDownHover");
+    // life ±1 keeps the Ctrl+Alt tier, plain keys stay unbound
+    expect(id({ key: "=", ctrlKey: true, altKey: true })).toBe("lifeInc");
+    expect(id({ key: "-", ctrlKey: true, altKey: true })).toBe("lifeDec");
+    expect(id({ key: "=" })).toBeNull();
+    expect(id({ key: "-" })).toBeNull();
+  });
 });
 
 describe("isTypingTarget", () => {
