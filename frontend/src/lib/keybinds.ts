@@ -13,6 +13,7 @@ export type KeybindId =
   | "mulligan"
   | "nextTurn"
   | "passTurn"
+  | "undoTurn"
   | "untapAll"
   | "buffCreatures"
   | "clearManaPool"
@@ -52,6 +53,7 @@ export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   mulligan: "Ctrl+Alt+M",
   nextTurn: "Ctrl+Enter",
   passTurn: "Ctrl+Shift+Enter",
+  undoTurn: "Ctrl+Alt+Z",
   untapAll: "Ctrl+U",
   buffCreatures: "Alt+P",
   clearManaPool: "Alt+C",
@@ -100,6 +102,7 @@ export const KEYBIND_LABELS: Record<KeybindId, string> = {
   mulligan: "Mulligan…",
   nextTurn: "Next phase / turn",
   passTurn: "Pass turn",
+  undoTurn: "Step turn back",
   untapAll: "Untap all permanents",
   buffCreatures: "+1/+1 on all my creatures",
   clearManaPool: "Clear my mana pool",
@@ -161,6 +164,7 @@ export const SHORTCUT_GROUPS: { title: string; items: KeybindId[] }[] = [
     items: [
       "nextTurn",
       "passTurn",
+      "undoTurn",
       "untapAll",
       "buffCreatures",
       "clearManaPool",

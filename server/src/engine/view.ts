@@ -24,8 +24,9 @@ export function personalize(game: Game, viewerId: PlayerId): GameView {
     // Phase is a shared label — identical for every viewer.
     phase: game.phase,
     turnNumber: game.turnNumber,
-    // Elapsed clocks tick client-side against this stamp; identical for all.
+    // Elapsed clocks tick client-side against these stamps; identical for all.
     startedAt: game.startedAt,
+    turnStartedAt: game.turnStartedAt,
     activePlayerId: game.activePlayerId ?? "",
     hostId: game.hostId ?? "",
     players: game.players.map((player) => playerView(player, viewerId)),

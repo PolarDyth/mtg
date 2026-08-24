@@ -312,6 +312,7 @@ export default function GameTable({
             phase={view.phase}
             turn={view.turnNumber}
             startedAt={view.startedAt}
+            turnStartedAt={view.turnStartedAt}
             activeName={
               view.players.find((p) => p.id === view.activePlayerId)?.name ?? "—"
             }
@@ -319,6 +320,7 @@ export default function GameTable({
             onSelect={(phase) => send({ type: "SET_PHASE", phase })}
             onNext={() => send(nextPhaseAction(view.phase))}
             onPassTurn={() => send({ type: "NEXT_TURN" })}
+            onUndoTurn={() => send({ type: "UNDO_TURN" })}
           />
           <HandFan
             cards={hand}

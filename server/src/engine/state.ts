@@ -38,10 +38,14 @@ export type Game = {
   format: Format;
   /** Current turn phase — a synced label, never enforced. */
   phase: Phase;
-  /** Turn count: 0 in the lobby, 1 at START_GAME, +1 per NEXT_TURN. */
+  /** Round count: 0 in the lobby, 1 at START_GAME, +1 whenever turn order
+   *  wraps to the first seat (a full cycle — N players = N passes). */
   turnNumber: number;
   /** Epoch-ms stamp taken at START_GAME (via ctx.now) for elapsed clocks. */
   startedAt: number | null;
+  /** Epoch-ms stamp of the current turn's start; restamped on every turn
+   *  change (NEXT_TURN / UNDO_TURN). Null in the lobby. */
+  turnStartedAt: number | null;
   activePlayerId: PlayerId | null;
   /** First player seated; runs host actions. Transfers when they leave. */
   hostId: PlayerId | null;
@@ -72,6 +76,7 @@ export function createGame(code: string): Game {
     phase: "untap",
     turnNumber: 0,
     startedAt: null,
+    turnStartedAt: null,
     activePlayerId: null,
     hostId: null,
     banned: { names: [], ips: [] },
