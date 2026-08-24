@@ -9,6 +9,7 @@ import {
   findCard,
   randomId,
   systemMessage,
+  TOKEN_MARKER,
   type Game,
   type Player,
 } from "../state";
@@ -98,6 +99,16 @@ export function detachFollowers(game: Game, uid: string): void {
       if (card.attachedTo === uid) card.attachedTo = undefined;
     }
   }
+}
+
+/** Token-ness is the ¶ annotation stamped at creation, not a flag. */
+export function isToken(card: CardInstance): boolean {
+  return card.annotations[0]?.startsWith(TOKEN_MARKER) ?? false;
+}
+
+/** A token's display name — the annotation minus the marker. */
+export function tokenLabel(card: CardInstance): string {
+  return card.annotations[0]?.slice(TOKEN_MARKER.length) || "token";
 }
 
 /** Is this uid currently a battlefield card (any player's)? */
