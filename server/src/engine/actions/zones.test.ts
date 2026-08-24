@@ -1,9 +1,96 @@
 // Zone-flow tests: DRAW_CARDS, MOVE_CARD, MOVE_CARD_INDEX, SHUFFLE_LIBRARY,
-// DISCARD_CARDS, DISCARD_RANDOM, MILL_CARDS, SCRY, SURVEIL.
+// DISCARD_CARDS, DISCARD_RANDOM, MILL_CARDS, SCRY, SURVEIL, token dissolution.
 
 import { describe, expect, it } from "vitest";
 import { systemRng } from "../rng";
+import type { Game, Player } from "../state";
 import { act, mustFail, mustOk, setup, startWithDeck, uidAt } from "./testUtils";
+
+describe("token dissolution", () => {
+  function tokenOnBoard(): { game: Game; ctx: ReturnType<typeof setup>["ctx"]; ada: Player; uid: string } {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "CREATE_TOKEN",
+        name: "Treasure",
+        cardId: "tok-treasure",
+        count: 1,
+      })
+    );
+    return { ...s, uid: s.ada.zones.battlefield.at(-1)!.uid };
+  }
+
+  function inAnyZone(ada: Player, uid: string): boolean {
+    return Object.values(ada.zones).some((list) => list.some((c) => c.uid === uid));
+  }
+
+  it("a token moved off the battlefield ceases to exist with one chat line", () => {
+    for (const to of ["hand", "library", "graveyard", "exile", "command", "sideboard"] as const) {
+      const s = tokenOnBoard();
+      mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: s.uid, to }));
+      expect(inAnyZone(s.ada, s.uid)).toBe(false);
+      const last = s.game.chat.at(-1);
+      if (last?.kind !== "system") throw new Error("expected system message");
+      expect(last.text).toBe("Ada's Treasure ceases to exist");
+    }
+  });
+
+  it("real cards move between zones untouched", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada);
+    const uid = uidAt(ada.zones.hand, 0);
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "graveyard" }));
+    expect(ada.zones.graveyard[0]?.uid).toBe(uid);
+  });
+
+  it("token → battlefield moves keep the token (flicker effects)", () => {
+    const s = tokenOnBoard();
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: s.uid, to: "battlefield" }));
+    expect(inAnyZone(s.ada, s.uid)).toBe(true);
+    expect(s.ada.zones.battlefield.some((c) => c.uid === s.uid)).toBe(true);
+  });
+
+  it("milling a token dissolves it instead of graveyarding it", () => {
+    const s = tokenOnBoard();
+    // Tokens can't normally reach the library; place one there directly.
+    const token = s.ada.zones.battlefield.pop()!;
+    s.ada.zones.library.unshift(token);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MILL_CARDS", count: 1 }));
+    expect(inAnyZone(s.ada, s.uid)).toBe(false);
+    // The dissolve line precedes the mill summary line.
+    expect(
+      s.game.chat.some((m) => m.kind === "system" && m.text === "Ada's Treasure ceases to exist")
+    ).toBe(true);
+  });
+
+  it("discarding a token dissolves it instead of graveyarding it", () => {
+    const s = tokenOnBoard();
+    const token = s.ada.zones.battlefield.pop()!;
+    s.ada.zones.hand.push(token);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DISCARD_CARDS", uids: [s.uid] }));
+    expect(inAnyZone(s.ada, s.uid)).toBe(false);
+    expect(s.game.chat.some((m) => m.kind === "system" && m.text === "Ada's Treasure ceases to exist")).toBe(true);
+  });
+
+  it("arrows pointing at a dissolved token are pruned", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(
+      act(game, ctx, ada, {
+        type: "CREATE_TOKEN",
+        name: "Goblin",
+        cardId: "tok-goblin",
+        count: 1,
+      })
+    );
+    const uid = ada.zones.battlefield.at(-1)!.uid;
+    mustOk(act(game, ctx, ada, { type: "DRAW_ARROW", fromUid: uid, to: { playerId: bob.id } }));
+    expect(game.arrows).toHaveLength(1);
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "exile" }));
+    expect(game.arrows).toHaveLength(0);
+  });
+});
 
 describe("DRAW_CARDS", () => {
   it("draws from the top of the library into the hand", () => {

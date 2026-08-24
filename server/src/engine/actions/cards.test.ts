@@ -191,6 +191,63 @@ describe("ATTACH_CARD", () => {
     mustOk(act(game, ctx, ada, { type: "ATTACH_CARD", uid: b, to: a }));
     mustFail(act(game, ctx, ada, { type: "ATTACH_CARD", uid: a, to: b }), "cycle");
   });
+
+  it("stacks the newest attachment behind the older one", () => {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 3 }));
+    const host = uidAt(s.ada.zones.hand, 0);
+    const first = uidAt(s.ada.zones.hand, 1);
+    const second = uidAt(s.ada.zones.hand, 2);
+    for (const uid of [host, first, second]) {
+      mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid, to: "battlefield" }));
+    }
+    mustOk(act(s.game, s.ctx, s.ada, { type: "ATTACH_CARD", uid: first, to: host }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "ATTACH_CARD", uid: second, to: host }));
+    // Attach order — not battlefield entry order — decides the stack: the
+    // newest follower leads the array (innermost cascade slot, painted
+    // first), the oldest keeps the outer/top slot just under the host.
+    const bf = s.ada.zones.battlefield;
+    const at = (uid: string) => bf.findIndex((c) => c.uid === uid);
+    expect(at(second)).toBeLessThan(at(first));
+    expect(at(first)).toBeLessThan(at(host));
+  });
+
+  it("detaching restores loose board order with the card on top", () => {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 3 }));
+    const host = uidAt(s.ada.zones.hand, 0);
+    const first = uidAt(s.ada.zones.hand, 1);
+    const second = uidAt(s.ada.zones.hand, 2);
+    for (const uid of [host, first, second]) {
+      mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid, to: "battlefield" }));
+    }
+    mustOk(act(s.game, s.ctx, s.ada, { type: "ATTACH_CARD", uid: first, to: host }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "ATTACH_CARD", uid: second, to: host }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "ATTACH_CARD", uid: second, to: null }));
+    const bf = s.ada.zones.battlefield;
+    expect(bf.at(-1)?.uid).toBe(second);
+    expect(bf.find((c) => c.uid === first)?.attachedTo).toBe(host);
+    expect(bf.find((c) => c.uid === second)?.attachedTo).toBeUndefined();
+  });
+
+  it("dragging a follower off (SET_POSITION) detaches and reorders", () => {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 2 }));
+    const host = uidAt(s.ada.zones.hand, 0);
+    const follower = uidAt(s.ada.zones.hand, 1);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: host, to: "battlefield" }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: follower, to: "battlefield" }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "ATTACH_CARD", uid: follower, to: host }));
+    mustOk(
+      act(s.game, s.ctx, s.ada, { type: "SET_POSITION", uid: follower, x: 20, y: 30 })
+    );
+    const bf = s.ada.zones.battlefield;
+    expect(bf.at(-1)?.uid).toBe(follower);
+    expect(bf.find((c) => c.uid === follower)?.attachedTo).toBeUndefined();
+  });
 });
 
 describe("CREATE_TOKEN", () => {

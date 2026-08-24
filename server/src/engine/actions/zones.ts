@@ -5,6 +5,7 @@ import { systemMessage, type Game, type Player } from "../state";
 import {
   detachFollowers,
   err,
+  isToken,
   MAX_DISCARD_AT_ONCE,
   MAX_LOOK,
   ok,
@@ -13,6 +14,7 @@ import {
   requireStarted,
   shuffle,
   takeTopPartition,
+  tokenLabel,
   zoneOf,
   type ActionResult,
   type Ctx,
@@ -65,6 +67,21 @@ function moveCard(
   } else {
     // Default placement: top of library, end of everything else.
     index = action.to === "library" ? 0 : target.length;
+  }
+
+  // A token heading anywhere but the battlefield ceases to exist — how a
+  // physical table clears bounced or milled tokens. (Arrows pointing at it
+  // are pruned automatically after the action.)
+  if (action.to !== "battlefield" && isToken(found.card)) {
+    detachFollowers(game, found.card.uid);
+    removeFromZone(found.card, actor.zones);
+    systemMessage(
+      game,
+      `${actor.name}'s ${tokenLabel(found.card)} ceases to exist`,
+      ctx.rng,
+      ctx.now()
+    );
+    return ok(game);
   }
 
   const wasOnBattlefield = actor.zones.battlefield.includes(found.card);
@@ -151,6 +168,16 @@ function discardCards(
   }
   for (const card of cards) {
     actor.zones.hand.splice(actor.zones.hand.indexOf(card), 1);
+    // Tokens never reach other zones — they cease to exist instead.
+    if (isToken(card)) {
+      systemMessage(
+        game,
+        `${actor.name}'s ${tokenLabel(card)} ceases to exist`,
+        ctx.rng,
+        ctx.now()
+      );
+      continue;
+    }
     card.attachedTo = undefined;
     actor.zones.graveyard.push(card);
   }
@@ -190,6 +217,15 @@ function discardRandom(
   }
   const picked = hand.splice(0, count);
   for (const card of picked) {
+    if (isToken(card)) {
+      systemMessage(
+        game,
+        `${actor.name}'s ${tokenLabel(card)} ceases to exist`,
+        ctx.rng,
+        ctx.now()
+      );
+      continue;
+    }
     card.attachedTo = undefined;
     actor.zones.graveyard.push(card);
   }
@@ -218,7 +254,17 @@ function millCards(
   const milled = Math.min(action.count, actor.zones.library.length);
   for (let i = 0; i < milled; i++) {
     const card = actor.zones.library.shift();
-    if (card) actor.zones.graveyard.push(card);
+    if (!card) continue;
+    if (isToken(card)) {
+      systemMessage(
+        game,
+        `${actor.name}'s ${tokenLabel(card)} ceases to exist`,
+        ctx.rng,
+        ctx.now()
+      );
+      continue;
+    }
+    actor.zones.graveyard.push(card);
   }
   systemMessage(
     game,
@@ -280,10 +326,18 @@ function surveil(
   actor.zones.library.unshift(...topCards);
   for (const uid of action.graveyard) {
     const card = byUid.get(uid);
-    if (card) {
-      card.attachedTo = undefined;
-      actor.zones.graveyard.push(card);
+    if (!card) continue;
+    if (isToken(card)) {
+      systemMessage(
+        game,
+        `${actor.name}'s ${tokenLabel(card)} ceases to exist`,
+        ctx.rng,
+        ctx.now()
+      );
+      continue;
     }
+    card.attachedTo = undefined;
+    actor.zones.graveyard.push(card);
   }
   systemMessage(
     game,
