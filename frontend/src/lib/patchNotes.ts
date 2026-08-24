@@ -23,6 +23,28 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-4-mana-accuracy",
+    label: "Round 4 — mana pool accuracy",
+    date: "2026-08-24",
+    items: [
+      {
+        title: "Tapping for mana counts correctly",
+        detail:
+          "Sol Ring now banks two colorless, lotuses that \"add three mana of any one color\" bank three, and any-color producers like City of Brass bank a single pip instead of five. Oddballs the text can't pin down (Nykthos and friends) still bank one of each color — adjust the pips by hand as before.",
+      },
+      {
+        title: "Double-faced cards tap for the face you see",
+        detail:
+          "Tapping the untransformed front of a modal double-faced card (Emeria's Call, a sorcery) no longer banks its land side's mana — the pool only credits the face that's actually showing.",
+      },
+      {
+        title: "Optional: auto-clear your mana",
+        detail:
+          "A new switch in the header's display panel (zoom icon) empties your pool whenever the phase or turn advances, the way paper Magic drains at every step. Off by default — the pool stays fully manual unless you flip it.",
+      },
+    ],
+  },
+  {
     id: "round-4-turns-tokens-table",
     label: "Round 4 — turns, tokens & tables",
     date: "2026-08-24",
