@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SkipForward } from "lucide-react";
+import { SkipForward, Undo2 } from "lucide-react";
 import { ALL_PHASES, type Phase } from "@mythic/shared";
 
 /** Compact strip labels; tooltips spell out the less obvious ones. */
@@ -34,29 +34,36 @@ function formatElapsed(ms: number): string {
  * Turn-phase strip, docked above your hand. The phase is a shared label
  * everyone can move: clicking jumps there for the whole table, "Next ▸"
  * advances one phase, and "Turn" passes the turn outright (NEXT_TURN, same
- * as Ctrl+Shift+Enter). Nothing is enforced anywhere; this is a shared
- * bookmark. The turn counter and elapsed clock tick client-side against the
- * shared start stamp — the server never ticks.
+ * as Ctrl+Shift+Enter); the rewind button steps the turn back one seat
+ * (UNDO_TURN — bookkeeping only, zones and taps are never rewound). Nothing
+ * is enforced anywhere; this is a shared bookmark. The counter counts full
+ * rounds (one cycle through the seats), and both elapsed clocks tick
+ * client-side against the shared stamps — the server never ticks.
  */
 export default function PhaseBar({
   phase,
   turn,
   startedAt,
+  turnStartedAt,
   activeName,
   isYou,
   onSelect,
   onNext,
   onPassTurn,
+  onUndoTurn,
 }: {
   phase: Phase;
   turn: number;
   /** epoch-ms game start; the clock pauses (renders 00:00) when absent */
   startedAt: number | null;
+  /** epoch-ms current-turn start; a second clock, restamped on every pass */
+  turnStartedAt: number | null;
   activeName: string;
   isYou: boolean;
   onSelect: (phase: Phase) => void;
   onNext: () => void;
   onPassTurn: () => void;
+  onUndoTurn: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
 
@@ -70,10 +77,17 @@ export default function PhaseBar({
     <div className="bar-in flex h-7 shrink-0 items-center gap-1 overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-950/70 px-2 text-xs">
       <span
         className="mr-1 flex shrink-0 items-center gap-1.5 rounded bg-zinc-800/80 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400"
-        title={`Turn ${turn} — time since the game started`}
+        title={`Turn ${turn} — one full round through the seats`}
       >
         <span className="text-zinc-200">Turn {turn}</span>
-        <span>{startedAt === null ? "00:00" : formatElapsed(now - startedAt)}</span>
+        <span title="Time since the game started">
+          {startedAt === null ? "00:00" : formatElapsed(now - startedAt)}
+        </span>
+        <span title="Time since the turn started">
+          {startedAt === null || turnStartedAt === null
+            ? "00:00"
+            : formatElapsed(now - turnStartedAt)}
+        </span>
       </span>
       <span
         className={`mr-1 shrink-0 truncate font-medium uppercase tracking-wider ${
@@ -102,6 +116,13 @@ export default function PhaseBar({
         className="ml-auto shrink-0 rounded bg-emerald-700 px-2 py-0.5 font-medium text-white hover:bg-emerald-600"
       >
         Next ▸
+      </button>
+      <button
+        onClick={onUndoTurn}
+        title="Step the turn back (Ctrl+Alt+Z)"
+        className="flex shrink-0 items-center rounded bg-zinc-700 px-1.5 py-0.5 text-zinc-200 hover:bg-zinc-600"
+      >
+        <Undo2 className="h-3 w-3" strokeWidth={1.75} />
       </button>
       <button
         onClick={onPassTurn}

@@ -48,6 +48,7 @@ export function useGameActions({
     drawOne: () => send({ type: "DRAW_CARDS", count: 1 }),
     nextTurn: () => send(nextPhaseAction(view.phase)),
     passTurn: () => send({ type: "NEXT_TURN" }),
+    undoTurn: () => send({ type: "UNDO_TURN" }),
     untapAll: () => {
       const cards =
         self?.zones.battlefield.kind === "cards" ? self.zones.battlefield.cards : [];

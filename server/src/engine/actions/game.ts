@@ -46,6 +46,7 @@ function startGame(
   game.phase = "untap";
   game.turnNumber = 1;
   game.startedAt = ctx.now();
+  game.turnStartedAt = ctx.now();
   game.activePlayerId = game.players[0].id;
   systemMessage(
     game,
@@ -108,10 +109,15 @@ function nextTurn(
   const started = requireStarted(game);
   if (started) return err(started);
   const i = game.players.findIndex((p) => p.id === game.activePlayerId);
-  const next = game.players[(i + 1 + game.players.length) % game.players.length];
+  const nextIndex = (i + 1 + game.players.length) % game.players.length;
+  const next = game.players[nextIndex];
   game.activePlayerId = next.id;
   game.phase = "untap";
-  game.turnNumber += 1;
+  // The counter counts ROUNDS: it advances only when order wraps to the
+  // first seat, so N seated players take N passes per increment (and a
+  // player leaving mid-game never jumps the count).
+  if (nextIndex === 0) game.turnNumber += 1;
+  game.turnStartedAt = ctx.now();
   // Passing the turn ends combat talk — attack/block arrows go with it.
   game.arrows = [];
   // Convenience, deliberately dumb: the incoming player's whole board
@@ -119,6 +125,40 @@ function nextTurn(
   // the server syncs state, it never judges.
   for (const card of next.zones.battlefield) card.tapped = false;
   systemMessage(game, `It is now ${next.name}'s turn`, ctx.rng, ctx.now());
+  return ok(game);
+}
+
+/** Bookkeeping-only step back after an accidental double-pass: the turn
+ *  pointer moves to the previous seat, the round counter unwinds across the
+ *  wrap, and nothing else changes. Zones, taps, draws, and arrows stay as
+ *  they are — NEXT_TURN already cleared the arrows and there is no history
+ *  to restore them from. The previous player was untapped when they first
+ *  received the turn, so there is no untap to redo either. Like NEXT_TURN,
+ *  any seated player may send it. */
+function undoTurn(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "UNDO_TURN" }>,
+  ctx: Ctx
+): ActionResult {
+  const started = requireStarted(game);
+  if (started) return err(started);
+  const n = game.players.length;
+  const i = game.players.findIndex((p) => p.id === game.activePlayerId);
+  const prevIndex = (i - 1 + n) % n;
+  const prev = game.players[prevIndex];
+  game.activePlayerId = prev.id;
+  game.phase = "untap";
+  // Mirror of nextTurn's wrap increment: stepping back to the last seat
+  // unwinds one round, clamped at 1 (bookkeeping never dips below start).
+  if (prevIndex === n - 1) game.turnNumber = Math.max(1, game.turnNumber - 1);
+  game.turnStartedAt = ctx.now();
+  systemMessage(
+    game,
+    `${actor.name} takes the turn back — it is now ${prev.name}'s turn`,
+    ctx.rng,
+    ctx.now()
+  );
   return ok(game);
 }
 
@@ -177,6 +217,7 @@ function leaveGame(
 export const gameHandlers = {
   START_GAME: startGame,
   NEXT_TURN: nextTurn,
+  UNDO_TURN: undoTurn,
   SET_PHASE: setPhase,
   SET_LIFE: setLife,
   SET_MANA: setMana,

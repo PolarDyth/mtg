@@ -112,6 +112,13 @@ describe("default keybind matching", () => {
     expect(id({ key: "Enter", metaKey: true, shiftKey: true })).toBe("passTurn");
   });
 
+  it("binds undo turn without disturbing pass turn", () => {
+    expect(id({ key: "z", ctrlKey: true, altKey: true })).toBe("undoTurn");
+    // plain Ctrl+Z (browser/text undo) stays unintercepted
+    expect(id({ key: "z", ctrlKey: true })).toBeNull();
+    expect(id({ key: "z" })).toBeNull();
+  });
+
   it("binds the round-2 mechanics without disturbing older combos", () => {
     expect(id({ key: "d", ctrlKey: true, shiftKey: true })).toBe("randomDiscard");
     expect(id({ key: "p", altKey: true })).toBe("buffCreatures");

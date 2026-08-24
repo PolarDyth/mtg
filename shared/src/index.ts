@@ -171,6 +171,10 @@ export type Action =
   | { type: "ROLL_DIE"; sides: number }
   | { type: "SET_PHASE"; phase: Phase }
   | { type: "NEXT_TURN" }
+  /** Bookkeeping-only step back: moves the turn pointer to the previous
+   *  seat and unwinds the round counter. Zones, taps, and draws are never
+   *  rewound — the table adjusts by hand, same no-enforcement philosophy. */
+  | { type: "UNDO_TURN" }
   | { type: "SEND_CHAT"; text: string }
   | { type: "LEAVE_GAME" }
   | { type: "END_GAME" }
@@ -227,11 +231,15 @@ export type GameView = {
   format: Format;
   /** Current turn phase — a shared label, identical for every viewer. */
   phase: Phase;
-  /** Turn counter — 1 from game start, +1 per NEXT_TURN. Shared label. */
+  /** Round counter — 1 from game start, +1 once per full cycle through the
+   *  seats (N players = N passes per increment). Shared label. */
   turnNumber: number;
   /** Game-start timestamp (epoch ms) for elapsed clocks; null in the lobby.
    *  Clients tick their own clock against it; the server never ticks. */
   startedAt: number | null;
+  /** Turn-start timestamp (epoch ms), restamped on every turn change; null
+   *  in the lobby. Drives the per-turn clock the same client-ticked way. */
+  turnStartedAt: number | null;
   activePlayerId: PlayerId;
   /** Who runs host actions (end game, remove players). */
   hostId: PlayerId;
