@@ -65,7 +65,7 @@ describe("SET_COMMANDER", () => {
     );
     expect(ada.zones.command).toHaveLength(1);
     expect(ada.zones.command[0]?.cardId).toBe("cmd-atarxa");
-    expect(ada.zones.command[0]?.annotations[0]).toBe("¶Atraxa");
+    expect(ada.zones.command[0]?.annotations[0]).toBe("†Atraxa");
     expect(ada.hasDeck).toBe(true);
     expect(game.chat.at(-1)?.kind).toBe("system");
   });
@@ -107,6 +107,26 @@ describe("SET_COMMANDER", () => {
       act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "", name: "X" }),
       "bad commander"
     );
+  });
+
+  it("a commander leaving the battlefield survives — it is not a token", () => {
+    const { game, ctx, ada, bob } = setup();
+    mustOk(act(game, ctx, ada, { type: "SET_COMMANDER", cardId: "cmd-atarxa", name: "Atraxa" }));
+    mustOk(act(game, ctx, bob, { type: "SET_COMMANDER", cardId: "cmd-bob", name: "Ragavan" }));
+    mustOk(act(game, ctx, ada, { type: "START_GAME" }));
+    const uid = ada.zones.command[0]?.uid;
+    if (!uid) throw new Error("no commander");
+    // cast, then the routine death flow: back to the command zone
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "battlefield" }));
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "command" }));
+    expect(ada.zones.command.some((c) => c.uid === uid)).toBe(true);
+    const last = game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    expect(last.text).not.toContain("ceases to exist");
+    // a bounce to hand keeps it a real card too
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "battlefield" }));
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "hand" }));
+    expect(ada.zones.hand.some((c) => c.uid === uid)).toBe(true);
   });
 
   it("shows the commander to everyone via the public command zone", () => {
