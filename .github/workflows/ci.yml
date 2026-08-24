@@ -86,6 +86,7 @@ jobs:
           node server/scripts/e2e-m2.js
           node server/scripts/e2e-reveal-to.js
           node server/scripts/e2e-security.js
+          node server/scripts/e2e-partners.js
       - name: Dump server log
         if: failure()
         run: cat server.log
