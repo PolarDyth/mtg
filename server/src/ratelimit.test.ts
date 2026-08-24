@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HitWindow, TokenBucket } from "./ratelimit";
+import { HitWindow, sweepHitWindows, TokenBucket } from "./ratelimit";
 
 describe("HitWindow", () => {
   it("counts hits inside the window", () => {
@@ -29,6 +29,37 @@ describe("HitWindow", () => {
     w.hit(1);
     w.reset();
     expect(w.count(1)).toBe(0);
+  });
+});
+
+describe("sweepHitWindows", () => {
+  it("deletes fully-expired entries and keeps live ones", () => {
+    const windows = new Map<string, HitWindow>();
+    const stale = new HitWindow(60_000);
+    stale.hit(0); // expired by t=60_000
+    const live = new HitWindow(60_000);
+    live.hit(30_000); // still inside the window at t=60_000
+    windows.set("2001:db8::1", stale);
+    windows.set("203.0.113.7", live);
+
+    expect(sweepHitWindows(windows, 60_000)).toBe(1);
+    expect(windows.has("2001:db8::1")).toBe(false);
+    expect(windows.has("203.0.113.7")).toBe(true);
+  });
+
+  it("bounds memory: every entry is gone within windowMs of its last hit", () => {
+    const windows = new Map<string, HitWindow>();
+    for (let i = 0; i < 1000; i++) {
+      const w = new HitWindow(60_000);
+      w.hit(i); // each IP's only hit at its own connect time
+      windows.set(`198.51.100.${i % 256}:${i}`, w);
+    }
+    sweepHitWindows(windows, 1_000 + 60_000);
+    expect(windows.size).toBe(0);
+  });
+
+  it("handles an empty map", () => {
+    expect(sweepHitWindows(new Map(), 0)).toBe(0);
   });
 });
 
