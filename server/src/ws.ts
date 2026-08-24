@@ -24,7 +24,7 @@ import {
 } from "./engine/state";
 import { personalize } from "./engine/view";
 import { originAllowed, resolveClientIp } from "./netguard";
-import { HitWindow, TokenBucket } from "./ratelimit";
+import { HitWindow, sweepHitWindows, TokenBucket } from "./ratelimit";
 import { RoomManager, isValidCode, normalizeCode } from "./rooms";
 import { nameTaken, seatStillHeld } from "./seating";
 
@@ -89,8 +89,9 @@ rooms.startSweeping();
 const conns = new Set<Conn>();
 
 // Failed joins per IP across all connections. Entries are pruned to zero (and
-// deleted) on that IP's next join attempt, so the map only grows with the
-// number of distinct misbehaving IPs.
+// deleted) on that IP's next join attempt or by the heartbeat's periodic sweep
+// — the sweep matters because an attacker churning source IPs never rejoins
+// from the same one, and without it the map would grow without bound.
 const ipJoinFails = new Map<string, HitWindow>();
 
 export function isGameUpgrade(req: IncomingMessage): boolean {
@@ -116,7 +117,8 @@ export function handleGameUpgrade(
 const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD });
 
 // Detect silently-dead TCP connections (network drops without a FIN):
-// ping every 30s and terminate after two missed responses.
+// ping every 30s and terminate after two missed responses. The same pass
+// evicts fully-expired ipJoinFails entries (60s window → gone within ~90s).
 const heartbeat = setInterval(() => {
   try {
     for (const conn of conns) {

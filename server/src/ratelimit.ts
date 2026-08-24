@@ -24,6 +24,24 @@ export class HitWindow {
   }
 }
 
+/** Drop every entry whose window has fully expired. IP-keyed HitWindow maps
+ *  (failed joins) otherwise linger until that exact IP happens to send
+ *  another join — an attacker churning source addresses (IPv6 ranges make
+ *  them free) would grow the map without bound. Returns the removed count. */
+export function sweepHitWindows<K>(
+  windows: Map<K, HitWindow>,
+  at: number
+): number {
+  let removed = 0;
+  for (const [key, window] of windows) {
+    if (window.count(at) === 0) {
+      windows.delete(key);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
 /**
  * Token bucket for per-connection message limits: full capacity available as
  * a burst, refilling continuously at refillPerSecond. Clock is injected so
