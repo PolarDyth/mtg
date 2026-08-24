@@ -124,6 +124,29 @@ describe("MOVE_CARD and MOVE_CARD_INDEX", () => {
     expect(uidAt(ada.zones.library, 0)).toBe(uid);
   });
 
+  it("the faceDown flag lands the card face-down and the facing rides along later moves", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(ada.zones.hand, 0);
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "battlefield", faceDown: true }));
+    expect(ada.zones.battlefield.at(-1)?.faceDown).toBe(true);
+    // No flag on a later move: the facing persists instead of resetting.
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "hand" }));
+    expect(ada.zones.hand.at(-1)?.faceDown).toBe(true);
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "battlefield", faceDown: false }));
+    expect(ada.zones.battlefield.at(-1)?.faceDown).toBe(false);
+  });
+
+  it("moves without the flag never flip an upturned card", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(ada.zones.hand, 0);
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "graveyard" }));
+    expect(ada.zones.graveyard.at(-1)?.faceDown).toBe(false);
+  });
+
   it("respects an explicit index (bottom of library)", () => {
     const { game, ctx, ada } = setup();
     startWithDeck(game, ctx, ada, 10);

@@ -135,6 +135,9 @@ export type Action =
        *  0-based index clamped to the zone length. Default: top of library,
        *  end of everything else. */
       index?: number | "top" | "bottom";
+      /** Land the card face-down as it arrives (e.g. played from hand).
+       * Absent = leave the card's current facing untouched. */
+      faceDown?: boolean;
     }
   | { type: "MOVE_CARD_INDEX"; uid: string; index: number }
   | { type: "SET_TAPPED"; uid: string; value: boolean }
