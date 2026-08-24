@@ -12,7 +12,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import type { Action, CardView, GameView, PlayerId } from "@mythic/shared";
+import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
 import { findOwnHovered, onAnyBattlefield } from "../foundation";
 import { arrowTargetAt } from "../hitTest";
 import type { KeybindSlice } from "../keybinds";

@@ -10,7 +10,7 @@
 
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { X } from "lucide-react";
-import { MANA_COLORS, type ManaColor, type ManaPool } from "@mythic/shared";
+import { MANA_COLORS, type ManaColor, type ManaPool } from "@cardessa/shared";
 
 const PIP_COLORS: Record<ManaColor, string> = {
   W: "text-zinc-100",

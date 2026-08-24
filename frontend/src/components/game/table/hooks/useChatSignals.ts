@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import type { Action, PlayerView } from "@mythic/shared";
+import type { Action, PlayerView } from "@cardessa/shared";
 import type { KeybindSlice } from "../keybinds";
 
 export function useChatSignals({

@@ -5,7 +5,7 @@ import {
   type Action,
   type ChatMessage,
   type PlayerId,
-} from "@mythic/shared";
+} from "@cardessa/shared";
 import { chatId, pushChat, type Game, type Player } from "../state";
 import {
   ALLOWED_DIE_SIDES,

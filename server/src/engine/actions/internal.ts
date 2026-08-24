@@ -3,7 +3,7 @@
 // is structural + ownership only; the server never rejects an action for
 // game-rule reasons.
 
-import type { Action, CardInstance } from "@mythic/shared";
+import type { Action, CardInstance } from "@cardessa/shared";
 import type { Rng } from "../rng";
 import {
   findCard,

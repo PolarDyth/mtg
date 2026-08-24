@@ -1,4 +1,4 @@
-// Mythic Table entry point: one Node process serving both the Next.js app
+// Cardessa entry point: one Node process serving both the Next.js app
 // and the game WebSocket server, on a single port.
 //
 // In dev, `tsx watch src/index.ts` boots Next in dev mode (Turbopack) through
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
 
   server.listen(port, host, () => {
     console.log(
-      `> Mythic Table listening on http://${host}:${port} (${dev ? "dev" : "production"})`
+      `> Cardessa listening on http://${host}:${port} (${dev ? "dev" : "production"})`
     );
   });
 }

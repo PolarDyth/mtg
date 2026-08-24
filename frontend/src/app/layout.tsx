@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mythic Table",
+  title: "Cardessa",
   description:
     "A no-rules-enforced virtual tabletop for Magic: The Gathering - room codes, no accounts.",
 };

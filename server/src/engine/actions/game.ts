@@ -1,6 +1,6 @@
 // Game flow: starting the game, turn order, life totals, mana pools, leaving.
 
-import { ALL_PHASES, MANA_COLORS, emptyMana, type Action, type Format } from "@mythic/shared";
+import { ALL_PHASES, MANA_COLORS, emptyMana, type Action, type Format } from "@cardessa/shared";
 import {
   removePlayer,
   systemMessage,

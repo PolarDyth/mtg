@@ -2,7 +2,7 @@
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Maximize2, Minimize2, X } from "lucide-react";
-import type { Arrow, CardView, ManaColor, PlayerId, PlayerView } from "@mythic/shared";
+import type { Arrow, CardView, ManaColor, PlayerId, PlayerView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import ArrowLayer from "./ArrowLayer";
 import PlayerBand from "./PlayerBand";

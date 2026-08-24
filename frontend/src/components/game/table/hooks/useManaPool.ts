@@ -15,7 +15,7 @@ import {
   type ManaColor,
   type ManaPool,
   type PlayerView,
-} from "@mythic/shared";
+} from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { manaAfterSpend, manaAfterTap } from "../foundation";
 import type { KeybindSlice } from "../keybinds";

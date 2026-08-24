@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { CardView } from "@mythic/shared";
+import type { CardView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { clampPreviewWidth, loadPreviewWidth, savePreviewWidth } from "@/lib/settings";
 

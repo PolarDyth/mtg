@@ -1,7 +1,7 @@
 // Shared harness for the per-domain action tests.
 
 import { expect } from "vitest";
-import type { Action, CardInstance } from "@mythic/shared";
+import type { Action, CardInstance } from "@cardessa/shared";
 import { seededRng } from "../rng";
 import { addPlayer, createGame, makePlayer, type Game, type Player } from "../state";
 import { applyAction, type Ctx } from "./index";

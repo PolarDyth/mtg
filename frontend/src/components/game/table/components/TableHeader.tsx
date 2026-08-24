@@ -20,7 +20,7 @@ import {
   UserX,
   ZoomIn,
 } from "lucide-react";
-import type { Action, GameView, PlayerId } from "@mythic/shared";
+import type { Action, GameView, PlayerId } from "@cardessa/shared";
 import {
   clampPreviewWidth,
   PREVIEW_DEFAULT,

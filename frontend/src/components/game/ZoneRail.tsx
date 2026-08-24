@@ -1,7 +1,7 @@
 "use client";
 
 import type { ComponentType } from "react";
-import type { Zone, ZoneView } from "@mythic/shared";
+import type { Zone, ZoneView } from "@cardessa/shared";
 import { Backpack, Ban, Crown, LibraryBig, Skull } from "lucide-react";
 
 type PileSpec = {

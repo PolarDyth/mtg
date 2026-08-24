@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlayerId, PlayerView } from "@mythic/shared";
+import type { PlayerId, PlayerView } from "@cardessa/shared";
 import { Check, Users } from "lucide-react";
 import { nameColor } from "./ChatLog";
 

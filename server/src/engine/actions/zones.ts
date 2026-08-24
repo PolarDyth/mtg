@@ -1,6 +1,6 @@
 // Card flow between zones: drawing, moving, reordering, shuffling.
 
-import type { Action, CardInstance } from "@mythic/shared";
+import type { Action, CardInstance } from "@cardessa/shared";
 import { systemMessage, type Game, type Player } from "../state";
 import {
   detachFollowers,

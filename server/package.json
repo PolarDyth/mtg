@@ -1,5 +1,5 @@
 {
-  "name": "@mythic/server",
+  "name": "@cardessa/server",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,7 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mythic/shared": "*",
+    "@cardessa/shared": "*",
     "next": "^16.3.1",
     "tsx": "^4.19.0",
     "ws": "^8.18.0"

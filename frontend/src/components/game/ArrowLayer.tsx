@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { Arrow, PlayerId, PlayerView } from "@mythic/shared";
+import type { Arrow, PlayerId, PlayerView } from "@cardessa/shared";
 import { nameColor } from "@/lib/playerColor";
 import { arrowPath, localCenter, type Pt } from "./arrowGeometry";
 

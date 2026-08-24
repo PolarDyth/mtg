@@ -1,6 +1,6 @@
 // Host powers: ending the game, removing players, banning players.
 
-import { emptyMana, type Action } from "@mythic/shared";
+import { emptyMana, type Action } from "@cardessa/shared";
 import {
   emptyZones,
   findPlayer,

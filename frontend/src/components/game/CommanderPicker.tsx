@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Action } from "@mythic/shared";
+import type { Action } from "@cardessa/shared";
 import { putCards } from "@/lib/cardCache";
 import { searchCommanderCandidates, type CardDef } from "@/lib/scryfall";
 

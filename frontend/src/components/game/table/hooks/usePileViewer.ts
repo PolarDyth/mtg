@@ -14,7 +14,7 @@ import type {
   PlayerId,
   PlayerView,
   Zone,
-} from "@mythic/shared";
+} from "@cardessa/shared";
 import type { KeybindSlice } from "../keybinds";
 
 export type PileState = {

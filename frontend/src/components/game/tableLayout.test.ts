@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-// type-only: no runtime dependency on @mythic/shared inside vitest
-import type { PlayerView, Zone, ZoneView } from "@mythic/shared";
+// type-only: no runtime dependency on @cardessa/shared inside vitest
+import type { PlayerView, Zone, ZoneView } from "@cardessa/shared";
 import { seatGrid } from "./tableLayout";
 
 const YOU = "you";

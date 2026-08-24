@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { DeckEntry } from "@mythic/shared";
+import type { DeckEntry } from "@cardessa/shared";
 import { mergeDuplicates, parseDecklist, totalCards } from "@/lib/decklist";
 import { getCardByName, putCards } from "@/lib/cardCache";
 import { resolveCards, type CardDef } from "@/lib/scryfall";

@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import type { GameView } from "@mythic/shared";
+import type { GameView } from "@cardessa/shared";
 
 export function useHeaderMenus(view: GameView) {
   const [copied, setCopied] = useState(false);

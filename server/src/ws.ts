@@ -11,7 +11,7 @@ import {
   type Action,
   type ClientMessage,
   type ServerMessage,
-} from "@mythic/shared";
+} from "@cardessa/shared";
 import { applyAction, isBanned, type Ctx } from "./engine/actions";
 import { sweepDisconnectedPlayers } from "./engine/gc";
 import { systemRng, type Rng } from "./engine/rng";

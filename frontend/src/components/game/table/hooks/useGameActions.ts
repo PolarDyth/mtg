@@ -7,7 +7,7 @@
  * with the Actions dock. Pile-viewing binds live in usePileViewer instead.
  */
 
-import type { Action, GameView, PlayerView } from "@mythic/shared";
+import type { Action, GameView, PlayerView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { isCreature, nextPhaseAction } from "../foundation";
 import type { KeybindSlice } from "../keybinds";

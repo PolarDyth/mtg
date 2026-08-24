@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Action, CardView } from "@mythic/shared";
+import type { Action, CardView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { PREVIEW_DEFAULT } from "@/lib/settings";
 import CardPreview from "./CardPreview";

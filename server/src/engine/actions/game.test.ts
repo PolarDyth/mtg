@@ -1,6 +1,6 @@
 // Game-flow tests: START_GAME, NEXT_TURN, UNDO_TURN, SET_PHASE, SET_LIFE, LEAVE_GAME.
 
-import type { Phase } from "@mythic/shared";
+import type { Phase } from "@cardessa/shared";
 import { describe, expect, it } from "vitest";
 import { addPlayer, makePlayer } from "../state";
 import { act, mustFail, mustOk, setup, startWithDeck, uidAt } from "./testUtils";

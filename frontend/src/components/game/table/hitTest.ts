@@ -3,7 +3,7 @@
  * because these read the live document.
  */
 
-import type { PlayerId } from "@mythic/shared";
+import type { PlayerId } from "@cardessa/shared";
 
 /** What arrow target sits under this viewport point: a battlefield card or
  *  a player's band header. Hand/pile cards never qualify. */

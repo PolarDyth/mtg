@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { ClientMessage, ServerMessage } from "@mythic/shared";
+import type { ClientMessage, ServerMessage } from "@cardessa/shared";
 import PatchNotes from "@/components/PatchNotes";
 import { loadName, saveName, saveSession } from "@/lib/session";
 
@@ -101,7 +101,7 @@ export default function HomePage() {
       <div className="flex max-h-[calc(100dvh-3rem)] w-full max-w-md flex-col">
         <header className="mb-8 shrink-0 text-center">
           <h1 className="text-4xl font-serif font-bold tracking-tight text-zinc-100">
-            Mythic Table
+            Cardessa
           </h1>
           <p className="mt-2 text-sm text-zinc-400">
             A virtual tabletop for Magic: The Gathering

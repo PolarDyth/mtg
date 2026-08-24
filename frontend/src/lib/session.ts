@@ -1,6 +1,6 @@
 "use client";
 
-import type { PlayerId } from "@mythic/shared";
+import type { PlayerId } from "@cardessa/shared";
 
 /**
  * Identity is per-tab: sessionStorage keyed by room code means two browser

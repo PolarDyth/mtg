@@ -13,7 +13,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import type { Action, CardView, GameView, PlayerId, Zone } from "@mythic/shared";
+import type { Action, CardView, GameView, PlayerId, Zone } from "@cardessa/shared";
 import { battlefieldDrop, findOwnCard } from "../foundation";
 
 export type DragState = {

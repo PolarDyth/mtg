@@ -1,7 +1,7 @@
 // Battlefield card state: flags, counters, position, notes, attachments,
 // tokens, and drawn arrows.
 
-import type { Action, CardInstance } from "@mythic/shared";
+import type { Action, CardInstance } from "@cardessa/shared";
 import {
   findPlayer,
   randomId,

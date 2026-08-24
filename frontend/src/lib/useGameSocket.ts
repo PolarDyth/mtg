@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ServerMessage } from "@mythic/shared";
+import type { ServerMessage } from "@cardessa/shared";
 
 export type SocketStatus = "connecting" | "open" | "reconnecting";
 

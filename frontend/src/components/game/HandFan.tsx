@@ -1,7 +1,7 @@
 "use client";
 
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
-import type { CardView } from "@mythic/shared";
+import type { CardView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import CardSprite from "./CardSprite";
 

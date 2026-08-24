@@ -6,7 +6,7 @@ import type {
   GameView,
   PlayerId,
   ServerMessage,
-} from "@mythic/shared";
+} from "@cardessa/shared";
 import { useGameSocket } from "./useGameSocket";
 import { clearSession, loadName, loadSession, saveSession } from "./session";
 

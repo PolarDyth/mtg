@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChatMessage, PlayerId, PlayerView } from "@mythic/shared";
+import type { ChatMessage, PlayerId, PlayerView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import { Eye } from "lucide-react";
 
