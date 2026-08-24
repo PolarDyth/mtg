@@ -23,6 +23,43 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-4-turns-tokens-table",
+    label: "Round 4 — turns, tokens & tables",
+    date: "2026-08-24",
+    items: [
+      {
+        title: "Turns count rounds, not passes",
+        detail:
+          "The turn number now advances once per full cycle through the table — in a four-player game, the counter reads 3 during round 3 instead of 9.",
+      },
+      {
+        title: "Step a turn back",
+        detail:
+          "Passed too fast? The rewind button beside the Turn button (or Ctrl+Alt+Z) hands the turn back to the previous player and unwinds the counter — cards, taps, and draws stay exactly as they were, and the chat announces the takeback.",
+      },
+      {
+        title: "Per-turn clock",
+        detail:
+          "The phase bar's clock pair now shows how long the current turn has been running beside the total game time — both reset correctly when turns pass or rewind.",
+      },
+      {
+        title: "Tokens vanish when they leave play",
+        detail:
+          "Bouncing, milling, or exiling a token now makes it cease to exist — just like clearing it off a physical table — with one chat line so nobody wonders where it went.",
+      },
+      {
+        title: "New attachments stack behind",
+        detail:
+          "Attach a second aura or equipment to a creature and it now tucks in behind the ones already there instead of covering them, so the full stack stays readable.",
+      },
+      {
+        title: "Hand's Select button behaves",
+        detail:
+          "The Select/Done button and its hint no longer float above the library viewer, token dialog, or any other overlay — everything hides properly underneath.",
+      },
+    ],
+  },
+  {
     id: "round-3-mana-transform-search",
     label: "Round 3 — mana, transform, search",
     date: "2026-08-21",
