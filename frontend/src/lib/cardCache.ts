@@ -3,11 +3,12 @@
 // localStorage cache of Scryfall card definitions. Minimal fields only so
 // thousands of cards fit comfortably in the ~5MB quota. Versioned key: bump
 // to invalidate old shapes (v2 added commanderEligible; v3 added
-// relatedTokens; v4 added produced_mana, oracle_text, back).
+// relatedTokens; v4 added produced_mana, oracle_text, back; v5 added
+// back.oracle_text).
 
 import { httpsUrl, type CardDef } from "./scryfall";
 
-const CACHE_KEY = "mtg:cards:v4";
+const CACHE_KEY = "mtg:cards:v5";
 
 export type CacheShape = {
   byId: Record<string, CardDef>;
@@ -42,7 +43,9 @@ export function sanitizeCache(parsed: unknown): CacheShape {
       return EMPTY_CACHE;
     }
     if (def.back !== undefined) {
-      if (!isString(def.back.name)) return EMPTY_CACHE;
+      if (!isString(def.back.name) || !isString(def.back.oracle_text)) {
+        return EMPTY_CACHE;
+      }
       if (!httpsUrl(def.back.small) || !httpsUrl(def.back.normal)) return EMPTY_CACHE;
     }
   }

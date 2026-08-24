@@ -41,6 +41,8 @@ export function TableHeader({
   onPreviewWidth,
   gridSnap,
   onGridSnap,
+  autoClearMana,
+  onAutoClearMana,
   copied,
   copyCode,
   hostMenuOpen,
@@ -62,6 +64,9 @@ export function TableHeader({
   /** grid-snapping preference — drops land on a 5% lattice when on */
   gridSnap: boolean;
   onGridSnap: (value: boolean) => void;
+  /** auto-clear preference — your own pool empties on each phase/turn change */
+  autoClearMana: boolean;
+  onAutoClearMana: (value: boolean) => void;
   copied: boolean;
   copyCode: () => void;
   hostMenuOpen: boolean;
@@ -194,6 +199,29 @@ export function TableHeader({
                 <span
                   className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
                     gridSnap ? "left-[18px]" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+            <div className="mt-2.5 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs text-zinc-300">Auto-clear mana</p>
+                <p className="text-[10px] text-zinc-600">
+                  your pool empties on each phase or turn change
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={autoClearMana}
+                aria-label="Auto-clear mana"
+                onClick={() => onAutoClearMana(!autoClearMana)}
+                className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+                  autoClearMana ? "bg-emerald-600" : "bg-zinc-700"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                    autoClearMana ? "left-[18px]" : "left-0.5"
                   }`}
                 />
               </button>

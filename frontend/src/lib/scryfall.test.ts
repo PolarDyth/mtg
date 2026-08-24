@@ -169,6 +169,7 @@ describe("toDef", () => {
       name: "Insectile Aberration",
       mana_cost: "",
       type_line: "Creature — Insect Human",
+      oracle_text: "Flying",
       small: "https://img/back-s.png",
       normal: "https://img/back-n.png",
     });
@@ -200,6 +201,8 @@ describe("toDef", () => {
     });
     expect(def?.back?.name).toBe("Valheim");
     expect(def?.back?.type_line).toBe("Land");
+    // a face Scryfall leaves without oracle text defaults to empty
+    expect(def?.back?.oracle_text).toBe("");
   });
 
   it("gives split cards no back — they are one combined identity", () => {

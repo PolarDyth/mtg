@@ -52,3 +52,23 @@ export function saveGridSnap(on: boolean): void {
     // same tolerance as the other preferences
   }
 }
+
+const AUTO_CLEAR_MANA_KEY = "mtg:auto-clear-mana";
+
+/** Your own pool empties on each phase or turn change (paper MTG drains at
+ *  every step) when on. Off by default — the pool is manual bookkeeping. */
+export function loadAutoClearMana(): boolean {
+  try {
+    return localStorage.getItem(AUTO_CLEAR_MANA_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+export function saveAutoClearMana(on: boolean): void {
+  try {
+    localStorage.setItem(AUTO_CLEAR_MANA_KEY, on ? "on" : "off");
+  } catch {
+    // same tolerance as the other preferences
+  }
+}

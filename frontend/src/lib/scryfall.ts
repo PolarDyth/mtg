@@ -37,6 +37,9 @@ export type CardBack = {
   name: string;
   mana_cost: string;
   type_line: string;
+  /** The back face's own rules text — Scryfall has no per-face
+   *  produced_mana, so face-scoped mana parsing reads this. */
+  oracle_text: string;
   small: string;
   normal: string;
 };
@@ -138,6 +141,7 @@ function backOf(card: ScryfallCard): CardBack | undefined {
     name: face.name,
     mana_cost: face.mana_cost ?? "",
     type_line: face.type_line ?? "",
+    oracle_text: face.oracle_text ?? "",
     small,
     normal,
   };

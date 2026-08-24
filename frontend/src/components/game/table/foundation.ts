@@ -120,18 +120,64 @@ export function pickerMax(
   }
 }
 
-/** The tap convenience, deliberately dumb: tapping a card with non-empty
- *  produced_mana adds 1 of each DISTINCT color it lists (a Forest's ["G"]
- *  adds one G; Birds of Paradise adds one of each of WUBRG; Sol Ring's
- *  ["C","C"] dedupes to one C — correct what you meant by hand). Only ever
- *  called on a tap-ON; untapping never touches the pool. */
-export function manaAfterTap(pool: ManaPool, produced: string[]): ManaPool {
-  const next = { ...pool };
-  for (const symbol of new Set(produced)) {
-    if ((MANA_COLORS as readonly string[]).includes(symbol)) {
-      const color = symbol as ManaColor;
-      next[color] = Math.min(99, next[color] + 1);
+/** The oracle text of the face that's showing: the back face's own text when
+ *  transformed; for a DFC's front, the first segment of the joined
+ *  "front // back" text toDef stores (splits and adventures have no back, so
+ *  their combined text passes through untouched). Face-scoped because
+ *  Scryfall's produced_mana covers the whole card, both faces included. */
+export function faceOracleText(def: CardDef | null, showBack?: boolean): string {
+  if (!def) return "";
+  if (showBack && def.back) return def.back.oracle_text;
+  if (def.back) return def.oracle_text.split(" // ")[0];
+  return def.oracle_text;
+}
+
+/** The mana tapping this face banks, as far as its own oracle text can say
+ *  (Scryfall's produced_mana carries colors, never amounts): a run of pool
+ *  symbols right after "Add" counts per symbol — "{T}: Add {C}{C}" banks two
+ *  colorless, "…Add {G}{U}" banks one of each; "mana of any color" banks a
+ *  single pip of the first listed color (the pips stay the manual
+ *  correction); any other text that clearly adds mana (Nykthos, "adds an
+ *  additional") falls back to one of each DISTINCT listed color; a face
+ *  whose text never adds mana banks nothing — that's what keeps a DFC's
+ *  untransformed front from banking the back's mana. */
+export function tapManaYield(
+  oracleText: string,
+  produced: string[]
+): Partial<ManaPool> {
+  const gain: Partial<ManaPool> = {};
+  const run = /[Aa]dd ((?:\{[WUBRGC]\})+)/.exec(oracleText);
+  if (run) {
+    for (const symbol of run[1].matchAll(/\{([WUBRGC])\}/g)) {
+      const color = symbol[1] as ManaColor;
+      gain[color] = (gain[color] ?? 0) + 1;
     }
+    return gain;
+  }
+  if (/mana of any (?:single )?(?:color|type)/.test(oracleText)) {
+    const first = produced.find((s) =>
+      (MANA_COLORS as readonly string[]).includes(s)
+    );
+    return { [(first as ManaColor) ?? "C"]: 1 };
+  }
+  if (/add/i.test(oracleText)) {
+    for (const symbol of new Set(produced)) {
+      if ((MANA_COLORS as readonly string[]).includes(symbol)) {
+        gain[symbol as ManaColor] = 1;
+      }
+    }
+  }
+  return gain;
+}
+
+/** The tap convenience, amount-aware since the yield parser: adds tapMana's
+ *  gain onto the pool, color by color, capped at 99. Only ever called on a
+ *  tap-ON; untapping never touches the pool. */
+export function manaAfterTap(pool: ManaPool, gain: Partial<ManaPool>): ManaPool {
+  const next = { ...pool };
+  for (const color of MANA_COLORS) {
+    const amount = gain[color] ?? 0;
+    if (amount > 0) next[color] = Math.min(99, next[color] + amount);
   }
   return next;
 }
