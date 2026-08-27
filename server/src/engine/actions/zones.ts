@@ -90,6 +90,9 @@ function moveCard(
   removeFromZone(found.card, actor.zones);
   target.splice(index, 0, found.card);
 
+  if (action.faceDown !== undefined) {
+    found.card.faceDown = action.faceDown;
+  }
   if (action.to !== "battlefield" || !wasOnBattlefield) {
     found.card.attachedTo = undefined;
   }

@@ -23,6 +23,18 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-4-play-face-down",
+    label: "Round 4 — play face down",
+    date: "2026-08-24",
+    items: [
+      {
+        title: "Play cards face down",
+        detail:
+          "Right-click a card in your hand and pick \"Play face down\" — it lands on the battlefield as a mystery card your opponents can't identify, while you still see it yourself and can turn it face up any time from its menu.",
+      },
+    ],
+  },
+  {
     id: "round-4-counters-partners",
     label: "Round 4 — counters and partners",
     date: "2026-08-24",

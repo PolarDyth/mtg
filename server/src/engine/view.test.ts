@@ -77,6 +77,25 @@ describe("personalized snapshots", () => {
     expect(self.zones.battlefield.cards[0]?.cardId).toBe(realId);
   });
 
+  it("a MOVE_CARD with faceDown hides the identity without a second action", () => {
+    const { game, ctx, ada, bob } = setup();
+    startWithDeck(game, ctx, ada);
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(ada.zones.hand, 0);
+    const realId = ada.zones.hand[0]?.cardId;
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid, to: "battlefield", faceDown: true }));
+
+    const bobView = personalize(game, bob.id);
+    const adaFromBob = bobView.players.find((p) => p.id === ada.id);
+    if (adaFromBob?.zones.battlefield.kind !== "cards") throw new Error("expected cards");
+    expect(adaFromBob.zones.battlefield.cards[0]?.cardId).toBeNull();
+
+    const adaView = personalize(game, ada.id);
+    const self = adaView.players.find((p) => p.id === ada.id);
+    if (self?.zones.battlefield.kind !== "cards") throw new Error("expected cards");
+    expect(self.zones.battlefield.cards[0]?.cardId).toBe(realId);
+  });
+
   it("passes the transform face flag through to every viewer", () => {
     const { game, ctx, ada, bob } = setup();
     startWithDeck(game, ctx, ada);

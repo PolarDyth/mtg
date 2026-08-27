@@ -39,6 +39,10 @@ const QUICK: Record<Zone, QuickAction[]> = {
     // ignores the clicked card on purpose — the server rolls the pick
     { label: "Discard 1 at random", build: () => ({ type: "DISCARD_RANDOM", count: 1 }) },
     { label: "Put onto battlefield", build: (uid) => move(uid, "battlefield") },
+    {
+      label: "Play face down",
+      build: (uid) => ({ type: "MOVE_CARD", uid, to: "battlefield", faceDown: true }),
+    },
   ],
   battlefield: [
     { label: "Return to hand", build: (uid) => move(uid, "hand") },
