@@ -23,6 +23,18 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-4-preview-drag",
+    label: "Round 4 — preview, anywhere",
+    date: "2026-08-24",
+    items: [
+      {
+        title: "Park the card preview where you want it",
+        detail:
+          "The hover preview grew a grip above the art — drag it anywhere on screen and it stays there (per browser, survives reloads), clamped so it can't wander offscreen. Still fully click-through except for the grip; \"Reset position\" in the display panel puts it back bottom-left.",
+      },
+    ],
+  },
+  {
     id: "round-4-play-face-down",
     label: "Round 4 — play face down",
     date: "2026-08-24",
