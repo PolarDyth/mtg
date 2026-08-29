@@ -35,7 +35,9 @@ export function useCardPreview() {
   const [pos, setPos] = useState<PreviewPos | null>(loadPreviewPos);
   const [dragging, setDragging] = useState(false);
   // the def being dragged: the cursor crosses empty board space mid-drag,
-  // which clears `zoom` — this keeps the panel mounted until pointerup
+  // which clears `zoom` — this keeps the panel mounted until pointerup. Also
+  // doubles as the pin while the pointer rests on the grip strip, and holds
+  // the placed card throughout explicit placement mode.
   const [dragDef, setDragDef] = useState<CardDef | null>(null);
   const dragFrom = useRef<{ px: number; py: number; x: number; y: number } | null>(null);
   const [viewport, setViewport] = useState(() =>
@@ -44,13 +46,25 @@ export function useCardPreview() {
       : { w: window.innerWidth, h: window.innerHeight }
   );
 
-  // hover feeds both the zoom preview and hovered-card shortcuts
+  // hover feeds both the zoom preview and hovered-card shortcuts. The panel
+  // is anchored away from the cursor, so it must NOT vanish on hover-out —
+  // a null def (cursor left the card) keeps the last card on display; only a
+  // new card (or Esc) changes/clears it. hoverCard still clears so
+  // hovered-card shortcuts only fire while actually over the card.
   const onHover = useCallback((def: CardDef | null, card: CardView | null) => {
-    setZoom(def);
+    if (def) setZoom(def);
     setHoverCard(card);
   }, []);
 
   const clearZoom = useCallback(() => setZoom(null), []);
+
+  // the strip is pointer-events-auto, so moving onto it leaves the hovered
+  // card (zoom → null) — pin the panel via dragDef while the pointer rests
+  // on the strip, else it unmounts before the press can start the drag
+  const pinPanel = useCallback(() => setDragDef(zoom), [zoom]);
+  const unpinPanel = useCallback(() => {
+    if (!dragging) setDragDef(null);
+  }, [dragging]);
 
   useEffect(() => {
     savePreviewWidth(previewWidth);
@@ -74,7 +88,7 @@ export function useCardPreview() {
         : pos;
       if (!start) return;
       dragFrom.current = { px: event.clientX, py: event.clientY, x: start.x, y: start.y };
-      setDragDef(zoom);
+      setDragDef((current) => zoom ?? current);
       setDragging(true);
     },
     [pos, zoom]
@@ -155,6 +169,8 @@ export function useCardPreview() {
     dragging,
     panelPos,
     beginPanelDrag,
+    pinPanel,
+    unpinPanel,
     resetPos,
   };
 }

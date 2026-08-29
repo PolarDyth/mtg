@@ -369,7 +369,11 @@ export default function GameTable({
           style={
             preview.panelPos ? { left: preview.panelPos.x, top: preview.panelPos.y } : undefined
           }
-          dragHandle={{ onPointerDown: preview.beginPanelDrag }}
+          dragHandle={{
+            onPointerDown: preview.beginPanelDrag,
+            onPointerEnter: preview.pinPanel,
+            onPointerLeave: preview.unpinPanel,
+          }}
         />
       )}
 

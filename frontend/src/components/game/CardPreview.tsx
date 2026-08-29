@@ -27,7 +27,11 @@ export default function CardPreview({
   width: number;
   className?: string;
   style?: CSSProperties;
-  dragHandle?: { onPointerDown: (event: ReactPointerEvent) => void };
+  dragHandle?: {
+    onPointerDown: (event: ReactPointerEvent) => void;
+    onPointerEnter?: () => void;
+    onPointerLeave?: () => void;
+  };
 }) {
   return (
     <div
@@ -38,6 +42,8 @@ export default function CardPreview({
       {dragHandle && (
         <div
           onPointerDown={dragHandle.onPointerDown}
+          onPointerEnter={dragHandle.onPointerEnter}
+          onPointerLeave={dragHandle.onPointerLeave}
           title="Drag to move the preview"
           className="pointer-events-auto -mx-1 -mt-1 mb-0.5 flex h-5 touch-none select-none cursor-grab items-center justify-center rounded-t-lg bg-zinc-900/90 text-zinc-500 hover:text-zinc-300 active:cursor-grabbing"
         >
