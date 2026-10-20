@@ -23,6 +23,18 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "vulnerability-fix",
+    label: "Vulnerability fix",
+    date: "2026-10-20",
+    items: [
+      {
+        title: "Critical security vulnerability fixed",
+        detail:
+          "A critical security vulnerability was discovered in the game server. It has been fixed, users do not need to take any action, and no game data was compromised.",
+      }
+    ]
+  },
+  {
     id: "round-4-preview-drag",
     label: "Round 4 — preview, anywhere",
     date: "2026-08-24",
