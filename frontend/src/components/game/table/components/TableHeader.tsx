@@ -15,6 +15,7 @@ import {
   Crown,
   Keyboard,
   LogOut,
+  MessageSquarePlus,
   Shield,
   Sparkles,
   UserX,
@@ -37,6 +38,7 @@ export function TableHeader({
   onOpenToken,
   onOpenActions,
   onOpenShortcuts,
+  onOpenFeedback,
   previewWidth,
   onPreviewWidth,
   onResetPreviewPos,
@@ -60,6 +62,7 @@ export function TableHeader({
   onOpenToken: () => void;
   onOpenActions: () => void;
   onOpenShortcuts: () => void;
+  onOpenFeedback: () => void;
   previewWidth: number;
   onPreviewWidth: (width: number) => void;
   /** forget a dragged preview position — back to the default anchor */
@@ -127,6 +130,14 @@ export function TableHeader({
       >
         <Keyboard className="h-3.5 w-3.5" strokeWidth={1.75} />
         Shortcuts
+      </button>
+      <button
+        onClick={onOpenFeedback}
+        title="Report a bug or share feedback"
+        className="flex items-center gap-1.5 rounded border border-zinc-700 px-2.5 py-1 text-xs text-zinc-300 hover:border-emerald-600"
+      >
+        <MessageSquarePlus className="h-3.5 w-3.5" strokeWidth={1.75} />
+        Feedback
       </button>
       {view.arrows.length > 0 && (
         <button

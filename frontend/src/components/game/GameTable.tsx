@@ -28,6 +28,7 @@ import ContextMenu from "./ContextMenu";
 import ChatPanel from "./ChatPanel";
 import CounterPopover from "./CounterPopover";
 import CountPickerModal from "./CountPickerModal";
+import FeedbackModal from "./FeedbackModal";
 import HandFan from "./HandFan";
 import PhaseBar from "./PhaseBar";
 import PileModal from "./PileModal";
@@ -131,6 +132,7 @@ export default function GameTable({
 
   // the actions dock fans out across features, so its open flag lives here
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Every KeybindId must be covered exactly once — an id added to
   // lib/keybinds.ts without a slice below fails tsc.
@@ -159,6 +161,10 @@ export default function GameTable({
     menu.escape,
     () => {
       setActionsOpen(false);
+      return false;
+    },
+    () => {
+      setFeedbackOpen(false);
       return false;
     },
     pickerFlow.escape,
@@ -261,6 +267,7 @@ export default function GameTable({
         onOpenToken={pickerFlow.openToken}
         onOpenActions={() => setActionsOpen(true)}
         onOpenShortcuts={openShortcuts}
+        onOpenFeedback={() => setFeedbackOpen(true)}
         previewWidth={preview.previewWidth}
         onPreviewWidth={preview.setPreviewWidth}
         onResetPreviewPos={preview.resetPos}
@@ -522,6 +529,8 @@ export default function GameTable({
       )}
 
       {shortcutsOpen && <ShortcutsModal onClose={closeShortcuts} />}
+
+      {feedbackOpen && <FeedbackModal onClose={() => setFeedbackOpen(false)} />}
 
       {reveal.audience && (
         <AudiencePickerModal

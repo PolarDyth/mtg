@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ClientMessage, ServerMessage } from "@cardessa/shared";
 import PatchNotes from "@/components/PatchNotes";
 import { Logo } from "@/components/Logo";
+import { REPO_ISSUES_URL } from "@/lib/feedback";
 import { loadName, saveName, saveSession } from "@/lib/session";
 
 type Welcome = Extract<ServerMessage, { type: "welcome" }>;
@@ -163,7 +164,15 @@ export default function HomePage() {
         <PatchNotes />
 
         <p className="mt-6 shrink-0 text-center text-xs text-zinc-600">
-          Bring your own decklist.
+          Bring your own decklist.{" "}
+          <a
+            href={REPO_ISSUES_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-zinc-700 underline-offset-2 transition-colors hover:text-emerald-300"
+          >
+            Feedback
+          </a>
         </p>
       </div>
     </main>
