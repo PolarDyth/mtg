@@ -12,9 +12,7 @@ import {
   type ZoneView,
 } from "@cardessa/shared";
 import type { Game, Player } from "./state";
-import { TOKEN_MARKER } from "./state";
-
-const HIDDEN_ZONES = new Set(["hand", "library", "sideboard"]);
+import { HIDDEN_ZONES, TOKEN_MARKER } from "./state";
 
 export function personalize(game: Game, viewerId: PlayerId): GameView {
   return {

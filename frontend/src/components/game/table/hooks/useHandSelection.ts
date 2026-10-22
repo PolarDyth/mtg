@@ -54,25 +54,45 @@ export function useHandSelection({
 
   const discardSelected = useCallback(() => {
     if (selectedInHand.length === 0) return;
-    send({ type: "DISCARD_CARDS", uids: selectedInHand });
+    send({
+      type: "DISCARD_CARDS",
+      uids: selectedInHand,
+      names: selectedInHand.map((uid) => {
+        const card = hand.find((c) => c.uid === uid);
+        return faceDef(get(card?.cardId ?? null), card?.showBack)?.name ?? "Card";
+      }),
+    });
     exitSelect();
-  }, [selectedInHand, send, exitSelect]);
+  }, [selectedInHand, hand, get, send, exitSelect]);
 
   const exileSelected = useCallback(() => {
     if (selectedInHand.length === 0) return;
     for (const uid of selectedInHand) {
-      send({ type: "MOVE_CARD", uid, to: "exile" });
+      const card = hand.find((c) => c.uid === uid);
+      send({
+        type: "MOVE_CARD",
+        uid,
+        to: "exile",
+        name: faceDef(get(card?.cardId ?? null), card?.showBack)?.name ?? "Card",
+      });
     }
     exitSelect();
-  }, [selectedInHand, send, exitSelect]);
+  }, [selectedInHand, hand, get, send, exitSelect]);
 
   const bottomSelected = useCallback(() => {
     if (selectedInHand.length === 0) return;
     for (const uid of selectedInHand) {
-      send({ type: "MOVE_CARD", uid, to: "library", index: "bottom" });
+      const card = hand.find((c) => c.uid === uid);
+      send({
+        type: "MOVE_CARD",
+        uid,
+        to: "library",
+        index: "bottom",
+        name: faceDef(get(card?.cardId ?? null), card?.showBack)?.name ?? "Card",
+      });
     }
     exitSelect();
-  }, [selectedInHand, send, exitSelect]);
+  }, [selectedInHand, hand, get, send, exitSelect]);
 
   const revealSelected = useCallback(() => {
     if (selectedInHand.length === 0) return;

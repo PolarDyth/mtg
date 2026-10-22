@@ -539,3 +539,153 @@ describe("SURVEIL", () => {
     );
   });
 });
+
+describe("named move logging", () => {
+  function drawn(): ReturnType<typeof setup> & { uid: string } {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 1 }));
+    return { ...s, uid: uidAt(s.ada.zones.hand, 0) };
+  }
+
+  function lastSystem(s: { game: Game }): string {
+    const last = s.game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    return last.text;
+  }
+
+  it("names the card when the move touches a public zone", () => {
+    const s = drawn();
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid: s.uid,
+        to: "battlefield",
+        name: "Lightning Bolt",
+      })
+    );
+    expect(lastSystem(s)).toBe("Ada moves Lightning Bolt from hand to battlefield");
+  });
+
+  it("names a move into the public graveyard", () => {
+    const s = drawn();
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid: s.uid,
+        to: "graveyard",
+        name: "Lightning Bolt",
+      })
+    );
+    expect(lastSystem(s)).toBe("Ada moves Lightning Bolt from hand to graveyard");
+  });
+
+  it("stays generic between hidden zones even when a name is supplied", () => {
+    const s = drawn();
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid: s.uid,
+        to: "library",
+        index: "bottom",
+        name: "Lightning Bolt",
+      })
+    );
+    expect(lastSystem(s)).toBe("Ada moves a card from hand to the bottom of their library");
+  });
+
+  it("drops the name for a face-down arrival and says so", () => {
+    const s = drawn();
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid: s.uid,
+        to: "battlefield",
+        faceDown: true,
+        name: "Lightning Bolt",
+      })
+    );
+    expect(lastSystem(s)).toBe("Ada moves a card face down from hand to battlefield");
+  });
+
+  it("stays generic while the card is face down, naming resumes once face up", () => {
+    const s = drawn();
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid: s.uid,
+        to: "battlefield",
+        faceDown: true,
+        name: "Morph",
+      })
+    );
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: s.uid, to: "hand" }));
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid: s.uid,
+        to: "graveyard",
+        name: "Morph",
+      })
+    );
+    // still face down on the graveyard hop (no flip on the way)
+    expect(lastSystem(s)).toBe("Ada moves a card face down from hand to graveyard");
+    mustOk(act(s.game, s.ctx, s.ada, { type: "SET_FACE_DOWN", uid: s.uid, value: false }));
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid: s.uid,
+        to: "battlefield",
+        name: "Morph",
+      })
+    );
+    expect(lastSystem(s)).toBe("Ada moves Morph from graveyard to battlefield");
+  });
+
+  it("sanitizes blank and overlong names", () => {
+    const s = drawn();
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid: s.uid,
+        to: "battlefield",
+        name: "   ",
+      })
+    );
+    expect(lastSystem(s)).toBe("Ada moves a card from hand to battlefield");
+    const s2 = drawn();
+    mustOk(
+      act(s2.game, s2.ctx, s2.ada, {
+        type: "MOVE_CARD",
+        uid: s2.uid,
+        to: "battlefield",
+        name: "x".repeat(250),
+      })
+    );
+    expect(lastSystem(s2)).toBe(`Ada moves ${"x".repeat(100)} from hand to battlefield`);
+  });
+});
+
+describe("DISCARD_CARDS naming", () => {
+  it("names the discarded cards when names ride along", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada); // opening hand of 7
+    const uids = [uidAt(ada.zones.hand, 0), uidAt(ada.zones.hand, 1)];
+    mustOk(
+      act(game, ctx, ada, { type: "DISCARD_CARDS", uids, names: ["Lightning Bolt", "Shock"] })
+    );
+    const last = game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    expect(last.text).toBe("Ada discards Lightning Bolt, Shock");
+  });
+
+  it("falls back to the count wording on a malformed name list", () => {
+    const { game, ctx, ada } = setup();
+    startWithDeck(game, ctx, ada);
+    const uids = [uidAt(ada.zones.hand, 0), uidAt(ada.zones.hand, 1)];
+    mustOk(act(game, ctx, ada, { type: "DISCARD_CARDS", uids, names: ["Lightning Bolt"] }));
+    const last = game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    expect(last.text).toBe("Ada discards 2 cards");
+  });
+});

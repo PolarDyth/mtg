@@ -243,6 +243,16 @@ export function faceDef(
   return showBack && def?.back ? { ...def, ...def.back } : def;
 }
 
+/** Display name of a card view (respecting the showing face) for attaching
+ *  to card actions — the server echoes it into chat lines when the involved
+ *  zones are public. */
+export function cardName(
+  get: (id: string | null) => CardDef | null,
+  card: CardView
+): string {
+  return faceDef(get(card.cardId), card.showBack)?.name ?? "Card";
+}
+
 /** Structural stand-in for the rects getBoundingClientRect returns — plain
  *  numbers so tests can pass literal objects. */
 export type Rect = { left: number; top: number; width: number; height: number };

@@ -5,6 +5,7 @@ import type { Action, CardInstance } from "@cardessa/shared";
 import {
   COMMANDER_MARKER,
   findPlayer,
+  isPublicZone,
   randomId,
   systemMessage,
   TOKEN_MARKER,
@@ -13,6 +14,7 @@ import {
 } from "../state";
 import {
   clamp,
+  cleanLogName,
   detachFollowers,
   err,
   MAX_ANNOTATIONS,
@@ -25,6 +27,7 @@ import {
   onBattlefield,
   ownCard,
   requireStarted,
+  zoneOf,
   type ActionResult,
   type Ctx,
   type HandlerMap,
@@ -44,10 +47,27 @@ function setTapped(
 function setFaceDown(
   game: Game,
   actor: Player,
-  action: Extract<Action, { type: "SET_FACE_DOWN" }>
+  action: Extract<Action, { type: "SET_FACE_DOWN" }>,
+  ctx: Ctx
 ): ActionResult {
   const found = ownCard(game, actor, action.uid);
   if (!found) return err("card not found");
+  // A battlefield flip is table knowledge (logged without a name — flipping
+  // down is exactly how a card stops being public); idempotent re-sets and
+  // off-battlefield flips stay silent.
+  if (
+    actor.zones.battlefield.includes(found.card) &&
+    found.card.faceDown !== action.value
+  ) {
+    found.card.faceDown = action.value;
+    systemMessage(
+      game,
+      `${actor.name} sets a card ${action.value ? "face down" : "face up"}`,
+      ctx.rng,
+      ctx.now()
+    );
+    return ok(game);
+  }
   found.card.faceDown = action.value;
   return ok(game);
 }
@@ -73,16 +93,24 @@ function transformCard(
 function setPosition(
   game: Game,
   actor: Player,
-  action: Extract<Action, { type: "SET_POSITION" }>
+  action: Extract<Action, { type: "SET_POSITION" }>,
+  ctx: Ctx
 ): ActionResult {
   const found = ownCard(game, actor, action.uid);
   if (!found) return err("card not found");
+  const onBoard = actor.zones.battlefield.includes(found.card);
   found.card.x = clamp(action.x, 0, 100);
   found.card.y = clamp(action.y, 0, 100);
   // Moving a card by hand is an implicit detach — dragging a follower off
   // its host separates them (the explicit Detach menu item stays too).
-  if (actor.zones.battlefield.includes(found.card)) {
+  if (onBoard) {
     detachAndReorder(actor.zones.battlefield, found.card);
+    systemMessage(
+      game,
+      `${actor.name} repositions ${cleanLogName(action.name)}`,
+      ctx.rng,
+      ctx.now()
+    );
   } else {
     found.card.attachedTo = undefined;
   }
@@ -115,7 +143,8 @@ function setNotes(
 function setCounters(
   game: Game,
   actor: Player,
-  action: Extract<Action, { type: "SET_COUNTERS" }>
+  action: Extract<Action, { type: "SET_COUNTERS" }>,
+  ctx: Ctx
 ): ActionResult {
   const found = ownCard(game, actor, action.uid);
   if (!found) return err("card not found");
@@ -135,7 +164,26 @@ function setCounters(
     }
     if (value > 0) clean[key] = value;
   }
+  const before = found.card.counters;
   found.card.counters = clean;
+  const zone = zoneOf(actor.zones, found.card);
+  if (zone && isPublicZone(zone)) {
+    const parts: string[] = [];
+    for (const key of new Set([...Object.keys(before), ...Object.keys(clean)])) {
+      if ((clean[key] ?? 0) !== (before[key] ?? 0)) {
+        const now = clean[key] ?? 0;
+        parts.push(now === 0 ? `${key} removed` : `${key}×${now}`);
+      }
+    }
+    if (parts.length > 0) {
+      systemMessage(
+        game,
+        `${actor.name} sets ${parts.join(", ")} on ${cleanLogName(action.name)}`,
+        ctx.rng,
+        ctx.now()
+      );
+    }
+  }
   return ok(game);
 }
 
@@ -150,7 +198,8 @@ function detachAndReorder(battlefield: CardInstance[], card: CardInstance): void
 function attachCard(
   game: Game,
   actor: Player,
-  action: Extract<Action, { type: "ATTACH_CARD" }>
+  action: Extract<Action, { type: "ATTACH_CARD" }>,
+  ctx: Ctx
 ): ActionResult {
   const found = ownCard(game, actor, action.uid);
   if (!found) return err("card not found");
@@ -159,6 +208,13 @@ function attachCard(
   }
   if (action.to === null) {
     detachAndReorder(actor.zones.battlefield, found.card);
+    systemMessage(
+      game,
+      // a face-down card keeps its identity hidden even in the log
+      `${actor.name} detaches ${found.card.faceDown ? "a card" : cleanLogName(action.name)}`,
+      ctx.rng,
+      ctx.now()
+    );
     return ok(game);
   }
   if (action.to === found.card.uid) return err("cannot attach to itself");
@@ -180,6 +236,14 @@ function attachCard(
   battlefield.splice(battlefield.indexOf(found.card), 1);
   const followers = battlefield.filter((c) => c.attachedTo === host.uid);
   battlefield.splice(battlefield.indexOf(followers[0] ?? host), 0, found.card);
+  systemMessage(
+    game,
+    `${actor.name} attaches ${
+      found.card.faceDown ? "a card" : cleanLogName(action.name)
+    } to ${host.faceDown ? "another card" : cleanLogName(action.toName, "another card")}`,
+    ctx.rng,
+    ctx.now()
+  );
   return ok(game);
 }
 
@@ -204,7 +268,14 @@ function giveControl(
   actor.zones.battlefield.splice(from, 1);
   card.attachedTo = undefined;
   target.zones.battlefield.push(card);
-  systemMessage(game, `${actor.name} gives control of a card to ${target.name}`, ctx.rng, ctx.now());
+  // Both battlefields are public, but a face-down card keeps its identity
+  // out of the shared log.
+  systemMessage(
+    game,
+    `${actor.name} gives control of ${card.faceDown ? "a card" : cleanLogName(action.name)} to ${target.name}`,
+    ctx.rng,
+    ctx.now()
+  );
   return ok(game);
 }
 

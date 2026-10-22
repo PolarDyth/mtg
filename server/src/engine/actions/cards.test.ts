@@ -535,3 +535,82 @@ describe("DRAW_ARROW / CLEAR_ARROWS", () => {
     expect(game.arrows).toHaveLength(0);
   });
 });
+
+describe("chat naming for card state", () => {
+  /** One of Ada's cards on the battlefield, one still in hand. */
+  function playOne(): { game: Game; ctx: Ctx; ada: Player; bob: Player; uid: string } {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 2 }));
+    const uid = uidAt(s.ada.zones.hand, 0);
+    mustOk(
+      act(s.game, s.ctx, s.ada, {
+        type: "MOVE_CARD",
+        uid,
+        to: "battlefield",
+        name: "Lightning Bolt",
+      })
+    );
+    return { ...s, uid };
+  }
+
+  function lastSystem(s: { game: Game }): string {
+    const last = s.game.chat.at(-1);
+    if (last?.kind !== "system") throw new Error("expected system message");
+    return last.text;
+  }
+
+  it("counters announce kind, count, and card name; unchanged re-sets stay silent", () => {
+    const { game, ctx, ada, uid } = playOne();
+    mustOk(
+      act(game, ctx, ada, { type: "SET_COUNTERS", uid, counters: { "+1/+1": 2 }, name: "Lightning Bolt" })
+    );
+    expect(lastSystem({ game })).toBe("Ada sets +1/+1×2 on Lightning Bolt");
+    const chatLen = game.chat.length;
+    mustOk(
+      act(game, ctx, ada, { type: "SET_COUNTERS", uid, counters: { "+1/+1": 2 }, name: "Lightning Bolt" })
+    );
+    expect(game.chat).toHaveLength(chatLen);
+    mustOk(act(game, ctx, ada, { type: "SET_COUNTERS", uid, counters: {}, name: "Lightning Bolt" }));
+    expect(lastSystem({ game })).toBe("Ada sets +1/+1 removed on Lightning Bolt");
+  });
+
+  it("repositions announce the card name", () => {
+    const { game, ctx, ada, uid } = playOne();
+    mustOk(act(game, ctx, ada, { type: "SET_POSITION", uid, x: 20, y: 30, name: "Lightning Bolt" }));
+    expect(lastSystem({ game })).toBe("Ada repositions Lightning Bolt");
+  });
+
+  it("attaching and detaching announce both ends, with a fallback host label", () => {
+    const { game, ctx, ada, uid } = playOne();
+    const aura = uidAt(ada.zones.hand, 0);
+    mustOk(act(game, ctx, ada, { type: "MOVE_CARD", uid: aura, to: "battlefield" }));
+    mustOk(
+      act(game, ctx, ada, { type: "ATTACH_CARD", uid: aura, to: uid, name: "Rancor", toName: "Lightning Bolt" })
+    );
+    expect(lastSystem({ game })).toBe("Ada attaches Rancor to Lightning Bolt");
+    mustOk(act(game, ctx, ada, { type: "ATTACH_CARD", uid: aura, to: null, name: "Rancor" }));
+    expect(lastSystem({ game })).toBe("Ada detaches Rancor");
+    mustOk(act(game, ctx, ada, { type: "ATTACH_CARD", uid: aura, to: uid, name: "Rancor" }));
+    expect(lastSystem({ game })).toBe("Ada attaches Rancor to another card");
+  });
+
+  it("face-down flips announce without a name; idempotent flips stay silent", () => {
+    const { game, ctx, ada, uid } = playOne();
+    mustOk(act(game, ctx, ada, { type: "SET_FACE_DOWN", uid, value: true }));
+    expect(lastSystem({ game })).toBe("Ada sets a card face down");
+    const chatLen = game.chat.length;
+    mustOk(act(game, ctx, ada, { type: "SET_FACE_DOWN", uid, value: true }));
+    expect(game.chat).toHaveLength(chatLen);
+    mustOk(act(game, ctx, ada, { type: "SET_FACE_DOWN", uid, value: false }));
+    expect(lastSystem({ game })).toBe("Ada sets a card face up");
+  });
+
+  it("giving control announces the card and the new controller", () => {
+    const { game, ctx, ada, bob, uid } = playOne();
+    mustOk(
+      act(game, ctx, ada, { type: "GIVE_CONTROL", uid, toPlayerId: bob.id, name: "Lightning Bolt" })
+    );
+    expect(lastSystem({ game })).toBe("Ada gives control of Lightning Bolt to Bob");
+  });
+});
