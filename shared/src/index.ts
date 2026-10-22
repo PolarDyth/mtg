@@ -138,6 +138,11 @@ export type Action =
       /** Land the card face-down as it arrives (e.g. played from hand).
        * Absent = leave the card's current facing untouched. */
       faceDown?: boolean;
+      /** Client-supplied display name for the chat line — the server is
+       *  card-id agnostic and echoes it only when the move touches a public
+       *  zone (battlefield/graveyard/exile/command) and the card isn't
+       *  face-down on arrival; otherwise the line stays generic. */
+      name?: string;
     }
   | { type: "MOVE_CARD_INDEX"; uid: string; index: number }
   | { type: "SET_TAPPED"; uid: string; value: boolean }
@@ -147,11 +152,15 @@ export type Action =
    *  agnostic) for the chat line; counters, position, and attachments
    *  ride along untouched. */
   | { type: "TRANSFORM_CARD"; uid: string; name: string }
-  | { type: "SET_COUNTERS"; uid: string; counters: Record<string, number> }
-  | { type: "SET_POSITION"; uid: string; x: number; y: number }
+  /** Counters are a whole-record commit; `name` feeds the chat line the
+   *  same public-zone way as MOVE_CARD's. */
+  | { type: "SET_COUNTERS"; uid: string; counters: Record<string, number>; name?: string }
+  | { type: "SET_POSITION"; uid: string; x: number; y: number; name?: string }
   | { type: "SET_NOTES"; uid: string; notes: string[] }
-  | { type: "ATTACH_CARD"; uid: string; to: string | null }
-  | { type: "GIVE_CONTROL"; uid: string; toPlayerId: PlayerId }
+  /** Both names feed the chat line (attachment + host); the host is always
+   *  on the battlefield, so they're only echoed for battlefield cards. */
+  | { type: "ATTACH_CARD"; uid: string; to: string | null; name?: string; toName?: string }
+  | { type: "GIVE_CONTROL"; uid: string; toPlayerId: PlayerId; name?: string }
   | { type: "CREATE_TOKEN"; name: string; cardId?: string; count: number }
   | { type: "DRAW_ARROW"; fromUid: string; to: ArrowTarget }
   /** Remove arrows: one by `id`, one author's by `playerId`, or all. */
@@ -164,7 +173,9 @@ export type Action =
       to?: PlayerId[];
     }
   | { type: "SHUFFLE_LIBRARY" }
-  | { type: "DISCARD_CARDS"; uids: string[] }
+  /** Names (when well-formed, parallel to `uids`) name the cards in the
+   *  chat line — the hand is hidden, but a discard is table knowledge. */
+  | { type: "DISCARD_CARDS"; uids: string[]; names?: string[] }
   /** The SERVER picks `count` random cards from the actor's hand — randomness
    *  is server-side (Ctx.rng) so the whole table can trust the roll. */
   | { type: "DISCARD_RANDOM"; count: number }

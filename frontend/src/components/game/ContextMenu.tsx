@@ -237,6 +237,16 @@ export default function ContextMenu({
 
   const { card, zone, name, own } = menu;
   const onBattlefield = zone === "battlefield";
+
+  // Attach the display name (resolved at menu-open time) for the server's
+  // chat line — only the actions that accept one carry it; the server still
+  // decides whether the line may name the card.
+  const named = (action: Action): Action => {
+    if (action.type === "MOVE_CARD") return { ...action, name };
+    if (action.type === "DISCARD_CARDS") return { ...action, names: [name] };
+    return action;
+  };
+
   const relatedTokens =
     onBattlefield && card.cardId ? getDef(card.cardId)?.relatedTokens ?? [] : [];
 
@@ -325,7 +335,7 @@ export default function ContextMenu({
           key={quick.label}
           label={quick.label}
           onClick={() => {
-            send(quick.build(card.uid));
+            send(named(quick.build(card.uid)));
             onClose();
           }}
         />
@@ -402,7 +412,7 @@ export default function ContextMenu({
                       key={player.id}
                       label={player.name}
                       onClick={() => {
-                        send({ type: "GIVE_CONTROL", uid: card.uid, toPlayerId: player.id });
+                        send({ type: "GIVE_CONTROL", uid: card.uid, toPlayerId: player.id, name });
                         onClose();
                       }}
                     />
@@ -435,7 +445,7 @@ export default function ContextMenu({
         <MenuItem
           label="Detach"
           onClick={() => {
-            send({ type: "ATTACH_CARD", uid: card.uid, to: null });
+            send({ type: "ATTACH_CARD", uid: card.uid, to: null, name });
             onClose();
           }}
         />
@@ -455,7 +465,7 @@ export default function ContextMenu({
               key={target.label}
               label={target.label}
               onClick={() => {
-                send(target.build(card.uid));
+                send(named(target.build(card.uid)));
                 onClose();
               }}
             />

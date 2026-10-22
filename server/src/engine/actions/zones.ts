@@ -1,8 +1,9 @@
 // Card flow between zones: drawing, moving, reordering, shuffling.
 
 import type { Action, CardInstance } from "@cardessa/shared";
-import { systemMessage, type Game, type Player } from "../state";
+import { isPublicZone, systemMessage, type Game, type Player } from "../state";
 import {
+  cleanLogName,
   detachFollowers,
   err,
   isToken,
@@ -105,7 +106,20 @@ function moveCard(
             ? "the bottom of their library"
             : "their library"
         : action.to;
-    systemMessage(game, `${actor.name} moves a card from ${from} to ${dest}`, ctx.rng, ctx.now());
+    // The client names the card (the server is card-id agnostic); the name
+    // is only echoed when the move touches public knowledge and the card
+    // isn't face-down on arrival — otherwise the line stays generic.
+    const arrivesFaceDown = action.faceDown ?? found.card.faceDown;
+    const nameable =
+      !arrivesFaceDown && (isPublicZone(from) || isPublicZone(action.to));
+    const label = nameable ? cleanLogName(action.name) : "a card";
+    const facing = arrivesFaceDown && isPublicZone(action.to) ? " face down" : "";
+    systemMessage(
+      game,
+      `${actor.name} moves ${label}${facing} from ${from} to ${dest}`,
+      ctx.rng,
+      ctx.now()
+    );
   }
   return ok(game);
 }
@@ -184,9 +198,19 @@ function discardCards(
     card.attachedTo = undefined;
     actor.zones.graveyard.push(card);
   }
+  const newCount = cards.length === 1 ? "card" : "cards";
+  // Optional client-supplied names (parallel to `uids`) — a discard lands in
+  // the public graveyard, so naming the cards is table knowledge. A
+  // malformed list just degrades to the count wording.
+  const named =
+    Array.isArray(action.names) &&
+    action.names.length === cards.length &&
+    cards.every((_, i) => typeof action.names?.[i] === "string");
   systemMessage(
     game,
-    `${actor.name} discards ${cards.length} ${cards.length === 1 ? "card" : "cards"}`,
+    named
+      ? `${actor.name} discards ${cards.map((_, i) => cleanLogName(action.names?.[i])).join(", ")}`
+      : `${actor.name} discards ${cards.length} ${newCount}`,
     ctx.rng,
     ctx.now()
   );

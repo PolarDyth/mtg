@@ -7,17 +7,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
-import { findOwnCard } from "../foundation";
+import type { CardDef } from "@/lib/scryfall";
+import { cardName, findOwnCard } from "../foundation";
 import { arrowTargetAt } from "../hitTest";
 
 export function useAttachPicking({
   view,
   you,
   send,
+  get,
 }: {
   view: GameView;
   you: PlayerId | null;
   send: (action: Action) => void;
+  /** card-def lookup (names both ends in the server's chat line) */
+  get: (id: string | null) => CardDef | null;
 }) {
   // attach targeting: source card chosen, target pending
   const [attachSource, setAttachSource] = useState<CardView | null>(null);
@@ -34,6 +38,8 @@ export function useAttachPicking({
   useEffect(() => {
     const source = attachSource;
     if (!source) return;
+    // captured narrowed (hoisted function declarations below lose narrowing)
+    const src: CardView = source;
     const fromUid = source.uid;
     function onMove(event: PointerEvent) {
       const target = arrowTargetAt(event.clientX, event.clientY);
@@ -51,7 +57,14 @@ export function useAttachPicking({
       setAttachTarget(null);
       const target = arrowTargetAt(event.clientX, event.clientY);
       if (target && "uid" in target && target.uid !== fromUid) {
-        send({ type: "ATTACH_CARD", uid: fromUid, to: target.uid });
+        const host = findOwnCard(view, you, target.uid)?.card;
+        send({
+          type: "ATTACH_CARD",
+          uid: fromUid,
+          to: target.uid,
+          name: cardName(get, src),
+          ...(host ? { toName: cardName(get, host) } : {}),
+        });
       }
     }
     window.addEventListener("pointermove", onMove);
@@ -60,7 +73,7 @@ export function useAttachPicking({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [attachSource, view, you, send]);
+  }, [attachSource, view, you, send, get]);
 
   const escape = useCallback((): boolean => {
     if (!attachSource) return false;

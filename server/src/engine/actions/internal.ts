@@ -111,6 +111,14 @@ export function tokenLabel(card: CardInstance): string {
   return card.annotations[0]?.slice(TOKEN_MARKER.length) || "token";
 }
 
+/** Sanitize a client-supplied card name for the chat log (the REVEAL_CARDS
+ *  convention): trimmed and capped, with a generic fallback so a hostile or
+ *  missing name degrades to the old wording instead of breaking the line. */
+export function cleanLogName(name: string | undefined, fallback = "a card"): string {
+  const trimmed = name?.trim() ?? "";
+  return trimmed ? trimmed.slice(0, 100) : fallback;
+}
+
 /** Is this uid currently a battlefield card (any player's)? */
 export function onBattlefield(game: Game, uid: string): boolean {
   return game.players.some((player) =>

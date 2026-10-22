@@ -9,7 +9,7 @@
 
 import type { Action, GameView, PlayerView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
-import { isCreature, nextPhaseAction } from "../foundation";
+import { cardName, isCreature, nextPhaseAction } from "../foundation";
 import type { KeybindSlice } from "../keybinds";
 
 export function useGameActions({
@@ -38,6 +38,7 @@ export function useGameActions({
           ...card.counters,
           "+1/+1": (card.counters["+1/+1"] ?? 0) + 1,
         },
+        name: cardName(get, card),
       });
     }
   }
@@ -64,7 +65,9 @@ export function useGameActions({
     playTopCard: () => {
       const top =
         self?.zones.library.kind === "cards" ? self.zones.library.cards[0] : undefined;
-      if (top) send({ type: "MOVE_CARD", uid: top.uid, to: "battlefield" });
+      if (top) {
+        send({ type: "MOVE_CARD", uid: top.uid, to: "battlefield", name: cardName(get, top) });
+      }
     },
   } satisfies KeybindSlice;
   return { keybinds, buffCreatures };

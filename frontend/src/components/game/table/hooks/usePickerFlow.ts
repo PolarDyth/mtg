@@ -81,7 +81,13 @@ export function usePickerFlow({
         openPile("library", { highlightTop: n });
       } else if (mode === "putFromTop") {
         if (pickerCreate?.uid) {
-          send({ type: "MOVE_CARD", uid: pickerCreate.uid, to: "library", index: n - 1 });
+          send({
+            type: "MOVE_CARD",
+            uid: pickerCreate.uid,
+            to: "library",
+            index: n - 1,
+            name: pickerCreate.name,
+          });
         }
         setPickerCreate(null);
       } else if (mode === "revealTop") {

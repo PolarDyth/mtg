@@ -14,7 +14,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Action, CardView, GameView, PlayerId, Zone } from "@cardessa/shared";
-import { battlefieldDrop, findOwnCard } from "../foundation";
+import type { CardDef } from "@/lib/scryfall";
+import { battlefieldDrop, cardName, findOwnCard } from "../foundation";
 
 export type DragState = {
   uid: string;
@@ -39,6 +40,7 @@ export function useCardDrag({
   send,
   snap = false,
   onTap,
+  get,
 }: {
   view: GameView;
   you: PlayerId | null;
@@ -47,6 +49,8 @@ export function useCardDrag({
   snap?: boolean;
   /** tap-toggle override (useManaPool's tapForMana — adds mana on tap-on) */
   onTap?: (card: CardView) => void;
+  /** card-def lookup (names the card in the server's chat line) */
+  get: (id: string | null) => CardDef | null;
 }) {
   const [drag, setDrag] = useState<DragState | null>(null);
   /** anchors to YOUR board's container in whatever view mode is active */
@@ -83,6 +87,10 @@ export function useCardDrag({
 
       const dropTarget = element.closest<HTMLElement>("[data-drop]");
       const drop = dropTarget?.dataset.drop;
+      // the card may already be gone from this (stale) snapshot — an unnamed
+      // send just logs the generic line server-side
+      const card = findOwnCard(view, you, current.uid)?.card;
+      const name = card ? cardName(get, card) : undefined;
       if (drop === "battlefield" && battlefieldRef.current) {
         // positions are % of your board in your own frame, un-mirrored —
         // battlefieldDrop keeps the math in the owner's frame so views
@@ -94,20 +102,28 @@ export function useCardDrag({
           snap
         );
         if (current.from !== "battlefield") {
-          send({ type: "MOVE_CARD", uid: current.uid, to: "battlefield" });
+          send({ type: "MOVE_CARD", uid: current.uid, to: "battlefield", name });
         }
-        send({ type: "SET_POSITION", uid: current.uid, x: pos.x, y: pos.y });
+        // a cross-zone drop already logged the card's arrival — only a pure
+        // reposition needs its own named line
+        send({
+          type: "SET_POSITION",
+          uid: current.uid,
+          x: pos.x,
+          y: pos.y,
+          ...(current.from === "battlefield" && name ? { name } : {}),
+        });
         return;
       }
       if (drop === "hand") {
-        send({ type: "MOVE_CARD", uid: current.uid, to: "hand" });
+        send({ type: "MOVE_CARD", uid: current.uid, to: "hand", name });
         return;
       }
       if (drop?.startsWith("zone:")) {
-        send({ type: "MOVE_CARD", uid: current.uid, to: drop.slice(5) as Zone });
+        send({ type: "MOVE_CARD", uid: current.uid, to: drop.slice(5) as Zone, name });
       }
     },
-    [drag, send, snap]
+    [drag, send, snap, view, you, get]
   );
 
   useEffect(() => {

@@ -90,9 +90,9 @@ export default function GameTable({
   // one tap path for all three surfaces (click, Alt+T, menu): tapping one of
   // your producers banks its colors alongside the SET_TAPPED
   const onTap = (card: CardView) => mana.tapForMana(card, get(card.cardId));
-  const drag = useCardDrag({ view, you, send, snap: gridSnap.gridSnap, onTap });
+  const drag = useCardDrag({ view, you, send, snap: gridSnap.gridSnap, onTap, get });
   const arrows = useArrowPicking({ view, you, send, hoverCard: preview.hoverCard });
-  const attach = useAttachPicking({ view, you, send });
+  const attach = useAttachPicking({ view, you, send, get });
   const reveal = useRevealFlow({ view, send });
   const menu = useCardMenu({ view, you, get, send });
   const pile = usePileViewer({ view, self, send, openLibraryMenu: menu.openLibrary });

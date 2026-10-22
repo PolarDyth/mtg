@@ -92,7 +92,18 @@ export default function PileModal({
 
   function runGroup(build: (uid: string) => Action) {
     if (selectedIds.length === 0) return;
-    for (const uid of selectedIds) send(build(uid));
+    for (const uid of selectedIds) {
+      const action = build(uid);
+      const card = scope.find((c) => c.uid === uid);
+      send(
+        action.type === "MOVE_CARD" && card
+          ? {
+              ...action,
+              name: faceDef(getDef(card.cardId), card.showBack)?.name ?? "Card",
+            }
+          : action
+      );
+    }
     setSelected(new Set());
     setSelectActive(false);
   }
@@ -214,12 +225,12 @@ export default function PileModal({
                 )}
                 {canAct && !selectActive && (
                   <div className="absolute inset-x-0 bottom-0 hidden gap-1 bg-gradient-to-t from-black/90 to-transparent p-1 group-hover:flex">
-                    <PileButton label="to hand" Icon={Hand} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "hand" })} />
-                    <PileButton label="to battlefield" Icon={Swords} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "battlefield" })} />
+                    <PileButton label="to hand" Icon={Hand} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "hand", name: def?.name ?? "Card" })} />
+                    <PileButton label="to battlefield" Icon={Swords} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "battlefield", name: def?.name ?? "Card" })} />
                     {(zone === "graveyard" || zone === "exile" || zone === "sideboard" || zone === "command") && (
                       <>
-                        <PileButton label="on top of library" Icon={Layers} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "library", index: "top" })} />
-                        <PileButton label="on bottom of library" Icon={Layers} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "library", index: "bottom" })} />
+                        <PileButton label="on top of library" Icon={Layers} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "library", index: "top", name: def?.name ?? "Card" })} />
+                        <PileButton label="on bottom of library" Icon={Layers} onClick={() => send({ type: "MOVE_CARD", uid: card.uid, to: "library", index: "bottom", name: def?.name ?? "Card" })} />
                       </>
                     )}
                     {zone !== "library" && (

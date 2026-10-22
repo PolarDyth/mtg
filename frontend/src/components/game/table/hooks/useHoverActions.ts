@@ -9,7 +9,7 @@
 
 import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
-import { findOwnHovered } from "../foundation";
+import { cardName, findOwnHovered } from "../foundation";
 import type { KeybindSlice } from "../keybinds";
 
 export function useHoverActions({
@@ -67,12 +67,20 @@ export function useHoverActions({
     },
     graveyardHover: () => {
       const own = findOwnHovered(view, you, hoverCard);
-      if (own) send({ type: "MOVE_CARD", uid: own.card.uid, to: "graveyard" });
+      if (own) {
+        send({ type: "MOVE_CARD", uid: own.card.uid, to: "graveyard", name: cardName(get, own.card) });
+      }
     },
     bottomHover: () => {
       const own = findOwnHovered(view, you, hoverCard);
       if (own) {
-        send({ type: "MOVE_CARD", uid: own.card.uid, to: "library", index: "bottom" });
+        send({
+          type: "MOVE_CARD",
+          uid: own.card.uid,
+          to: "library",
+          index: "bottom",
+          name: cardName(get, own.card),
+        });
       }
     },
     noteHover: () => {
@@ -88,6 +96,7 @@ export function useHoverActions({
           ...own.card.counters,
           "+1/+1": (own.card.counters["+1/+1"] ?? 0) + 1,
         },
+        name: cardName(get, own.card),
       });
     },
     counterDownHover: () => {
@@ -97,7 +106,7 @@ export function useHoverActions({
       if (current <= 0) return;
       const next: Record<string, number> = { ...own.card.counters, "+1/+1": current - 1 };
       if (current === 1) delete next["+1/+1"];
-      send({ type: "SET_COUNTERS", uid: own.card.uid, counters: next });
+      send({ type: "SET_COUNTERS", uid: own.card.uid, counters: next, name: cardName(get, own.card) });
     },
   } satisfies KeybindSlice;
   return { keybinds };

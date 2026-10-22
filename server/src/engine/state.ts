@@ -157,6 +157,16 @@ export function systemMessage(game: Game, text: string, rng: Rng, at: number): v
   pushChat(game, { id: chatId(rng), at, playerId: "", kind: "system", text });
 }
 
+/** Zones opponents can't see — view.ts collapses them to counts, and action
+ *  handlers never echo a client-supplied card name out of them. */
+export const HIDDEN_ZONES: ReadonlySet<Zone> = new Set(["hand", "library", "sideboard"]);
+
+/** Public = battlefield, graveyard, exile, command — table knowledge, so a
+ *  card there (or arriving there face-up) may be named in the chat log. */
+export function isPublicZone(zone: Zone): boolean {
+  return !HIDDEN_ZONES.has(zone);
+}
+
 /** Token labels live in annotations with this marker; note edits keep them. */
 export const TOKEN_MARKER = "¶";
 
