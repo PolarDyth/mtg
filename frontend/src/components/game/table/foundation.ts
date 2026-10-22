@@ -247,6 +247,28 @@ export function faceDef(
  *  numbers so tests can pass literal objects. */
 export type Rect = { left: number; top: number; width: number; height: number };
 
+/** Do two rects overlap at all? (Marquee box-select hit test.) */
+export function rectsIntersect(a: Rect, b: Rect): boolean {
+  return (
+    a.left < b.left + b.width &&
+    b.left < a.left + a.width &&
+    a.top < b.top + b.height &&
+    b.top < a.top + a.height
+  );
+}
+
+/** Uids of the cards a marquee box catches — any intersection counts, so a
+ *  box that clips a corner still selects the card (like every desktop box-
+ *  select). Order follows the input. */
+export function marqueeSelect(
+  box: Rect,
+  cardRects: { uid: string; rect: Rect }[]
+): string[] {
+  return cardRects
+    .filter(({ rect }) => rectsIntersect(box, rect))
+    .map((entry) => entry.uid);
+}
+
 /** Drop position for a card dropped at viewport point (x, y) over the
  *  player's own board rect: percentages of that board (the owner's frame,
  *  un-mirrored), clamped so the card's center can't leave the board, and

@@ -37,6 +37,7 @@ export type KeybindId =
   | "lifeDec"
   | "focusChat"
   | "selectAll"
+  | "boardSelectAll"
   | "toggleGridSnap"
   | "arrowFromHover"
   | "tapHover"
@@ -79,6 +80,7 @@ export const DEFAULT_KEYBINDS: Record<KeybindId, string> = {
   lifeDec: "Ctrl+Alt+-",
   focusChat: "Shift+Enter",
   selectAll: "Ctrl+A",
+  boardSelectAll: "Ctrl+Alt+A",
   toggleGridSnap: "Ctrl+Alt+G",
   arrowFromHover: "Alt+A",
   tapHover: "Alt+T",
@@ -130,6 +132,7 @@ export const KEYBIND_LABELS: Record<KeybindId, string> = {
   lifeDec: "Life −1",
   focusChat: "Focus chat",
   selectAll: "Select all cards in hand",
+  boardSelectAll: "Select all my battlefield permanents",
   toggleGridSnap: "Toggle grid snapping",
   arrowFromHover: "Draw arrow from it",
   tapHover: "Tap / untap it",
@@ -179,6 +182,7 @@ export const SHORTCUT_GROUPS: { title: string; items: KeybindId[] }[] = [
       "removeMyArrows",
       "rollDie",
       "selectAll",
+      "boardSelectAll",
       "toggleGridSnap",
     ],
   },

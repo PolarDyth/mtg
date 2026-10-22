@@ -17,6 +17,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Action, CardView, GameView, PlayerId } from "@cardessa/shared";
+import type { CardDef } from "@/lib/scryfall";
 import { nameColor } from "@/lib/playerColor";
 import type { KeybindId } from "@/lib/keybinds";
 import ActionsModal from "./ActionsModal";
@@ -36,12 +37,18 @@ import ScryModal from "./ScryModal";
 import ShortcutsModal from "./ShortcutsModal";
 import TokenModal from "./TokenModal";
 import ZoneRail from "./ZoneRail";
-import { isCreature, nextPhaseAction, pickerMax } from "./table/foundation";
+import {
+  findOwnCard,
+  isCreature,
+  nextPhaseAction,
+  pickerMax,
+} from "./table/foundation";
 import { useEscapeChain } from "./table/escape";
 import { useTableKeybinds, type KeybindHandler } from "./table/keybinds";
 import { useArrowPicking } from "./table/hooks/useArrowPicking";
 import { useAttachPicking } from "./table/hooks/useAttachPicking";
 import { useAutoClearMana } from "./table/hooks/useAutoClearMana";
+import { useBoardSelection } from "./table/hooks/useBoardSelection";
 import { useCardDrag } from "./table/hooks/useCardDrag";
 import { useCardMenu } from "./table/hooks/useCardMenu";
 import { useCardPreview } from "./table/hooks/useCardPreview";
@@ -110,6 +117,11 @@ export default function GameTable({
     hand,
     openAudience: reveal.openAudience,
   });
+  const board = useBoardSelection({
+    send,
+    battlefield,
+    boardRef: drag.battlefieldRef,
+  });
   const pickerFlow = usePickerFlow({
     send,
     get,
@@ -141,6 +153,7 @@ export default function GameTable({
     ...pickerFlow.keybinds,
     ...arrows.keybinds,
     ...selection.keybinds,
+    ...board.keybinds,
     ...chatSignals.keybinds,
     ...hoverActions.keybinds,
     ...mana.keybinds,
@@ -164,6 +177,7 @@ export default function GameTable({
     pickerFlow.escape,
     pile.escape,
     selection.escape,
+    board.escape,
     () => {
       preview.clearZoom();
       return false;
@@ -191,6 +205,16 @@ export default function GameTable({
     if (selection.selectMode) return; // clicks toggle selection instead of dragging
     if (arrows.arrowPicking) return; // clicks pick arrow targets instead
     if (attach.attachSource) return; // clicks pick attach targets instead
+    // ctrl/shift/⌘+left-click toggles one of your battlefield permanents in
+    // the board multi-selection instead of starting a drag / tap
+    if (
+      event.button === 0 &&
+      (event.ctrlKey || event.metaKey || event.shiftKey) &&
+      findOwnCard(view, you, card.uid)?.zone === "battlefield"
+    ) {
+      board.toggle(card.uid);
+      return;
+    }
     drag.begin(card, event);
   };
 
@@ -236,12 +260,18 @@ export default function GameTable({
     getDef: get,
     onCardPointerDown,
     onCardContextMenu,
-    onCardHover: preview.onHover,
+    // hover previews would pop under the cursor while box-selecting
+    onCardHover: (def: CardDef | null, card: CardView | null) => {
+      if (card || !board.marqueeRect) preview.onHover(def, card);
+    },
     draggedUid: drag.draggedUid,
     battlefieldRef: drag.battlefieldRef,
     onManaAdd: mana.addMana,
     onManaSpend: mana.spendMana,
     onManaClear: mana.clearMana,
+    onBoardPointerDown: board.beginMarquee,
+    marqueeRect: board.marqueeRect,
+    selectedUids: board.selected,
   };
 
   const revealPopup = reveal.revealPopup;
@@ -285,14 +315,30 @@ export default function GameTable({
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           {!focusView.showOverlay && <Battlefield {...battlefieldProps} maximized={false} />}
+          {board.hasSelection && (
+            <SelectionBar
+              count={board.selectedOnBoard.length}
+              actions={[
+                { label: "Tap", onClick: () => board.tapSelected(true) },
+                { label: "Untap", onClick: () => board.tapSelected(false) },
+                { label: "+1/+1", onClick: board.buffSelected },
+                { label: "To graveyard", onClick: () => board.moveSelected("graveyard") },
+                { label: "Exile", onClick: () => board.moveSelected("exile") },
+                { label: "To hand", onClick: () => board.moveSelected("hand") },
+                { label: "To bottom", onClick: () => board.moveSelected("library", "bottom") },
+              ]}
+            />
+          )}
           {selection.selectMode && (
             <SelectionBar
               count={selection.selectedInHand.length}
-              onDiscard={selection.discardSelected}
-              onExile={selection.exileSelected}
-              onReveal={selection.revealSelected}
-              onRevealTo={selection.revealToSelected}
-              onBottom={selection.bottomSelected}
+              actions={[
+                { label: "Discard", onClick: selection.discardSelected },
+                { label: "Exile", onClick: selection.exileSelected },
+                { label: "Reveal", onClick: selection.revealSelected },
+                { label: "Reveal to…", onClick: selection.revealToSelected },
+                { label: "To bottom", onClick: selection.bottomSelected },
+              ]}
             />
           )}
           {arrows.arrowPicking && (

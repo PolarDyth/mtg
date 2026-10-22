@@ -5,6 +5,7 @@ import { Ban, BookOpen, Crown, Hand, Maximize2, Skull, Swords } from "lucide-rea
 import type { CardView, ManaColor, PlayerView } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import CardSprite from "./CardSprite";
+import type { MarqueeRect } from "./table/hooks/useBoardSelection";
 import { ManaBar } from "./table/components/ManaBar";
 
 /** Opponent piles you can peek at from their band header. */
@@ -53,6 +54,9 @@ export default function PlayerBand({
   onManaSpend,
   onManaClear,
   boardRef,
+  onBoardPointerDown,
+  marqueeRect,
+  selectedUids,
 }: {
   player: PlayerView;
   isYou: boolean;
@@ -81,6 +85,12 @@ export default function PlayerBand({
   onManaClear?: () => void;
   /** drop-math anchor — attached only to your own board */
   boardRef?: React.Ref<HTMLDivElement>;
+  /** marquee box-select start on empty board space (your band only) */
+  onBoardPointerDown?: (event: ReactPointerEvent) => void;
+  /** the rubber band overlay while box-selecting (your band only) */
+  marqueeRect?: MarqueeRect | null;
+  /** uids in your board multi-selection (your band only) */
+  selectedUids?: Set<string>;
 }) {
   const cards =
     player.zones.battlefield.kind === "cards" ? player.zones.battlefield.cards : [];
@@ -191,7 +201,11 @@ export default function PlayerBand({
           )}
         </span>
       </div>
-      <div ref={boardRef} className="relative flex-1 overflow-hidden">
+      <div
+        ref={boardRef}
+        className="relative flex-1 overflow-hidden"
+        onPointerDown={onBoardPointerDown}
+      >
         {cards.map((card) => {
           if (card.attachedTo && byUid.has(card.attachedTo)) return null;
           const stack = attached.get(card.uid) ?? [];
@@ -205,6 +219,7 @@ export default function PlayerBand({
                 centered
                 dragging={draggedUid === card.uid}
                 arrowTargeted={arrowTargetedUid === card.uid}
+                selected={selectedUids?.has(card.uid) ?? false}
                 onCardPointerDown={onCardPointerDown}
                 onCardContextMenu={onCardContextMenu}
                 onCardHover={onCardHover}
@@ -220,6 +235,7 @@ export default function PlayerBand({
                   centered
                   dragging={draggedUid === follower.uid}
                   arrowTargeted={arrowTargetedUid === follower.uid}
+                  selected={selectedUids?.has(follower.uid) ?? false}
                   attachedStackIndex={i + 1}
                   onCardPointerDown={onCardPointerDown}
                   onCardContextMenu={onCardContextMenu}
@@ -230,6 +246,17 @@ export default function PlayerBand({
             </div>
           );
         })}
+        {marqueeRect && (
+          <div
+            className="pointer-events-none absolute rounded border border-emerald-400/80 bg-emerald-500/15"
+            style={{
+              left: marqueeRect.left,
+              top: marqueeRect.top,
+              width: marqueeRect.width,
+              height: marqueeRect.height,
+            }}
+          />
+        )}
       </div>
     </div>
   );

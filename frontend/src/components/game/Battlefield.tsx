@@ -6,6 +6,7 @@ import type { Arrow, CardView, ManaColor, PlayerId, PlayerView } from "@cardessa
 import type { CardDef } from "@/lib/scryfall";
 import ArrowLayer from "./ArrowLayer";
 import PlayerBand from "./PlayerBand";
+import type { MarqueeRect } from "./table/hooks/useBoardSelection";
 import { cardWidthFor, focusPlayerId, imageFor, seatGrid, type FocusMode } from "./tableLayout";
 
 /**
@@ -40,6 +41,9 @@ export default function Battlefield({
   onManaAdd,
   onManaSpend,
   onManaClear,
+  onBoardPointerDown,
+  marqueeRect,
+  selectedUids,
 }: {
   players: PlayerView[];
   you: PlayerId | null;
@@ -68,6 +72,10 @@ export default function Battlefield({
   onManaAdd: (color: ManaColor) => void;
   onManaSpend: (color: ManaColor) => void;
   onManaClear: () => void;
+  /** board multi-select (useBoardSelection) — your band only */
+  onBoardPointerDown?: (event: ReactPointerEvent) => void;
+  marqueeRect?: MarqueeRect | null;
+  selectedUids?: Set<string>;
 }) {
   // render-time guard: focusing a player who left falls back to the table
   const live =
@@ -193,6 +201,9 @@ export default function Battlefield({
             onManaSpend={band.isYou ? onManaSpend : undefined}
             onManaClear={band.isYou ? onManaClear : undefined}
             boardRef={band.isYou ? battlefieldRef : undefined}
+            onBoardPointerDown={band.isYou ? onBoardPointerDown : undefined}
+            marqueeRect={band.isYou ? marqueeRect : undefined}
+            selectedUids={band.isYou ? selectedUids : undefined}
           />
         ))}
       </div>

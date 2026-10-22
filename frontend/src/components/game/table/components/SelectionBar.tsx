@@ -1,34 +1,30 @@
 "use client";
 
 /**
- * Toolbar over the hand while selecting: group actions for the checked
- * cards (discard / exile / reveal / reveal to… / bottom).
+ * Toolbar over a selection: labeled group actions for the checked cards.
+ * Generic on purpose — the hand (discard / exile / reveal / bottom) and the
+ * battlefield (tap / counters / zone moves) pass different action sets.
  */
 
 export function SelectionBar({
   count,
-  onDiscard,
-  onExile,
-  onReveal,
-  onRevealTo,
-  onBottom,
+  actions,
 }: {
   count: number;
-  onDiscard: () => void;
-  onExile: () => void;
-  onReveal: () => void;
-  onRevealTo: () => void;
-  onBottom: () => void;
+  actions: { label: string; onClick: () => void }[];
 }) {
   return (
     <div className="bar-in flex items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-1.5 text-xs">
       <span className="text-zinc-500">{count} selected</span>
-      <div className="ml-auto flex items-center gap-1.5">
-        <GroupButton label="Discard" disabled={!count} onClick={onDiscard} />
-        <GroupButton label="Exile" disabled={!count} onClick={onExile} />
-        <GroupButton label="Reveal" disabled={!count} onClick={onReveal} />
-        <GroupButton label="Reveal to…" disabled={!count} onClick={onRevealTo} />
-        <GroupButton label="To bottom" disabled={!count} onClick={onBottom} />
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+        {actions.map((action) => (
+          <GroupButton
+            key={action.label}
+            label={action.label}
+            disabled={!count}
+            onClick={action.onClick}
+          />
+        ))}
       </div>
     </div>
   );

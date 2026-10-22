@@ -153,6 +153,11 @@ describe("default keybind matching", () => {
     expect(id({ key: "=" })).toBeNull();
     expect(id({ key: "-" })).toBeNull();
   });
+
+  it("selects hand with Ctrl+A and the board with Ctrl+Alt+A", () => {
+    expect(id({ key: "a", ctrlKey: true })).toBe("selectAll");
+    expect(id({ key: "a", ctrlKey: true, altKey: true })).toBe("boardSelectAll");
+  });
 });
 
 describe("isTypingTarget", () => {
