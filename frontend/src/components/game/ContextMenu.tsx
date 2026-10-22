@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { Action, CardView, Zone } from "@cardessa/shared";
+import type { Action, CardView, PlayerView, Zone } from "@cardessa/shared";
 import type { CardDef } from "@/lib/scryfall";
 import type { PickerMode } from "./CountPickerModal";
 
@@ -105,6 +105,7 @@ function moveTargets(zone: Zone): QuickAction[] {
 /** Right-click menu for cards (and the library pile). */
 export default function ContextMenu({
   menu,
+  otherPlayers,
   send,
   getDef,
   onClose,
@@ -121,6 +122,7 @@ export default function ContextMenu({
   onTap,
 }: {
   menu: MenuState;
+  otherPlayers: PlayerView[];
   send: (action: Action) => void;
   /** card-def lookup (for the "Create token…" list) */
   getDef: (id: string | null) => CardDef | null;
@@ -148,6 +150,7 @@ export default function ContextMenu({
   const ref = useRef<HTMLDivElement>(null);
   const [moveOpen, setMoveOpen] = useState(false);
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [controlOpen, setControlOpen] = useState(false);
 
   // reset the submenus whenever a new menu opens (render-time reset pattern)
   const [prevMenu, setPrevMenu] = useState(menu);
@@ -155,6 +158,7 @@ export default function ContextMenu({
     setPrevMenu(menu);
     setMoveOpen(false);
     setTokenOpen(false);
+    setControlOpen(false);
   }
 
   useEffect(() => {
@@ -184,7 +188,7 @@ export default function ContextMenu({
     if (overflowY > 0) el.style.top = `${Math.max(8, baseTop - overflowY)}px`;
     const overflowX = rect.right - (window.innerWidth - 8);
     if (overflowX > 0) el.style.left = `${Math.max(8, baseLeft - overflowX)}px`;
-  }, [menu, moveOpen, tokenOpen, baseLeft, baseTop]);
+  }, [menu, moveOpen, tokenOpen, controlOpen, baseLeft, baseTop]);
 
   if (!menu) return null;
 
@@ -382,6 +386,31 @@ export default function ContextMenu({
             }}
           />
           {mintActions}
+          {otherPlayers.length > 0 && (
+            <>
+              <button
+                className="flex w-full items-center justify-between px-3 py-1.5 text-left text-zinc-200 hover:bg-zinc-800"
+                onClick={() => setControlOpen((v) => !v)}
+              >
+                Give control to…{" "}
+                <span className="text-zinc-500">{controlOpen ? "▾" : "▸"}</span>
+              </button>
+              {controlOpen && (
+                <div className="mx-2 mb-1 rounded border border-zinc-700 bg-zinc-950 py-1">
+                  {otherPlayers.map((player) => (
+                    <MenuItem
+                      key={player.id}
+                      label={player.name}
+                      onClick={() => {
+                        send({ type: "GIVE_CONTROL", uid: card.uid, toPlayerId: player.id });
+                        onClose();
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </>
       )}
 

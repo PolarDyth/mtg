@@ -13,6 +13,7 @@ import {
 } from "../state";
 import {
   clamp,
+  detachFollowers,
   err,
   MAX_ANNOTATIONS,
   MAX_ARROWS,
@@ -182,6 +183,31 @@ function attachCard(
   return ok(game);
 }
 
+function giveControl(
+  game: Game,
+  actor: Player,
+  action: Extract<Action, { type: "GIVE_CONTROL" }>,
+  ctx: Ctx
+): ActionResult {
+  const found = ownCard(game, actor, action.uid);
+  if (!found) return err("card not found");
+  const card = found.card;
+  const from = actor.zones.battlefield.indexOf(card);
+  if (from === -1) return err("card is not on the battlefield");
+  const target = findPlayer(game, action.toPlayerId);
+  if (!target) return err("target player not found");
+  if (target.id === actor.id) return err("cannot give control to yourself");
+  if (target.zones.battlefield.length >= MAX_BATTLEFIELD_CARDS) {
+    return err("target battlefield is full");
+  }
+  detachFollowers(game, card.uid);
+  actor.zones.battlefield.splice(from, 1);
+  card.attachedTo = undefined;
+  target.zones.battlefield.push(card);
+  systemMessage(game, `${actor.name} gives control of a card to ${target.name}`, ctx.rng, ctx.now());
+  return ok(game);
+}
+
 function createToken(
   game: Game,
   actor: Player,
@@ -295,6 +321,7 @@ export const cardsHandlers = {
   SET_POSITION: setPosition,
   SET_NOTES: setNotes,
   ATTACH_CARD: attachCard,
+  GIVE_CONTROL: giveControl,
   CREATE_TOKEN: createToken,
   DRAW_ARROW: drawArrow,
   CLEAR_ARROWS: clearArrows,

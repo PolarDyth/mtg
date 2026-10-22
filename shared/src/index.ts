@@ -151,6 +151,7 @@ export type Action =
   | { type: "SET_POSITION"; uid: string; x: number; y: number }
   | { type: "SET_NOTES"; uid: string; notes: string[] }
   | { type: "ATTACH_CARD"; uid: string; to: string | null }
+  | { type: "GIVE_CONTROL"; uid: string; toPlayerId: PlayerId }
   | { type: "CREATE_TOKEN"; name: string; cardId?: string; count: number }
   | { type: "DRAW_ARROW"; fromUid: string; to: ArrowTarget }
   /** Remove arrows: one by `id`, one author's by `playerId`, or all. */

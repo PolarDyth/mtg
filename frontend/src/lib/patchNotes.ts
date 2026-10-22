@@ -23,6 +23,30 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-5-give-control",
+    label: "Round 5 — card control",
+    date: "2026-10-22",
+    items: [
+      {
+        title: "Give control of a battlefield card",
+        detail:
+          "Right-click one of your battlefield cards and choose \"Give control to…\" to hand it to another player. The card moves to that player's battlefield and attachment links are safely detached during the transfer.",
+      },
+    ],
+  },
+  {
+    id: "vulnerability-fix",
+    label: "Vulnerability fix",
+    date: "2026-10-20",
+    items: [
+      {
+        title: "Critical security vulnerability fixed",
+        detail:
+          "A critical security vulnerability was discovered in the game server. It has been fixed, users do not need to take any action, and no game data was compromised.",
+      }
+    ]
+  },
+  {
     id: "round-4-preview-drag",
     label: "Round 4 — preview, anywhere",
     date: "2026-08-24",

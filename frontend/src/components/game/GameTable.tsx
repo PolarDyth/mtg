@@ -401,6 +401,7 @@ export default function GameTable({
 
       <ContextMenu
         menu={menu.menu}
+        otherPlayers={view.players.filter((p) => p.id !== you)}
         send={send}
         getDef={get}
         onClose={menu.close}
