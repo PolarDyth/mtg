@@ -250,6 +250,58 @@ describe("ATTACH_CARD", () => {
   });
 });
 
+describe("GIVE_CONTROL", () => {
+  function playOne(): { game: Game; ctx: Ctx; ada: Player; bob: Player; uid: string } {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 1 }));
+    const uid = uidAt(s.ada.zones.hand, 0);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid, to: "battlefield" }));
+    return { ...s, uid };
+  }
+
+  it("moves a battlefield card to another player's battlefield", () => {
+    const { game, ctx, ada, bob, uid } = playOne();
+    mustOk(act(game, ctx, ada, { type: "GIVE_CONTROL", uid, toPlayerId: bob.id }));
+    expect(ada.zones.battlefield.find((c) => c.uid === uid)).toBeUndefined();
+    expect(bob.zones.battlefield.find((c) => c.uid === uid)).toBeDefined();
+  });
+
+  it("detaches both sides of attachment links when control changes", () => {
+    const s = setup();
+    startWithDeck(s.game, s.ctx, s.ada);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "DRAW_CARDS", count: 2 }));
+    const host = uidAt(s.ada.zones.hand, 0);
+    const follower = uidAt(s.ada.zones.hand, 1);
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: host, to: "battlefield" }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "MOVE_CARD", uid: follower, to: "battlefield" }));
+    mustOk(act(s.game, s.ctx, s.ada, { type: "ATTACH_CARD", uid: follower, to: host }));
+    mustOk(
+      act(s.game, s.ctx, s.ada, { type: "GIVE_CONTROL", uid: host, toPlayerId: s.bob.id })
+    );
+    expect(s.bob.zones.battlefield.find((c) => c.uid === host)?.attachedTo).toBeUndefined();
+    expect(s.ada.zones.battlefield.find((c) => c.uid === follower)?.attachedTo).toBeUndefined();
+  });
+
+  it("rejects non-battlefield cards, unknown players, and other players' cards", () => {
+    const { game, ctx, ada, bob, uid } = playOne();
+    mustOk(act(game, ctx, ada, { type: "DRAW_CARDS", count: 1 }));
+    const handUid = uidAt(ada.zones.hand, 0);
+    mustFail(
+      act(game, ctx, ada, { type: "GIVE_CONTROL", uid: handUid, toPlayerId: bob.id }),
+      "battlefield"
+    );
+    mustFail(
+      act(game, ctx, ada, { type: "GIVE_CONTROL", uid, toPlayerId: "ghost" }),
+      "target player"
+    );
+    mustFail(
+      act(game, ctx, bob, { type: "GIVE_CONTROL", uid, toPlayerId: bob.id }),
+      "card not found"
+    );
+  });
+});
+
 describe("CREATE_TOKEN", () => {
   it("mints tokens with the name as an annotation", () => {
     const { game, ctx, ada } = setup();
