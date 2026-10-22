@@ -23,6 +23,18 @@ export interface PatchNoteRelease {
  */
 export const PATCH_NOTES: PatchNoteRelease[] = [
   {
+    id: "round-5-give-control",
+    label: "Round 5 — card control",
+    date: "2026-10-22",
+    items: [
+      {
+        title: "Give control of a battlefield card",
+        detail:
+          "Right-click one of your battlefield cards and choose \"Give control to…\" to hand it to another player. The card moves to that player's battlefield and attachment links are safely detached during the transfer.",
+      },
+    ],
+  },
+  {
     id: "vulnerability-fix",
     label: "Vulnerability fix",
     date: "2026-10-20",
