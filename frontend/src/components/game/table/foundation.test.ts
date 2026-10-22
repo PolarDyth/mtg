@@ -17,9 +17,11 @@ import {
   findOwnCard,
   manaAfterSpend,
   manaAfterTap,
+  marqueeSelect,
   nextPhaseAction,
   onAnyBattlefield,
   pickerMax,
+  rectsIntersect,
   tapManaYield,
 } from "./foundation";
 
@@ -408,5 +410,32 @@ describe("battlefieldDrop", () => {
     // clamped edges snap inward, never past the clamp
     expect(battlefieldDrop(rect, 0, 0, true)).toEqual({ x: 5, y: 10 });
     expect(battlefieldDrop(rect, 9999, 9999, true)).toEqual({ x: 95, y: 90 });
+  });
+});
+
+describe("rectsIntersect / marqueeSelect", () => {
+  const box = { left: 10, top: 10, width: 50, height: 40 };
+
+  it("detects overlap, edge-touch exclusivity, and disjoint rects", () => {
+    const inside = { left: 20, top: 20, width: 5, height: 5 };
+    const covering = { left: 0, top: 0, width: 100, height: 100 };
+    const cornerClip = { left: 55, top: 45, width: 10, height: 10 };
+    const edgeTouch = { left: 60, top: 20, width: 10, height: 10 }; // touches right edge
+    const disjoint = { left: 100, top: 100, width: 5, height: 5 };
+    expect(rectsIntersect(box, inside)).toBe(true);
+    expect(rectsIntersect(box, covering)).toBe(true);
+    expect(rectsIntersect(box, cornerClip)).toBe(true); // corner clip counts
+    expect(rectsIntersect(box, edgeTouch)).toBe(false); // zero-area overlap
+    expect(rectsIntersect(box, disjoint)).toBe(false);
+  });
+
+  it("selects every intersecting card, preserving input order", () => {
+    const cards = [
+      { uid: "a", rect: { left: 12, top: 12, width: 10, height: 14 } },
+      { uid: "b", rect: { left: 500, top: 500, width: 10, height: 14 } },
+      { uid: "c", rect: { left: 55, top: 45, width: 8, height: 8 } },
+    ];
+    expect(marqueeSelect(box, cards)).toEqual(["a", "c"]);
+    expect(marqueeSelect(box, [])).toEqual([]);
   });
 });
